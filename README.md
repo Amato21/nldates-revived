@@ -5,7 +5,7 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 
 ## ✨ New Features in v0.8.0
 * **🌍 Multilingual Support:** Now supports **English, French, German, Japanese, Dutch, and Portuguese**!
-    * *Examples:* `@demain`, `@dans 20 minutes`, `@Lundi prochain`, `@next friday`.
+    * *Examples:* `@tomorrow`, `@in 20 minutes`, `@Next Monday`, `@next friday`.
 * **🧠 Smart Time Parsing:** The plugin intelligently detects if you included a time in your sentence.
 * **🔗 Hybrid Links:**
     * Dates without time: `[[2024-12-30]]`

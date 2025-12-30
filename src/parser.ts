@@ -15,7 +15,6 @@ export interface NLDResult {
   moment: Moment;
 }
 
-
 export default class NLDParser {
   chronos: Chrono[];
 
@@ -25,11 +24,19 @@ export default class NLDParser {
 
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
     let result: Date;
+    // Sécurité : si pas de moteur chargé
+    if (!this.chronos || this.chronos.length === 0) return new Date();
+
     this.chronos.forEach(c => {
-      const parsedDate = c.parseDate(text, referenceDate, option);
-      if (parsedDate) {
-        result = parsedDate;
-        return;
+      // Sécurité : try/catch pour éviter qu'un moteur plante tout
+      try {
+        const parsedDate = c.parseDate(text, referenceDate, option);
+        if (parsedDate) {
+          result = parsedDate;
+          return;
+        }
+      } catch (e) {
+        console.warn("NLDates: Error parsing date", e);
       }
     });
     return result;
@@ -37,20 +44,35 @@ export default class NLDParser {
 
   getParsedResult(text: string): ParsedResult[] {
     let result: ParsedResult[];
+    if (!this.chronos) return [];
+
     this.chronos.forEach(c => {
-      const parsedResult = c.parse(text);
-      if (parsedResult) {
-        result = parsedResult;
-        return;
+      try {
+        const parsedResult = c.parse(text);
+        if (parsedResult && parsedResult.length > 0) {
+          result = parsedResult;
+          return;
+        }
+      } catch (e) {
+        console.warn("NLDates: Error parsing result", e);
       }
     });
     return result;
   }
 
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
+    // Sécurité si aucun moteur
+    if (!this.chronos || this.chronos.length === 0) return new Date();
+    
     const parser = this.chronos[0];
     const initialParse = parser.parse(selectedText);
-    const weekdayIsCertain = initialParse[0]?.start.isCertain("weekday");
+    
+    // Si parsing échoué, on renvoie une date par défaut (aujourd'hui) sans planter
+    if (!initialParse || initialParse.length === 0) {
+        return new Date();
+    }
+
+    const weekdayIsCertain = initialParse[0]?.start?.isCertain("weekday");
 
     const weekStart =
       weekStartPreference === "locale-default"
@@ -69,6 +91,10 @@ export default class NLDParser {
     const referenceDate = weekdayIsCertain
       ? window.moment().weekday(0).toDate()
       : new Date();
+
+    // ... (Logique spéciale inchangée mais protégée par le try/catch global du caller si besoin) ...
+    // Pour simplifier, on garde ta logique existante ici, elle est robuste.
+    // Le risque est surtout dans les appels .parse() ci-dessous.
 
     if (thisDateMatch && thisDateMatch[1] === "week") {
       return parser.parseDate(`this ${weekStart}`, referenceDate);
@@ -100,13 +126,15 @@ export default class NLDParser {
 
     if (lastDayOfMatch) {
       const tempDate = this.getParsedResult(lastDayOfMatch[2]);
-      const year = tempDate[0].start.get("year");
-      const month = tempDate[0].start.get("month");
-      const lastDay = getLastDayOfMonth(year, month);
-
-      return this.getParsedDateResult(`${year}-${month}-${lastDay}`, new Date(), {
-        forwardDate: true,
-      });
+      // Sécurité supplémentaire ici
+      if (tempDate && tempDate[0]) {
+          const year = tempDate[0].start.get("year");
+          const month = tempDate[0].start.get("month");
+          const lastDay = getLastDayOfMonth(year, month);
+          return this.getParsedDateResult(`${year}-${month}-${lastDay}`, new Date(), {
+            forwardDate: true,
+          });
+      }
     }
 
     if (midOf) {
@@ -119,18 +147,27 @@ export default class NLDParser {
     return this.getParsedDateResult(selectedText, referenceDate, { locale } as any);
   }
 
-  // --- NEW FEATURE ---
-  // This function checks whether Chrono has found a specific time in the text.
+  // --- FONCTION BLINDÉE ---
+  // C'est souvent elle qui plante sur "in 20 minutes"
   hasTimeComponent(text: string): boolean {
     let hasTime = false;
+    
+    if (!this.chronos) return false;
+
     this.chronos.forEach(c => {
-      const parsedResult = c.parse(text);
-      if (parsedResult && parsedResult.length > 0) {
-        // On vérifie si l'heure est "certaine" (explicitement dite)
-        if (parsedResult[0].start.isCertain("hour")) {
-          hasTime = true;
-          return;
+      try {
+        const parsedResult = c.parse(text);
+        if (parsedResult && parsedResult.length > 0) {
+          const start = parsedResult[0].start;
+          // On vérifie que 'start' existe bien avant de l'interroger
+          if (start && (start.isCertain("hour") || start.get("hour") !== null)) {
+            hasTime = true;
+            return;
+          }
         }
+      } catch (e) {
+        // En cas d'erreur, on ignore silencieusement
+        console.warn("Check time error", e);
       }
     });
     return hasTime;
