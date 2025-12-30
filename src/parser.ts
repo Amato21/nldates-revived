@@ -22,18 +22,18 @@ export default class NLDParser {
     this.chronos = getChronos(languages);
   }
 
-  // --- 1. Fonction qui interroge TOUS les cerveaux pour trouver une Date ---
+  // --- 1. Trouve la date (Date Object) ---
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
     let result: Date;
     if (!this.chronos || this.chronos.length === 0) return new Date();
 
-    // On teste chaque langue l'une après l'autre
+    // Utilisation de .some pour s'arrêter dès qu'un résultat est trouvé
     this.chronos.some(c => {
       try {
         const parsedDate = c.parseDate(text, referenceDate, option);
         if (parsedDate) {
           result = parsedDate;
-          return true; // On s'arrête dès qu'un cerveau a compris !
+          return true; 
         }
       } catch (e) {
         console.warn("NLDates: Error parsing date", e);
@@ -44,7 +44,7 @@ export default class NLDParser {
     return result;
   }
 
-  // --- 2. Fonction qui interroge TOUS les cerveaux pour avoir les détails (Result) ---
+  // --- 2. Trouve les détails (ParsedResult) ---
   getParsedResult(text: string): ParsedResult[] {
     let result: ParsedResult[];
     if (!this.chronos) return [];
@@ -54,7 +54,7 @@ export default class NLDParser {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           result = parsedResult;
-          return true; // Trouvé !
+          return true;
         }
       } catch (e) {
         console.warn("NLDates: Error parsing result", e);
@@ -65,15 +65,10 @@ export default class NLDParser {
   }
 
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
-    // Sécurité si aucun moteur
     if (!this.chronos || this.chronos.length === 0) return new Date();
     
-    // --- CORRECTION MAJEURE ICI ---
-    // Avant : on ne demandait qu'au premier parser (this.chronos[0]).
-    // Maintenant : On demande à tout le monde si quelqu'un comprend le texte.
     const initialParse = this.getParsedResult(selectedText);
     
-    // Si PERSONNE n'a compris, alors on renvoie "Maintenant".
     if (!initialParse || initialParse.length === 0) {
         return new Date();
     }
@@ -99,8 +94,6 @@ export default class NLDParser {
       : new Date();
 
     if (thisDateMatch && thisDateMatch[1] === "week") {
-      // Correction ici aussi : on utilise getParsedDateResult (qui est multilangue)
-      // au lieu de "parser.parseDate" qui était limité au premier parser.
       return this.getParsedDateResult(`this ${weekStart}`, referenceDate);
     }
 
@@ -150,26 +143,29 @@ export default class NLDParser {
     return this.getParsedDateResult(selectedText, referenceDate, { locale } as any);
   }
 
-  // Fonction de détection d'heure (déjà robuste normalement, mais on garde celle-ci)
+  // --- CORRECTION CRITIQUE ICI ---
   hasTimeComponent(text: string): boolean {
-    let hasTime = false;
-    
     if (!this.chronos) return false;
 
-    this.chronos.forEach(c => {
+    // On utilise une boucle for...of pour pouvoir s'arrêter proprement
+    for (const c of this.chronos) {
       try {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           const start = parsedResult[0].start;
-          if (start && (start.isCertain("hour") || start.get("hour") !== null)) {
-            hasTime = true;
-            return;
+          
+          // LA CORRECTION : On vérifie STRICTEMENT si l'heure est certaine.
+          // On a retiré "|| start.get('hour') !== null" qui causait le bug du 12:00
+          if (start && start.isCertain("hour")) {
+            return true; // On a trouvé une heure explicite, on s'arrête et on renvoie true.
           }
         }
       } catch (e) {
         console.warn("Check time error", e);
       }
-    });
-    return hasTime;
+    }
+
+    // Si on a fait le tour de toutes les langues sans trouver d'heure explicite
+    return false;
   }
 }
