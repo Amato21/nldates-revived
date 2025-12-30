@@ -1,10 +1,10 @@
 {
-  "id": "nldates-obsidian",
-  "name": "Natural Language Dates",
-  "description": "Create date-links based on natural language",
-  "version": "0.6.2",
-  "author": "Argentina Ortega Sainz",
-  "authorUrl": "https://argentinaos.com/",
-  "isDesktopOnly": false,
-  "minAppVersion": "1.0.0"
+    "id": "nldates-obsidian",
+    "name": "Natural Language Dates (Revived)",
+    "version": "0.8.0",
+    "minAppVersion": "1.0.0",
+    "description": "Auto-complete dates and times naturally (@today, @dans 20 min). Now with multilingual support and hybrid links.",
+    "author": "Amato21 (Original by argenos)",
+    "authorUrl": "https://github.com/Amato21",
+    "isDesktopOnly": false
 }
