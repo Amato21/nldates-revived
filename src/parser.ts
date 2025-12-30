@@ -22,40 +22,44 @@ export default class NLDParser {
     this.chronos = getChronos(languages);
   }
 
+  // --- 1. Fonction qui interroge TOUS les cerveaux pour trouver une Date ---
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
     let result: Date;
-    // Sécurité : si pas de moteur chargé
     if (!this.chronos || this.chronos.length === 0) return new Date();
 
-    this.chronos.forEach(c => {
-      // Sécurité : try/catch pour éviter qu'un moteur plante tout
+    // On teste chaque langue l'une après l'autre
+    this.chronos.some(c => {
       try {
         const parsedDate = c.parseDate(text, referenceDate, option);
         if (parsedDate) {
           result = parsedDate;
-          return;
+          return true; // On s'arrête dès qu'un cerveau a compris !
         }
       } catch (e) {
         console.warn("NLDates: Error parsing date", e);
       }
+      return false;
     });
+    
     return result;
   }
 
+  // --- 2. Fonction qui interroge TOUS les cerveaux pour avoir les détails (Result) ---
   getParsedResult(text: string): ParsedResult[] {
     let result: ParsedResult[];
     if (!this.chronos) return [];
 
-    this.chronos.forEach(c => {
+    this.chronos.some(c => {
       try {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           result = parsedResult;
-          return;
+          return true; // Trouvé !
         }
       } catch (e) {
         console.warn("NLDates: Error parsing result", e);
       }
+      return false;
     });
     return result;
   }
@@ -64,10 +68,12 @@ export default class NLDParser {
     // Sécurité si aucun moteur
     if (!this.chronos || this.chronos.length === 0) return new Date();
     
-    const parser = this.chronos[0];
-    const initialParse = parser.parse(selectedText);
+    // --- CORRECTION MAJEURE ICI ---
+    // Avant : on ne demandait qu'au premier parser (this.chronos[0]).
+    // Maintenant : On demande à tout le monde si quelqu'un comprend le texte.
+    const initialParse = this.getParsedResult(selectedText);
     
-    // Si parsing échoué, on renvoie une date par défaut (aujourd'hui) sans planter
+    // Si PERSONNE n'a compris, alors on renvoie "Maintenant".
     if (!initialParse || initialParse.length === 0) {
         return new Date();
     }
@@ -92,12 +98,10 @@ export default class NLDParser {
       ? window.moment().weekday(0).toDate()
       : new Date();
 
-    // ... (Logique spéciale inchangée mais protégée par le try/catch global du caller si besoin) ...
-    // Pour simplifier, on garde ta logique existante ici, elle est robuste.
-    // Le risque est surtout dans les appels .parse() ci-dessous.
-
     if (thisDateMatch && thisDateMatch[1] === "week") {
-      return parser.parseDate(`this ${weekStart}`, referenceDate);
+      // Correction ici aussi : on utilise getParsedDateResult (qui est multilangue)
+      // au lieu de "parser.parseDate" qui était limité au premier parser.
+      return this.getParsedDateResult(`this ${weekStart}`, referenceDate);
     }
 
     if (nextDateMatch && nextDateMatch[1] === "week") {
@@ -126,7 +130,6 @@ export default class NLDParser {
 
     if (lastDayOfMatch) {
       const tempDate = this.getParsedResult(lastDayOfMatch[2]);
-      // Sécurité supplémentaire ici
       if (tempDate && tempDate[0]) {
           const year = tempDate[0].start.get("year");
           const month = tempDate[0].start.get("month");
@@ -147,8 +150,7 @@ export default class NLDParser {
     return this.getParsedDateResult(selectedText, referenceDate, { locale } as any);
   }
 
-  // --- FONCTION BLINDÉE ---
-  // C'est souvent elle qui plante sur "in 20 minutes"
+  // Fonction de détection d'heure (déjà robuste normalement, mais on garde celle-ci)
   hasTimeComponent(text: string): boolean {
     let hasTime = false;
     
@@ -159,14 +161,12 @@ export default class NLDParser {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           const start = parsedResult[0].start;
-          // On vérifie que 'start' existe bien avant de l'interroger
           if (start && (start.isCertain("hour") || start.get("hour") !== null)) {
             hasTime = true;
             return;
           }
         }
       } catch (e) {
-        // En cas d'erreur, on ignore silencieusement
         console.warn("Check time error", e);
       }
     });
