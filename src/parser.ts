@@ -9,7 +9,7 @@ import {
 
 // Type alias for Moment from the moment library bundled with Obsidian
 // Using the type from the moment library types since moment is bundled with Obsidian
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+// The moment package is bundled with Obsidian, but the Moment type is not exported from obsidian module
 type Moment = import("moment").Moment;
 
 export interface NLDResult {

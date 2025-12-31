@@ -9,7 +9,7 @@ import { DayOfWeek } from "./settings";
 
 // Type alias for Moment from the moment library bundled with Obsidian
 // Using the type from the moment library types since moment is bundled with Obsidian
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+// The moment package is bundled with Obsidian, but the Moment type is not exported from obsidian module
 type Moment = import("moment").Moment;
 
 const daysOfWeek: Omit<DayOfWeek, "locale-default">[] = [
@@ -121,7 +121,7 @@ function extractTerms(dictionary: DictionaryLike): string[] {
   if (dictionary instanceof Array) {
     keys = [...dictionary];
   } else if (dictionary instanceof Map) {
-    keys = Array.from((dictionary as Map<string, unknown>).keys());
+    keys = Array.from(dictionary.keys());
   } else {
     keys = Object.keys(dictionary);
   }
