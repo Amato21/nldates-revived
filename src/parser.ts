@@ -18,18 +18,119 @@ export interface NLDResult {
 export default class NLDParser {
   chronos: Chrono[];
   
-  // --- 1. REGEX ULTRA COMPLÈTE ---
-  // Elle détecte maintenant : minutes, heures, jours, semaines, mois, années.
-  // Ex: "in 2 days", "dans 1 an", "in 3 weeks"
+  // --- 1. REGEX : DÉTECTION DES DÉLAIS (in X ...) ---
+  // Gère : m, min, h, hours, d, days, w, weeks, M, months, y, years
   regexRelative = /^\s*(?:in|dans)\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hours|heures?|d|day|days|jours?|w|week|weeks|semaines?|M|month|months|mois|y|yr|yrs|years?|ans?|années?)\s*$/i;
+
+  // --- 2. REGEX : DÉTECTION DES JOURS (this/next/last ...) ---
+  // Gère : monday, mon, tuesday, tue...
+  regexWeekday = /^\s*(this|next|last|ce|prochain|dernier)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s*$/i;
 
   constructor(languages: string[]) {
     this.chronos = getChronos(languages);
   }
 
+  // --- MOTEUR PRINCIPAL ---
+  getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
+    const text = selectedText.toLowerCase().trim();
+
+    // ============================================================
+    // NIVEAU 1 : LES MOTS-CLÉS IMMÉDIATS (Vitesse et Précision)
+    // ============================================================
+    if (text === 'now' || text === 'maintenant') {
+        return new Date();
+    }
+    if (text === 'today' || text === 'aujourd\'hui') {
+        return new Date();
+    }
+    if (text === 'tomorrow' || text === 'demain') {
+        return window.moment().add(1, 'days').toDate();
+    }
+    if (text === 'yesterday' || text === 'hier') {
+        return window.moment().subtract(1, 'days').toDate();
+    }
+
+    // ============================================================
+    // NIVEAU 2 : LE CALCUL RELATIF (in 2 minutes, in 1 year...)
+    // ============================================================
+    const relMatch = selectedText.match(this.regexRelative);
+    if (relMatch) {
+        const value = parseInt(relMatch[1]);
+        const unitStr = relMatch[2].toLowerCase();
+        let unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'minutes';
+        
+        if (unitStr.startsWith('h')) unit = 'hours';
+        else if (unitStr.startsWith('d') || unitStr.startsWith('j')) unit = 'days';
+        else if (unitStr.startsWith('w') || unitStr.startsWith('s')) unit = 'weeks';
+        else if (unitStr === 'm' || unitStr.startsWith('min')) unit = 'minutes';
+        else if (unitStr.startsWith('mo') || unitStr === 'M' || unitStr.startsWith('mois')) unit = 'months';
+        else if (unitStr.startsWith('y') || unitStr.startsWith('a')) unit = 'years';
+
+        // MomentJS gère les sauts d'années parfaitement
+        return window.moment().add(value, unit).toDate();
+    }
+
+    // ============================================================
+    // NIVEAU 3 : LES JOURS DE LA SEMAINE (next friday...)
+    // ============================================================
+    const weekMatch = selectedText.match(this.regexWeekday);
+    if (weekMatch) {
+        const prefix = weekMatch[1].toLowerCase();
+        const dayName = weekMatch[2].toLowerCase();
+        
+        let m = window.moment();
+        
+        if (prefix === 'this' || prefix === 'ce') {
+            m.day(dayName);
+        } else if (prefix === 'next' || prefix === 'prochain') {
+            m.add(1, 'weeks').day(dayName);
+        } else if (prefix === 'last' || prefix === 'dernier') {
+            m.subtract(1, 'weeks').day(dayName);
+        }
+        return m.toDate();
+    }
+
+    // ============================================================
+    // NIVEAU 4 : LE RESTE (Librairie Chrono-node + Fallback)
+    // ============================================================
+    if (!this.chronos || this.chronos.length === 0) return new Date();
+    
+    // On utilise la technique du "Meilleur Score" pour choisir entre EN et FR
+    const initialParse = this.getParsedResult(selectedText);
+    if (!initialParse || initialParse.length === 0) {
+        // Sécurité ultime : si rien n'est compris, on renvoie aujourd'hui
+        return new Date();
+    }
+
+    // -- Gestion des cas "Next Week" / "Next Month" génériques (non gérés par le Regex) --
+    const nextDateMatch = selectedText.match(/next\s([\w]+)/i);
+    const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
+    const locale = { weekStart: getWeekNumber(weekStart) };
+    const referenceDate = new Date();
+
+    if (nextDateMatch && nextDateMatch[1] === 'week') {
+        // Next week -> Lundi de la semaine prochaine par défaut
+        return this.getParsedDateResult(`next ${weekStart}`, referenceDate, { forwardDate: true });
+    }
+    if (nextDateMatch && nextDateMatch[1] === 'month') {
+        // Next month -> 1er du mois prochain
+        return window.moment().add(1, 'months').startOf('month').toDate();
+    }
+    if (nextDateMatch && nextDateMatch[1] === 'year') {
+         // Next year -> 1er Janvier de l'année prochaine
+        return window.moment().add(1, 'years').startOf('year').toDate();
+    }
+
+    // Appel standard à la librairie avec forwardDate forcé
+    return this.getParsedDateResult(selectedText, referenceDate, { 
+      locale,
+      forwardDate: true 
+    } as any);
+  }
+
+  // --- FONCTION UTILITAIRE : QUI A LE MEILLEUR SCORE ? ---
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
     if (!this.chronos || this.chronos.length === 0) return new Date();
-
     let bestResult: any = null;
     let bestScore = 0;
 
@@ -43,20 +144,15 @@ export default class NLDParser {
             bestResult = match;
           }
         }
-      } catch (e) {
-        console.warn("NLDates: parsing error", e);
-      }
+      } catch (e) { console.warn(e); }
     }
-
     return bestResult ? bestResult.start.date() : new Date();
   }
 
   getParsedResult(text: string): ParsedResult[] {
     if (!this.chronos) return [];
-
     let bestResults: ParsedResult[] = [];
     let bestScore = 0;
-
     for (const c of this.chronos) {
       try {
         const results = c.parse(text);
@@ -66,106 +162,35 @@ export default class NLDParser {
             bestResults = results;
           }
         }
-      } catch (e) {
-        console.warn("NLDates: parsing error", e);
-      }
+      } catch (e) { console.warn(e); }
     }
     return bestResults;
   }
 
-  getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
-    // --- 2. LE BYPASS ÉTENDU ---
-    // Si on détecte n'importe quel délai (jours, mois, années...), on calcule nous-même.
-    const manualMatch = selectedText.match(this.regexRelative);
-    if (manualMatch) {
-        const value = parseInt(manualMatch[1]);
-        const unitStr = manualMatch[2].toLowerCase();
-        
-        // On convertit le texte de l'utilisateur en unité MomentJS standard
-        let unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'minutes';
-        
-        if (unitStr.startsWith('h')) unit = 'hours';
-        else if (unitStr.startsWith('d') || unitStr.startsWith('j')) unit = 'days';
-        else if (unitStr.startsWith('w') || unitStr.startsWith('s')) unit = 'weeks'; // weeks / semaines
-        else if (unitStr === 'm' || unitStr.startsWith('min')) unit = 'minutes'; // attention au conflit m/month
-        else if (unitStr.startsWith('mo') || unitStr === 'M' || unitStr.startsWith('mois')) unit = 'months';
-        else if (unitStr.startsWith('y') || unitStr.startsWith('a')) unit = 'years';
-
-        // MomentJS gère parfaitement les sauts d'année (Dec 31 + 1 day = Jan 1)
-        return window.moment().add(value, unit).toDate();
-    }
-
-    // --- 3. Moteur Classique pour les dates complexes (Next Friday...) ---
-    if (!this.chronos || this.chronos.length === 0) return new Date();
-    
-    const initialParse = this.getParsedResult(selectedText);
-    if (!initialParse || initialParse.length === 0) {
-        return new Date();
-    }
-
-    const weekdayIsCertain = initialParse[0]?.start?.isCertain("weekday");
-    const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
-    const locale = { weekStart: getWeekNumber(weekStart) };
-    const referenceDate = weekdayIsCertain ? window.moment().weekday(0).toDate() : new Date();
-
-    const thisDateMatch = selectedText.match(/this\s([\w]+)/i);
-    const nextDateMatch = selectedText.match(/next\s([\w]+)/i);
-    const lastDayOfMatch = selectedText.match(/(last day of|end of)\s*([^\n\r]*)/i);
-    const midOf = selectedText.match(/mid\s([\w]+)/i);
-
-    if (thisDateMatch && thisDateMatch[1] === "week") {
-      return this.getParsedDateResult(`this ${weekStart}`, referenceDate);
-    }
-    if (nextDateMatch && nextDateMatch[1] === "week") {
-      return this.getParsedDateResult(`next ${weekStart}`, referenceDate, { forwardDate: true });
-    }
-    if (nextDateMatch && nextDateMatch[1] === "month") {
-      const thisMonth = this.getParsedDateResult("this month", new Date(), { forwardDate: true });
-      return this.getParsedDateResult(selectedText, thisMonth, { forwardDate: true });
-    }
-    if (nextDateMatch && nextDateMatch[1] === "year") {
-      const thisYear = this.getParsedDateResult("this year", new Date(), { forwardDate: true });
-      return this.getParsedDateResult(selectedText, thisYear, { forwardDate: true });
-    }
-    if (lastDayOfMatch) {
-      const tempDate = this.getParsedResult(lastDayOfMatch[2]);
-      if (tempDate && tempDate[0]) {
-          const year = tempDate[0].start.get("year");
-          const month = tempDate[0].start.get("month");
-          const lastDay = getLastDayOfMonth(year, month);
-          return this.getParsedDateResult(`${year}-${month}-${lastDay}`, new Date(), { forwardDate: true });
-      }
-    }
-    if (midOf) {
-      return this.getParsedDateResult(`${midOf[1]} 15th`, new Date(), { forwardDate: true });
-    }
-
-    return this.getParsedDateResult(selectedText, referenceDate, { locale, forwardDate: true } as any);
-  }
-
+  // --- DÉTECTION D'HEURE (POUR L'AFFICHAGE) ---
   hasTimeComponent(text: string): boolean {
-    // Si c'est notre bypass (in X ...), on doit décider si on affiche l'heure.
-    if (this.regexRelative.test(text)) {
-        // Logique : Si on ajoute des Années, Mois, Semaines ou Jours -> PAS d'heure (souvent on veut juste la date).
-        // Si on ajoute des Heures ou Minutes -> OUI on veut l'heure.
-        const manualMatch = text.match(this.regexRelative);
-        if (manualMatch) {
-            const unitStr = manualMatch[2].toLowerCase();
-            // Si ça commence par h (hour), m (minute, attention conflict month), min -> True
-            // Attention: 'm' seul peut être minute. 'M' ou 'mo' est month.
-            // Ma regex sépare bien: m|min|... vs M|month
-            
-            // Si c'est des heures ou minutes => TRUE
-            if (unitStr.startsWith('h') || unitStr === 'm' || unitStr.startsWith('min')) {
-                return true;
-            }
-            // Si c'est jours, mois, années => FALSE (on veut juste la date [[YYYY-MM-DD]])
-            return false;
+    // 1. Si c'est "now", OUI.
+    if (/^(now|maintenant)$/i.test(text)) return true;
+
+    // 2. Si c'est un délai en HEURES ou MINUTES -> OUI
+    const relMatch = text.match(this.regexRelative);
+    if (relMatch) {
+        const unitStr = relMatch[2].toLowerCase();
+        // m, min, minutes, h, hours...
+        if (unitStr.startsWith('h') || unitStr === 'm' || unitStr.startsWith('min')) {
+            return true;
         }
+        // Jours, mois, années -> NON
+        return false;
     }
 
-    if (!this.chronos) return false;
+    // 3. Si c'est un jour spécifique (Next Monday) ou Tomorrow -> NON (Généralement on veut juste la date)
+    // Si tu veux l'heure pour "Demain", enlève les lignes ci-dessous.
+    if (this.regexWeekday.test(text)) return false;
+    if (/^(today|tomorrow|yesterday|demain|hier|aujourd'hui)$/i.test(text)) return false;
 
+    // 4. Sinon, on demande à la librairie si elle voit une heure explicite (ex: "Tomorrow at 5pm")
+    if (!this.chronos) return false;
     for (const c of this.chronos) {
       try {
         const parsedResult = c.parse(text);
@@ -175,9 +200,7 @@ export default class NLDParser {
             return true;
           }
         }
-      } catch (e) {
-        console.warn("Check time error", e);
-      }
+      } catch (e) {}
     }
     return false;
   }
