@@ -34,6 +34,8 @@ Type `@` (default trigger) followed by a natural date.
 
 Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`).
 
+![Obsidian_ldWoN5Xnt8](https://github.com/user-attachments/assets/7a876604-7b59-40e0-acd5-8d7370c1d0d0)
+
 ### Commands (Ctrl/Cmd + P)
 * **Parse natural language date:** Replaces selected text with a link (e.g. select "demain" -> becomes `[[2024-12-31]]`).
 * **Insert current date/time:** Quickly insert timestamps.
@@ -70,4 +72,5 @@ The plugin creates a global object for use in other plugins or via Obsidian URI.
 ```ts
 const nldatesPlugin = app.plugins.getPlugin("nldates-obsidian");
 const parsedResult = nldatesPlugin.parseDate("next year");
+
 console.log(parsedResult.moment.format("YYYY"));
