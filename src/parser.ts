@@ -22,43 +22,52 @@ export default class NLDParser {
     this.chronos = getChronos(languages);
   }
 
+  // --- 1. Logique du "Meilleur Score" (La plus robuste) ---
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
-    let result: Date;
     if (!this.chronos || this.chronos.length === 0) return new Date();
 
-    this.chronos.some(c => {
+    let bestResult: any = null;
+    let bestScore = 0;
+
+    for (const c of this.chronos) {
       try {
-        const parsedDate = c.parseDate(text, referenceDate, option);
-        if (parsedDate) {
-          result = parsedDate;
-          return true; 
+        const results = c.parse(text, referenceDate, option);
+        if (results && results.length > 0) {
+          const match = results[0];
+          // On garde le résultat qui couvre le plus de texte
+          if (match.text.length > bestScore) {
+            bestScore = match.text.length;
+            bestResult = match;
+          }
         }
       } catch (e) {
-        console.warn("NLDates: Error parsing date", e);
+        console.warn("NLDates: parsing error", e);
       }
-      return false;
-    });
-    
-    return result;
+    }
+
+    return bestResult ? bestResult.start.date() : new Date();
   }
 
   getParsedResult(text: string): ParsedResult[] {
-    let result: ParsedResult[];
     if (!this.chronos) return [];
 
-    this.chronos.some(c => {
+    let bestResults: ParsedResult[] = [];
+    let bestScore = 0;
+
+    for (const c of this.chronos) {
       try {
-        const parsedResult = c.parse(text);
-        if (parsedResult && parsedResult.length > 0) {
-          result = parsedResult;
-          return true;
+        const results = c.parse(text);
+        if (results && results.length > 0) {
+          if (results[0].text.length > bestScore) {
+            bestScore = results[0].text.length;
+            bestResults = results;
+          }
         }
       } catch (e) {
-        console.warn("NLDates: Error parsing result", e);
+        console.warn("NLDates: parsing error", e);
       }
-      return false;
-    });
-    return result;
+    }
+    return bestResults;
   }
 
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
@@ -136,24 +145,28 @@ export default class NLDParser {
       });
     }
 
-    // --- CORRECTION ICI ---
-    // J'ai ajouté "forwardDate: true" dans les options.
-    // Cela force l'anglais (et le français) à calculer le temps vers le FUTUR
-    // pour des phrases comme "in 2 minutes" ou "dans 2 minutes".
+    // --- LE POINT CRITIQUE EST ICI ---
+    // On passe { forwardDate: true } pour forcer "in 2 minutes" à être dans le futur.
     return this.getParsedDateResult(selectedText, referenceDate, { 
       locale,
       forwardDate: true 
     } as any);
   }
 
+  // --- Fonction de détection d'heure (Version complète) ---
   hasTimeComponent(text: string): boolean {
     if (!this.chronos) return false;
 
+    // On parcourt tous les parseurs actifs
     for (const c of this.chronos) {
       try {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           const start = parsedResult[0].start;
+          
+          // Si on trouve une Heure OU une Minute certaine, c'est gagné.
+          // C'est ce qui fait que "in 2 minutes" (qui a des minutes certaines) 
+          // déclenchera l'affichage de l'heure.
           if (start && (start.isCertain("hour") || start.isCertain("minute"))) {
             return true;
           }
