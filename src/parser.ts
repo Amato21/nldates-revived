@@ -22,12 +22,10 @@ export default class NLDParser {
     this.chronos = getChronos(languages);
   }
 
-  // --- 1. Trouve la date (Date Object) ---
   getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
     let result: Date;
     if (!this.chronos || this.chronos.length === 0) return new Date();
 
-    // Utilisation de .some pour s'arrêter dès qu'un résultat est trouvé
     this.chronos.some(c => {
       try {
         const parsedDate = c.parseDate(text, referenceDate, option);
@@ -44,7 +42,6 @@ export default class NLDParser {
     return result;
   }
 
-  // --- 2. Trouve les détails (ParsedResult) ---
   getParsedResult(text: string): ParsedResult[] {
     let result: ParsedResult[];
     if (!this.chronos) return [];
@@ -143,29 +140,27 @@ export default class NLDParser {
     return this.getParsedDateResult(selectedText, referenceDate, { locale } as any);
   }
 
-  // --- CORRECTION CRITIQUE ICI ---
   hasTimeComponent(text: string): boolean {
     if (!this.chronos) return false;
 
-    // On utilise une boucle for...of pour pouvoir s'arrêter proprement
+    // Cette boucle va interroger le parser Anglais ET le parser Français.
+    // Peu importe le mot utilisé ("hours" ou "heures"), l'un des deux va le reconnaître.
     for (const c of this.chronos) {
       try {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           const start = parsedResult[0].start;
           
-          // LA CORRECTION : On vérifie STRICTEMENT si l'heure est certaine.
-          // On a retiré "|| start.get('hour') !== null" qui causait le bug du 12:00
-          if (start && start.isCertain("hour")) {
-            return true; // On a trouvé une heure explicite, on s'arrête et on renvoie true.
+          // On vérifie si l'un des cerveaux a trouvé une Heure OU une Minute certaine.
+          if (start && (start.isCertain("hour") || start.isCertain("minute"))) {
+            return true; // Trouvé ! On arrête tout et on dit "C'est une date avec heure".
           }
         }
       } catch (e) {
         console.warn("Check time error", e);
       }
     }
-
-    // Si on a fait le tour de toutes les langues sans trouver d'heure explicite
+    // Si ni l'anglais ni le français n'ont trouvé d'heure précise (comme pour "ce lundi")
     return false;
   }
 }
