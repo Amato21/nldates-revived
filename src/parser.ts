@@ -18,9 +18,10 @@ export interface NLDResult {
 export default class NLDParser {
   chronos: Chrono[];
   
-  // REGEX : Détecte "in X minutes/hours" ou "dans X minutes/heures"
-  // C'est ça qui va sauver la mise en anglais.
-  regexRelative = /^\s*(?:in|dans)\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hours|heures?)\s*$/i;
+  // --- 1. REGEX ULTRA COMPLÈTE ---
+  // Elle détecte maintenant : minutes, heures, jours, semaines, mois, années.
+  // Ex: "in 2 days", "dans 1 an", "in 3 weeks"
+  regexRelative = /^\s*(?:in|dans)\s+(\d+)\s*(m|min|mins|minutes|h|hr|hrs|hours|heures?|d|day|days|jours?|w|week|weeks|semaines?|M|month|months|mois|y|yr|yrs|years?|ans?|années?)\s*$/i;
 
   constructor(languages: string[]) {
     this.chronos = getChronos(languages);
@@ -73,23 +74,28 @@ export default class NLDParser {
   }
 
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
-    // --- 1. LE BYPASS MANUEL (La solution 100% fiable) ---
-    // Si on détecte "in 2 minutes", on fait le calcul nous-même.
-    // On n'attend pas que le moteur anglais se réveille.
+    // --- 2. LE BYPASS ÉTENDU ---
+    // Si on détecte n'importe quel délai (jours, mois, années...), on calcule nous-même.
     const manualMatch = selectedText.match(this.regexRelative);
     if (manualMatch) {
         const value = parseInt(manualMatch[1]);
         const unitStr = manualMatch[2].toLowerCase();
         
-        // On détermine si c'est des minutes ou des heures
-        let unit: 'minutes' | 'hours' = 'minutes';
+        // On convertit le texte de l'utilisateur en unité MomentJS standard
+        let unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'minutes';
+        
         if (unitStr.startsWith('h')) unit = 'hours';
+        else if (unitStr.startsWith('d') || unitStr.startsWith('j')) unit = 'days';
+        else if (unitStr.startsWith('w') || unitStr.startsWith('s')) unit = 'weeks'; // weeks / semaines
+        else if (unitStr === 'm' || unitStr.startsWith('min')) unit = 'minutes'; // attention au conflit m/month
+        else if (unitStr.startsWith('mo') || unitStr === 'M' || unitStr.startsWith('mois')) unit = 'months';
+        else if (unitStr.startsWith('y') || unitStr.startsWith('a')) unit = 'years';
 
-        // On utilise moment() pour ajouter le temps proprement
+        // MomentJS gère parfaitement les sauts d'année (Dec 31 + 1 day = Jan 1)
         return window.moment().add(value, unit).toDate();
     }
 
-    // --- 2. Si ce n'est pas "in X min", on utilise le moteur classique ---
+    // --- 3. Moteur Classique pour les dates complexes (Next Friday...) ---
     if (!this.chronos || this.chronos.length === 0) return new Date();
     
     const initialParse = this.getParsedResult(selectedText);
@@ -102,7 +108,6 @@ export default class NLDParser {
     const locale = { weekStart: getWeekNumber(weekStart) };
     const referenceDate = weekdayIsCertain ? window.moment().weekday(0).toDate() : new Date();
 
-    // Gestion des cas spécifiques "this week", "next month", etc.
     const thisDateMatch = selectedText.match(/this\s([\w]+)/i);
     const nextDateMatch = selectedText.match(/next\s([\w]+)/i);
     const lastDayOfMatch = selectedText.match(/(last day of|end of)\s*([^\n\r]*)/i);
@@ -138,22 +143,34 @@ export default class NLDParser {
     return this.getParsedDateResult(selectedText, referenceDate, { locale, forwardDate: true } as any);
   }
 
-  // --- 3. FIX DE L'AFFICHAGE DE L'HEURE ---
   hasTimeComponent(text: string): boolean {
-    // Si c'est notre bypass "in X minutes", ALORS OUI il y a une heure !
+    // Si c'est notre bypass (in X ...), on doit décider si on affiche l'heure.
     if (this.regexRelative.test(text)) {
-        return true;
+        // Logique : Si on ajoute des Années, Mois, Semaines ou Jours -> PAS d'heure (souvent on veut juste la date).
+        // Si on ajoute des Heures ou Minutes -> OUI on veut l'heure.
+        const manualMatch = text.match(this.regexRelative);
+        if (manualMatch) {
+            const unitStr = manualMatch[2].toLowerCase();
+            // Si ça commence par h (hour), m (minute, attention conflict month), min -> True
+            // Attention: 'm' seul peut être minute. 'M' ou 'mo' est month.
+            // Ma regex sépare bien: m|min|... vs M|month
+            
+            // Si c'est des heures ou minutes => TRUE
+            if (unitStr.startsWith('h') || unitStr === 'm' || unitStr.startsWith('min')) {
+                return true;
+            }
+            // Si c'est jours, mois, années => FALSE (on veut juste la date [[YYYY-MM-DD]])
+            return false;
+        }
     }
 
     if (!this.chronos) return false;
 
-    // Sinon on demande aux moteurs
     for (const c of this.chronos) {
       try {
         const parsedResult = c.parse(text);
         if (parsedResult && parsedResult.length > 0) {
           const start = parsedResult[0].start;
-          // Si une Heure ou une Minute est détectée
           if (start && (start.isCertain("hour") || start.isCertain("minute"))) {
             return true;
           }
