@@ -1,5 +1,5 @@
 {
-    "id": "nldates-obsidian-revived",
+    "id": "nldates-revived",
     "name": "Natural Language Dates (Revived)",
     "version": "0.8.0",
     "minAppVersion": "1.0.0",
@@ -7,4 +7,5 @@
     "author": "Amato21 (Original by argenos)",
     "authorUrl": "https://github.com/Amato21",
     "isDesktopOnly": false
+
 }
