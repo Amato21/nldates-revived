@@ -35,6 +35,11 @@ export interface NLDSettings {
   modalToggleTime: boolean;
   modalToggleLink: boolean;
   modalMomentFormat: string;
+
+  // Smart suggestions
+  enableSmartSuggestions: boolean;
+  enableHistorySuggestions: boolean;
+  enableContextSuggestions: boolean;
 }
 
 export const DEFAULT_SETTINGS: NLDSettings = {
@@ -60,6 +65,11 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   modalToggleTime: false,
   modalToggleLink: false,
   modalMomentFormat: "YYYY-MM-DD HH:mm",
+
+  // Smart suggestions
+  enableSmartSuggestions: true,
+  enableHistorySuggestions: true,
+  enableContextSuggestions: true,
 };
 
 const weekdays = [
@@ -197,6 +207,50 @@ export class NLDSettingsTab extends PluginSettingTab {
           .setValue(this.plugin.settings.autocompleteTriggerPhrase || "@")
           .onChange(async (value) => {
             this.plugin.settings.autocompleteTriggerPhrase = value.trim();
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl).setHeading().setName("Smart suggestions");
+
+    new Setting(containerEl)
+      .setName("Enable smart suggestions")
+      .setDesc(
+        "Enable intelligent suggestions based on your usage history and document context"
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableSmartSuggestions)
+          .onChange(async (value) => {
+            this.plugin.settings.enableSmartSuggestions = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("History-based suggestions")
+      .setDesc(
+        "Learn from your frequently used date patterns and prioritize them in suggestions"
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableHistorySuggestions)
+          .onChange(async (value) => {
+            this.plugin.settings.enableHistorySuggestions = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Context-based suggestions")
+      .setDesc(
+        "Suggest dates based on dates already present in the current document"
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableContextSuggestions)
+          .onChange(async (value) => {
+            this.plugin.settings.enableContextSuggestions = value;
             await this.plugin.saveSettings();
           })
       );

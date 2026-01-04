@@ -11,16 +11,29 @@ import {
   getNowCommand,
 } from "./commands";
 import { getFormattedDate, getOrCreateDailyNote, parseTruthy } from "./utils";
+import HistoryManager from "./history-manager";
+import ContextAnalyzer from "./context-analyzer";
 
 export default class NaturalLanguageDates extends Plugin {
   public parser: NLDParser;
   public settings: NLDSettings;
+  public historyManager: HistoryManager;
+  public contextAnalyzer: ContextAnalyzer;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     
     // Initialiser le parser immédiatement (pas besoin d'attendre onLayoutReady)
     this.resetParser();
+
+    // Initialiser les gestionnaires de suggestions intelligentes
+    this.historyManager = new HistoryManager(this);
+    this.contextAnalyzer = new ContextAnalyzer(this.app, this);
+    
+    // Initialiser l'historique de manière asynchrone
+    this.historyManager.initialize().catch(err => {
+      console.error("Erreur lors de l'initialisation de l'historique:", err);
+    });
 
     this.addCommand({
       id: "nlp-dates",

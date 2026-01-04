@@ -43,7 +43,8 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   getDateSuggestions(context: EditorSuggestContext): string[] {
-    return this.unique(this.plugin.settings.languages.flatMap(
+    // Récupérer les suggestions standard
+    const standardSuggestions = this.unique(this.plugin.settings.languages.flatMap(
       language => {
         let suggestions = this.getTimeSuggestions(context.query, language);
         if (suggestions)
@@ -60,6 +61,68 @@ export default class DateSuggest extends EditorSuggest<string> {
         return this.defaultSuggestions(context.query, language);
       }
     ));
+
+    // Si les suggestions intelligentes sont désactivées, retourner les suggestions standard
+    if (!this.plugin.settings.enableSmartSuggestions) {
+      return standardSuggestions;
+    }
+
+    // Récupérer les suggestions intelligentes (historique + contexte)
+    const smartSuggestions = this.getSmartSuggestions(context, standardSuggestions);
+
+    // Fusionner : suggestions intelligentes en priorité, puis suggestions standard
+    const merged = [...smartSuggestions];
+    for (const suggestion of standardSuggestions) {
+      if (!merged.includes(suggestion)) {
+        merged.push(suggestion);
+      }
+    }
+
+    return merged;
+  }
+
+  /**
+   * Récupère les suggestions intelligentes basées sur l'historique et le contexte
+   */
+  private getSmartSuggestions(context: EditorSuggestContext, standardSuggestions: string[]): string[] {
+    const smartSuggestions: string[] = [];
+    const query = context.query.toLowerCase();
+
+    // Suggestions basées sur l'historique
+    if (this.plugin.settings.enableHistorySuggestions && this.plugin.historyManager) {
+      try {
+        const historySuggestions = this.plugin.historyManager.getTopSuggestionsSync(15);
+        for (const suggestion of historySuggestions) {
+          // Vérifier que la suggestion correspond à la requête
+          if (suggestion.toLowerCase().startsWith(query) && !smartSuggestions.includes(suggestion)) {
+            smartSuggestions.push(suggestion);
+          }
+        }
+      } catch (error) {
+        // Ignorer les erreurs silencieusement
+      }
+    }
+
+    // Suggestions basées sur le contexte
+    if (this.plugin.settings.enableContextSuggestions && this.plugin.contextAnalyzer && context.editor) {
+      try {
+        const contextInfo = this.plugin.contextAnalyzer.analyzeContextSync(
+          context.editor,
+          context.start.line
+        );
+        
+        // Ajouter les dates trouvées dans le contexte
+        for (const dateStr of contextInfo.datesInContext) {
+          if (dateStr.toLowerCase().startsWith(query) && !smartSuggestions.includes(dateStr)) {
+            smartSuggestions.push(dateStr);
+          }
+        }
+      } catch (error) {
+        // Ignorer les erreurs silencieusement
+      }
+    }
+
+    return smartSuggestions;
   }
 
   private getTimeSuggestions(inputStr: string, lang: string): string[] {
@@ -357,6 +420,15 @@ export default class DateSuggest extends EditorSuggest<string> {
     }
     
     activeView.editor.replaceRange(dateStr, this.context.start, this.context.end);
+
+    // Enregistrer la sélection dans l'historique (de manière asynchrone)
+    if (this.plugin.settings.enableSmartSuggestions && 
+        this.plugin.settings.enableHistorySuggestions && 
+        this.plugin.historyManager) {
+      this.plugin.historyManager.recordSelection(suggestion).catch(err => {
+        // Ignorer les erreurs silencieusement
+      });
+    }
   }
 
   onTrigger(
