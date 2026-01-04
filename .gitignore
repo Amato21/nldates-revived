@@ -6,10 +6,10 @@
 node_modules
 
 # build
-main.js
 *.js.map
 
 # MacOS
 .DS_Store
 AMELIORATIONS_FUTURES.md
 .cursor/debug.log
+main.js
