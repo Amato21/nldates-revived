@@ -23,16 +23,16 @@ export default class NaturalLanguageDates extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
     
-    // Initialiser le parser immédiatement (pas besoin d'attendre onLayoutReady)
+    // Initialize parser immediately (no need to wait for onLayoutReady)
     this.resetParser();
 
-    // Initialiser les gestionnaires de suggestions intelligentes
+    // Initialize smart suggestion managers
     this.historyManager = new HistoryManager(this);
     this.contextAnalyzer = new ContextAnalyzer(this.app, this);
     
-    // Initialiser l'historique de manière asynchrone
+    // Initialize history asynchronously
     this.historyManager.initialize().catch(err => {
-      console.error("Erreur lors de l'initialisation de l'historique:", err);
+      console.error("Error initializing history:", err);
     });
 
     this.addCommand({
@@ -98,11 +98,11 @@ export default class NaturalLanguageDates extends Plugin {
       this.parser = new NLDParser(this.settings.languages);
     } catch (error) {
       console.error('Failed to initialize parser:', error);
-      // Créer un parser avec l'anglais par défaut en cas d'erreur pour éviter que le plugin plante complètement
+      // Create parser with English as default in case of error to prevent plugin from crashing completely
       this.parser = new NLDParser(['en']);
     }
     
-    // Réinitialiser les patterns du contexte quand les langues changent
+    // Reset context patterns when languages change
     if (this.contextAnalyzer) {
       this.contextAnalyzer.resetPatterns();
     }
@@ -116,16 +116,16 @@ export default class NaturalLanguageDates extends Plugin {
     const loadedData = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     
-    // S'assurer que languages n'est pas vide (utiliser les valeurs par défaut si nécessaire)
+    // Ensure languages is not empty (use default values if necessary)
     if (!this.settings.languages || this.settings.languages.length === 0) {
       this.settings.languages = [...DEFAULT_SETTINGS.languages];
     }
     
-    // Synchroniser les flags avec le tableau languages si nécessaire
+    // Synchronize flags with languages array if necessary
     this.syncLanguageFlags();
   }
 
-  // Synchronise les flags de langue (english, french, etc.) avec le tableau languages
+  // Synchronizes language flags (english, french, etc.) with languages array
   private syncLanguageFlags(): void {
     const languageMap: { [key: string]: keyof NLDSettings } = {
       'en': 'english',
@@ -138,7 +138,7 @@ export default class NaturalLanguageDates extends Plugin {
       'it': 'italian',
     };
     
-    // Réinitialiser tous les flags
+    // Reset all flags
     this.settings.english = false;
     this.settings.japanese = false;
     this.settings.french = false;
@@ -148,7 +148,7 @@ export default class NaturalLanguageDates extends Plugin {
     this.settings.spanish = false;
     this.settings.italian = false;
     
-    // Activer les flags correspondant aux langues dans le tableau
+    // Enable flags corresponding to languages in array
     for (const lang of this.settings.languages) {
       const flagKey = languageMap[lang];
       if (flagKey) {
@@ -168,7 +168,7 @@ export default class NaturalLanguageDates extends Plugin {
   */
   parse(dateString: string, format: string): NLDResult {
     if (!this.parser) {
-      // Parser pas encore initialisé, l'initialiser maintenant
+      // Parser not yet initialized, initialize it now
       this.resetParser();
     }
     const date = this.parser.getParsedDate(dateString, this.settings.weekStart);
@@ -189,11 +189,11 @@ export default class NaturalLanguageDates extends Plugin {
     @returns NLDResult: An object containing the date, a cloned Moment and the formatted string.
   */
   parseDate(dateString: string): NLDResult {
-    // 1. On demande au cerveau si une heure est détectée
+    // 1. Ask the parser if time is detected
     const hasTime = this.parser.hasTimeComponent(dateString);
     let formatToUse = this.settings.format;
 
-    // 2. Si une heure est détectée...
+    // 2. If time is detected...
     if (hasTime) {
       const timeFormat = this.settings.timeFormat || "HH:mm";
       

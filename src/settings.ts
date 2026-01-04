@@ -53,7 +53,7 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   weekStart: "locale-default",
   languages: ["en"],
 
-  english: true,  // Synchronisé avec languages: ["en"]
+  english: true,  // Synchronized with languages: ["en"]
   japanese: false,
   french: false,
   german: false,

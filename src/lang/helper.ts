@@ -23,7 +23,7 @@ export default function t(key: string, lang: string, variables?: Record<string, 
     it: i18n.create({ values: it }),
   };
 
-  // On accède aux langues dynamiquement
+  // Access languages dynamically
   const langTranslator = (languages as unknown as Record<string, (key: string, defaultValue: string, variables?: Record<string, string>) => string>)[lang];
   const translation = langTranslator ? langTranslator(key, notFoundDefault, variables) : notFoundDefault;
   
