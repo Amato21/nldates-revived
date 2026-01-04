@@ -2,6 +2,8 @@
 import * as chrono from "chrono-node";
 import { Chrono, Parser, Refiner } from "chrono-node";
 import { ORDINAL_NUMBER_PATTERN, parseOrdinalNumberPattern } from "./utils";
+import { logger } from "./logger";
+import { ErrorCodes } from "./errors";
 
 // Local type definition matching chrono-node's Configuration interface
 // Configuration is not exported from the main module, so we define it locally
@@ -33,7 +35,7 @@ export default function getChronos(languages: string[]): Chrono[] {
       // On accède aux langues dynamiquement via Record
       const langModule = (chrono as Record<string, unknown>)[l] as { createCasualConfiguration?: (isGB: boolean) => unknown } | undefined;
       if (!langModule || !langModule.createCasualConfiguration) {
-        console.warn(`Language ${l} is not supported by chrono-node`);
+        logger.warn(`Language is not supported by chrono-node`, { language: l });
         return;
       }
       const config = langModule.createCasualConfiguration(isGB);
@@ -41,13 +43,18 @@ export default function getChronos(languages: string[]): Chrono[] {
       const c = new Chrono(config as ChronoConfiguration);
       c.parsers.push(ordinalDateParser);
       chronos.push(c);
+      logger.debug("Chrono initialized for language", { language: l });
     } catch (error) {
-      console.error(`Failed to initialize chrono for language ${l}:`, error);
+      logger.error(`Failed to initialize chrono for language`, {
+        language: l,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   });
   
   // Si aucune langue n'a pu être initialisée, utiliser l'anglais par défaut
   if (chronos.length === 0) {
+    logger.warn('No languages could be initialized, attempting English fallback');
     try {
       const enModule = (chrono as Record<string, unknown>).en as { createCasualConfiguration?: (isGB: boolean) => unknown } | undefined;
       if (enModule && enModule.createCasualConfiguration) {
@@ -56,9 +63,14 @@ export default function getChronos(languages: string[]): Chrono[] {
         const c = new Chrono(config as ChronoConfiguration);
         c.parsers.push(ordinalDateParser);
         chronos.push(c);
+        logger.info('Default English chrono initialized successfully');
+      } else {
+        logger.error('English chrono module not available');
       }
     } catch (error) {
-      console.error('Failed to initialize default English chrono:', error);
+      logger.error('Failed to initialize default English chrono', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
   

@@ -6,6 +6,7 @@ import {
 } from "obsidian-daily-notes-interface";
 
 import { DayOfWeek } from "./settings";
+import { DateFormatter } from "./date-formatter";
 
 // Type alias for Moment from the moment library bundled with Obsidian
 // Using the type from the moment library types since moment is bundled with Obsidian
@@ -59,8 +60,12 @@ export function adjustCursor(
   });
 }
 
+/**
+ * Wrapper pour compatibilité avec le code existant
+ * @deprecated Utiliser DateFormatter.format() directement
+ */
 export function getFormattedDate(date: Date, format: string): string {
-  return window.moment(date).format(format);
+  return DateFormatter.format(date, format);
 }
 
 export function getLastDayOfMonth(year: number, month: number) {

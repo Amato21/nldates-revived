@@ -13,6 +13,8 @@ import {
 import { getFormattedDate, getOrCreateDailyNote, parseTruthy } from "./utils";
 import HistoryManager from "./history-manager";
 import ContextAnalyzer from "./context-analyzer";
+import { logger } from "./logger";
+import { NLDParseError, ErrorCodes } from "./errors";
 
 export default class NaturalLanguageDates extends Plugin {
   public parser: NLDParser;
@@ -32,7 +34,7 @@ export default class NaturalLanguageDates extends Plugin {
     
     // Initialize history asynchronously
     this.historyManager.initialize().catch(err => {
-      console.error("Error initializing history:", err);
+      logger.error("Error initializing history", { error: err });
     });
 
     this.addCommand({
@@ -96,10 +98,40 @@ export default class NaturalLanguageDates extends Plugin {
   resetParser(): void {
     try {
       this.parser = new NLDParser(this.settings.languages);
+      logger.debug("Parser initialized successfully", { languages: this.settings.languages });
     } catch (error) {
-      console.error('Failed to initialize parser:', error);
+      const parseError = error instanceof NLDParseError 
+        ? error 
+        : new NLDParseError(
+            'Failed to initialize parser',
+            ErrorCodes.PARSER_INIT_FAILED,
+            'error',
+            { originalError: error, languages: this.settings.languages }
+          );
+      
+      logger.error('Failed to initialize parser', {
+        code: parseError.code,
+        error: parseError.message,
+        context: parseError.context,
+      });
+      
       // Create parser with English as default in case of error to prevent plugin from crashing completely
-      this.parser = new NLDParser(['en']);
+      try {
+        this.parser = new NLDParser(['en']);
+        logger.info('Parser initialized with English fallback');
+        
+        // Notifier l'utilisateur uniquement pour les erreurs critiques
+        this.app.notifications.create({
+          msg: 'Natural Language Dates: Failed to initialize with selected languages. Using English as fallback.',
+          duration: 5000,
+        });
+      } catch (fallbackError) {
+        logger.error('Failed to initialize parser even with English fallback', { error: fallbackError });
+        this.app.notifications.create({
+          msg: 'Natural Language Dates: Critical error - parser initialization failed. Please restart Obsidian.',
+          duration: 10000,
+        });
+      }
     }
     
     // Reset context patterns when languages change
@@ -174,7 +206,7 @@ export default class NaturalLanguageDates extends Plugin {
     const date = this.parser.getParsedDate(dateString, this.settings.weekStart);
     const formattedString = getFormattedDate(date, format);
     if (formattedString === "Invalid date") {
-      console.debug("Input date " + dateString + " can't be parsed by nldates");
+      logger.debug("Input date can't be parsed by nldates", { dateString });
     }
 
     return {

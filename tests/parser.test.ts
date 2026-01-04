@@ -4,20 +4,20 @@ import './setup';
 import { describe, it, expect, beforeEach } from 'vitest';
 import NLDParser from '../src/parser';
 import { DayOfWeek } from '../src/settings';
-import * as moment from 'moment';
-import { expectSameDate, expectDateInRange, expectFutureDate } from './test-helpers';
+import moment from 'moment';
+import { expectSameDate, expectDateInRange, expectFutureDate, expectPastDate } from './test-helpers';
 
 describe('NLDParser', () => {
   let parser: NLDParser;
   const weekStartPreference: DayOfWeek = 'monday';
 
   beforeEach(() => {
-    // S'assurer que window.moment est disponible
+    // S'assurer que window.moment est disponible (déjà fait dans setup.ts, mais on s'assure ici aussi)
     const contexts = [globalThis, global, typeof window !== 'undefined' ? window : null].filter(Boolean);
     contexts.forEach((ctx: any) => {
       if (ctx) {
         ctx.window = ctx.window || {};
-        ctx.window.moment = moment;
+        ctx.window.moment = moment; // moment est maintenant importé comme fonction par défaut
       }
     });
     

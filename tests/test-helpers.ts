@@ -1,4 +1,4 @@
-import * as moment from 'moment';
+import moment from 'moment';
 
 /**
  * Vérifie que deux dates sont les mêmes avec une tolérance
