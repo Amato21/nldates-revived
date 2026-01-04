@@ -66,19 +66,37 @@ export default class HistoryManager {
   }
 
   /**
+   * Normalise une suggestion en capitalisant la première lettre
+   * Exemple: "demain" -> "Demain", "lundi prochain" -> "Lundi prochain"
+   */
+  private normalizeSuggestion(suggestion: string): string {
+    if (!suggestion || suggestion.length === 0) {
+      return suggestion;
+    }
+    
+    const trimmed = suggestion.trim();
+    if (trimmed.length === 0) {
+      return trimmed;
+    }
+    
+    // Capitaliser la première lettre (gère les caractères Unicode)
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }
+
+  /**
    * Enregistre une sélection dans l'historique
    */
   async recordSelection(suggestion: string): Promise<void> {
     await this.loadHistory();
 
-    // Normaliser la suggestion (en minuscules pour éviter les doublons)
+    // Normaliser la suggestion (en minuscules pour la clé, évite les doublons)
     const normalized = suggestion.toLowerCase().trim();
 
     if (!normalized) {
       return;
     }
 
-    // Incrémenter le compteur
+    // Incrémenter le compteur (utiliser la clé en minuscules)
     this.history[normalized] = (this.history[normalized] || 0) + 1;
 
     // Limiter la taille de l'historique si nécessaire
@@ -127,8 +145,10 @@ export default class HistoryManager {
     // Trier par fréquence (décroissant)
     entries.sort((a, b) => b[1] - a[1]);
     
-    // Mettre en cache les top suggestions
-    this.cachedTopSuggestions = entries.slice(0, 50).map(([suggestion]) => suggestion);
+    // Mettre en cache les top suggestions avec la première lettre capitalisée
+    this.cachedTopSuggestions = entries.slice(0, 50).map(([suggestion]) => 
+      this.normalizeSuggestion(suggestion)
+    );
     this.cacheValid = true;
   }
 

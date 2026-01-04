@@ -18,6 +18,12 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
     * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
     * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
     * Works in all supported languages with native translations
+* **🧠 Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
+    * **History-based suggestions:** The plugin learns your frequently used date patterns and prioritizes them in suggestions
+    * **Context-aware detection:** Automatically detects dates already present in your current document (within ±10 lines) and suggests them
+    * **Multi-language context detection:** Context analysis works with all enabled languages - detects dates in French, English, Japanese, and more!
+    * **Optimized performance:** No vault-wide caching - only analyzes the current document for fast, efficient suggestions
+    * All smart features can be toggled on/off individually in settings
 
 ### v0.8.0
 * **🌍 Multilingual Support:** Now supports **English, French, German, Japanese, Dutch, and Portuguese**!
@@ -67,6 +73,12 @@ Go to **Settings > Natural Language Dates**:
 * **Date Format:** How the date part looks (e.g. `YYYY-MM-DD`).
 * **Time Format:** How the time part looks (e.g. `HH:mm`).
 * **Separator:** Character between date and time (if used).
+* **Smart Suggestions:** Enable intelligent suggestions (enabled by default)
+    * **Enable smart suggestions:** Master toggle for all intelligent features
+    * **History-based suggestions:** Learn from your frequently used date patterns
+    * **Context-based suggestions:** Detect dates from the current document context
+
+**Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to 100 most frequent entries for optimal performance.
 
 ---
 
@@ -94,3 +106,23 @@ const nldatesPlugin = app.plugins.getPlugin("nldates-obsidian");
 const parsedResult = nldatesPlugin.parseDate("next year");
 
 console.log(parsedResult.moment.format("YYYY"));
+```
+
+### Architecture
+
+The plugin uses a modular architecture with specialized components:
+
+* **`HistoryManager`** (`src/history-manager.ts`): Manages user selection history
+    * Stores frequently used date patterns (max 100 entries)
+    * Provides synchronous cache for fast suggestions
+    * Normalizes suggestions (capitalizes first letter for consistency)
+    * Persists data to `.obsidian/plugins/nldates-revived/history.json`
+
+* **`ContextAnalyzer`** (`src/context-analyzer.ts`): Analyzes document context for smart suggestions
+    * Scans ±10 lines around cursor for date patterns
+    * Uses dynamic regex patterns generated from translations (multi-language support)
+    * Implements temporary caching (5 seconds) for performance
+    * Automatically updates patterns when languages change
+    * Supports all enabled languages (French, English, Japanese, German, Spanish, Italian, Portuguese, Dutch)
+
+Both components are optimized for performance: no vault-wide scanning, only analyzes the current document, and uses efficient caching strategies.

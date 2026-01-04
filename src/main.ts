@@ -101,6 +101,11 @@ export default class NaturalLanguageDates extends Plugin {
       // Créer un parser avec l'anglais par défaut en cas d'erreur pour éviter que le plugin plante complètement
       this.parser = new NLDParser(['en']);
     }
+    
+    // Réinitialiser les patterns du contexte quand les langues changent
+    if (this.contextAnalyzer) {
+      this.contextAnalyzer.resetPatterns();
+    }
   }
 
   onunload(): void {

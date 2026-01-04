@@ -1,5 +1,6 @@
 import { App, MarkdownView, Editor } from "obsidian";
 import type NaturalLanguageDates from "./main";
+import t from "./lang/helper";
 
 const CONTEXT_LINES = 10; // Nombre de lignes à analyser avant et après le curseur
 const MAX_DATES_TO_EXTRACT = 10; // Nombre maximum de dates à extraire du contexte
@@ -15,10 +16,137 @@ export default class ContextAnalyzer {
   private plugin: NaturalLanguageDates;
   private cache: Map<string, ContextInfo> = new Map(); // Cache temporaire par fichier
   private cacheTimeout: number = 5000; // 5 secondes de cache
+  
+  // Patterns regex pour la détection de dates (générés dynamiquement)
+  private datePatterns: RegExp[] = [];
 
   constructor(app: App, plugin: NaturalLanguageDates) {
     this.app = app;
     this.plugin = plugin;
+    this.initializeDatePatterns();
+  }
+
+  /**
+   * Initialise les patterns regex pour la détection de dates dans toutes les langues activées
+   */
+  private initializeDatePatterns(): void {
+    const languages = this.plugin.settings.languages;
+    
+    // Collecter tous les mots de toutes les langues activées
+    const weekdays: string[] = [];
+    const todayWords: string[] = [];
+    const tomorrowWords: string[] = [];
+    const yesterdayWords: string[] = [];
+    const inWords: string[] = [];
+    const nextWords: string[] = [];
+    const lastWords: string[] = [];
+    const timeUnits: string[] = [];
+
+    for (const lang of languages) {
+      // Jours de la semaine
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      for (const day of days) {
+        const dayWord = t(day, lang);
+        if (dayWord && dayWord !== "NOTFOUND") {
+          weekdays.push(...dayWord.split("|").map(w => w.trim()).filter(w => w));
+        }
+      }
+
+      // Mots temporels courants
+      const todayWord = t("today", lang);
+      if (todayWord && todayWord !== "NOTFOUND") {
+        todayWords.push(...todayWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+
+      const tomorrowWord = t("tomorrow", lang);
+      if (tomorrowWord && tomorrowWord !== "NOTFOUND") {
+        tomorrowWords.push(...tomorrowWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+
+      const yesterdayWord = t("yesterday", lang);
+      if (yesterdayWord && yesterdayWord !== "NOTFOUND") {
+        yesterdayWords.push(...yesterdayWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+
+      // "in" pour les expressions relatives
+      const inWord = t("in", lang);
+      if (inWord && inWord !== "NOTFOUND") {
+        inWords.push(...inWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+
+      // "next" et "last"
+      const nextWord = t("next", lang);
+      if (nextWord && nextWord !== "NOTFOUND") {
+        nextWords.push(...nextWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+
+      const lastWord = t("last", lang);
+      if (lastWord && lastWord !== "NOTFOUND") {
+        lastWords.push(...lastWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+
+      // Unités de temps
+      const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
+      for (const unitKey of timeUnitKeys) {
+        const unitWord = t(unitKey, lang);
+        if (unitWord && unitWord !== "NOTFOUND") {
+          timeUnits.push(...unitWord.split("|").map(w => w.trim()).filter(w => w));
+        }
+      }
+    }
+
+    // Échapper les caractères spéciaux pour les regex
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Créer les patterns regex
+    this.datePatterns = [];
+
+    // Pattern 1: Jours de la semaine
+    if (weekdays.length > 0) {
+      const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
+      // Utiliser \b pour les limites de mots (fonctionne pour la plupart des langues)
+      this.datePatterns.push(new RegExp(`\\b(${weekdayPattern})\\b`, 'gi'));
+    }
+
+    // Pattern 2: Mots temporels courants (today, tomorrow, yesterday)
+    const timeWords = [...todayWords, ...tomorrowWords, ...yesterdayWords];
+    if (timeWords.length > 0) {
+      const timeWordPattern = [...new Set(timeWords.map(escapeRegex))].join('|');
+      this.datePatterns.push(new RegExp(`\\b(${timeWordPattern})\\b`, 'gi'));
+    }
+
+    // Pattern 3: Expressions relatives "dans X jours/semaines/mois"
+    if (inWords.length > 0 && timeUnits.length > 0) {
+      const inPattern = [...new Set(inWords.map(escapeRegex))].join('|');
+      const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
+      this.datePatterns.push(new RegExp(`\\b(${inPattern})\\s+\\d+\\s+(${timeUnitPattern})\\b`, 'gi'));
+    }
+
+    // Pattern 4: Expressions "next/last weekday/week/month/year"
+    const prefixWords = [...nextWords, ...lastWords];
+    if (prefixWords.length > 0) {
+      const prefixPattern = [...new Set(prefixWords.map(escapeRegex))].join('|');
+      
+      // Pour les jours de la semaine
+      if (weekdays.length > 0) {
+        const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
+        this.datePatterns.push(new RegExp(`\\b(${prefixPattern})\\s+(${weekdayPattern})\\b`, 'gi'));
+      }
+      
+      // Pour les unités de temps
+      if (timeUnits.length > 0) {
+        const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
+        this.datePatterns.push(new RegExp(`\\b(${prefixPattern})\\s+(${timeUnitPattern})\\b`, 'gi'));
+      }
+    }
+  }
+
+  /**
+   * Réinitialise les patterns (à appeler quand les langues changent)
+   */
+  resetPatterns(): void {
+    this.initializeDatePatterns();
+    this.clearCache(); // Vider le cache car les patterns ont changé
   }
 
   /**
@@ -97,34 +225,42 @@ export default class ContextAnalyzer {
   }
 
   /**
+   * Normalise une date extraite en capitalisant la première lettre
+   * Exemple: "demain" -> "Demain", "lundi prochain" -> "Lundi prochain"
+   */
+  private normalizeDate(dateStr: string): string {
+    if (!dateStr || dateStr.length === 0) {
+      return dateStr;
+    }
+    
+    const trimmed = dateStr.trim();
+    if (trimmed.length === 0) {
+      return trimmed;
+    }
+    
+    // Capitaliser la première lettre (gère les caractères Unicode)
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  }
+
+  /**
    * Extrait les expressions de dates potentielles du texte
-   * Utilise des patterns simples pour détecter les dates naturelles
+   * Utilise des patterns dynamiques multi-langue pour détecter les dates naturelles
    */
   private extractDatesFromContext(text: string): string[] {
     const dates: string[] = [];
     const seen = new Set<string>();
 
-    // Patterns pour détecter les dates naturelles (simples et rapides)
-    // On cherche des mots-clés de dates qui pourraient être utilisés dans les suggestions
-    const datePatterns = [
-      // Jours de la semaine
-      /\b(lundi|monday|mardi|tuesday|mercredi|wednesday|jeudi|thursday|vendredi|friday|samedi|saturday|dimanche|sunday)\b/gi,
-      // Mots temporels courants
-      /\b(aujourd'hui|today|demain|tomorrow|hier|yesterday)\b/gi,
-      // Expressions relatives
-      /\b(dans|in)\s+\d+\s+(jour|jours|day|days|semaine|semaines|week|weeks|mois|month|months|année|années|year|years)\b/gi,
-      // Expressions "prochain/dernier"
-      /\b(prochain|next|dernier|last)\s+(lundi|monday|mardi|tuesday|mercredi|wednesday|jeudi|thursday|vendredi|friday|samedi|saturday|dimanche|sunday|semaine|week|mois|month|année|year)\b/gi,
-    ];
-
-    for (const pattern of datePatterns) {
+    // Utiliser les patterns dynamiques générés pour toutes les langues activées
+    for (const pattern of this.datePatterns) {
       const matches = text.match(pattern);
       if (matches) {
         for (const match of matches) {
+          // Pour les langues sans casse (comme le japonais), toLowerCase() ne change rien
           const normalized = match.toLowerCase().trim();
           if (!seen.has(normalized) && dates.length < MAX_DATES_TO_EXTRACT) {
             seen.add(normalized);
-            dates.push(match.trim());
+            // Normaliser avec la première lettre en majuscule (ou laisser tel quel pour le japonais)
+            dates.push(this.normalizeDate(match.trim()));
           }
         }
       }
