@@ -11,6 +11,8 @@
 6. [Tests & Qualité](#tests--qualité)
 7. [Documentation](#documentation)
 8. [Sécurité & Robustesse](#sécurité--robustesse)
+9. [Intégrations](#intégrations)
+10. [Nouvelles Améliorations Identifiées](#-nouvelles-améliorations-identifiées-janvier-2025)
 
 ---
 
@@ -113,7 +115,7 @@ Le parser est accessible publiquement et typé, éliminant le besoin de `(plugin
 - ✅ Séparation claire des responsabilités
 - ✅ Compatibilité rétroactive maintenue
 
-### 5. **TypeScript strict mode** ✅ BIEN CONFIGURÉ
+### 5. **TypeScript strict mode** 🔄 PARTIELLEMENT CONFIGURÉ
 **Statut :** Configuration TypeScript relativement bonne, quelques améliorations possibles.
 
 **État actuel :**
@@ -127,6 +129,43 @@ Le parser est accessible publiquement et typé, éliminant le besoin de `(plugin
 - Activer `strict: true` dans `tsconfig.json` (actuellement seulement `noImplicitAny: true`)
 - Vérifier tous les casts `as` et les remplacer par des types plus stricts si possible
 - Améliorer le typage des configurations chrono si les types sont disponibles dans chrono-node
+- Ajouter `strictNullChecks: true` pour une meilleure sécurité de type
+- Ajouter `strictFunctionTypes: true` pour une meilleure vérification des signatures de fonctions
+
+### 5.1. **JSDoc pour toutes les fonctions publiques** ❌ À FAIRE
+**Problème actuel :**
+- Manque de documentation JSDoc pour les méthodes publiques
+- Seulement quelques commentaires basiques dans le code
+- Pas de documentation des paramètres et valeurs de retour
+
+**Amélioration :**
+- Ajouter JSDoc complet pour toutes les méthodes publiques de `NaturalLanguageDates`
+- Documenter les paramètres, types de retour, et exemples d'utilisation
+- Générer une documentation API automatique
+
+**Exemple :**
+```typescript
+/**
+ * Parse une date en langage naturel et retourne un résultat formaté
+ * @param dateString - La chaîne contenant la date en langage naturel (ex: "tomorrow", "in 2 days")
+ * @param format - Le format de sortie Moment.js (ex: "YYYY-MM-DD")
+ * @returns Un objet NLDResult contenant la date, un Moment cloné et la chaîne formatée
+ * @example
+ * const result = plugin.parse("tomorrow", "YYYY-MM-DD");
+ * console.log(result.formattedString); // "2025-01-15"
+ */
+parse(dateString: string, format: string): NLDResult
+```
+
+### 5.2. **Refactoring des dépendances circulaires potentielles** ❌ À VÉRIFIER
+**Problème actuel :**
+- Risque de dépendances circulaires entre modules
+- `main.ts` importe plusieurs modules qui pourraient avoir besoin de `main.ts`
+
+**Amélioration :**
+- Analyser les dépendances entre modules
+- Extraire les interfaces communes dans un fichier `types.d.ts` dédié
+- Utiliser des interfaces plutôt que des imports directs quand possible
 
 ---
 
@@ -256,15 +295,75 @@ timezone: string; // "UTC", "Europe/Paris", etc.
 - 🔧 Simplicité : Solution simple et maintenable
 - 🛡️ Isolation : Nouvelle instance de Date à chaque retour pour éviter les références partagées
 
-### 16. **Lazy loading des langues**
-**Amélioration :**
-- Charger les parsers chrono seulement quand nécessaire
-- Désactiver les langues non utilisées pour améliorer les performances
+### 16. **Lazy loading des langues** ❌ À FAIRE
+**Problème actuel :**
+- Toutes les langues activées sont chargées au démarrage du plugin
+- Les parsers chrono sont initialisés même si non utilisés
+- Impact sur le temps de démarrage avec plusieurs langues
 
-### 17. **Debouncing des suggestions**
 **Amélioration :**
-- Debounce les requêtes de suggestions pendant la frappe
+- Charger les parsers chrono seulement quand nécessaire (lazy loading)
+- Initialiser les langues à la première utilisation
+- Désactiver les langues non utilisées pour améliorer les performances
+- Cache des parsers initialisés pour éviter les réinitialisations
+
+**Implémentation suggérée :**
+```typescript
+// Dans parser.ts
+private chronosCache: Map<string, Chrono[]> = new Map();
+
+private getChronosForLanguage(lang: string): Chrono[] {
+  if (!this.chronosCache.has(lang)) {
+    this.chronosCache.set(lang, getChronos([lang]));
+  }
+  return this.chronosCache.get(lang)!;
+}
+```
+
+### 17. **Debouncing des suggestions** ❌ À FAIRE
+**Problème actuel :**
+- Les suggestions sont recalculées à chaque frappe
+- Pas de debouncing dans `DateSuggest.getSuggestions()`
+- Calculs potentiellement coûteux (analyse de contexte, historique) à chaque frappe
+
+**Amélioration :**
+- Debounce les requêtes de suggestions pendant la frappe (200-300ms)
 - Réduire les calculs inutiles
+- Améliorer la réactivité de l'interface
+
+**Implémentation suggérée :**
+```typescript
+// Dans date-suggest.ts
+private debounceTimer: number | null = null;
+
+getSuggestions(context: EditorSuggestContext): string[] {
+  // Annuler le timer précédent
+  if (this.debounceTimer) {
+    clearTimeout(this.debounceTimer);
+  }
+  
+  // Debounce de 250ms
+  return new Promise((resolve) => {
+    this.debounceTimer = window.setTimeout(() => {
+      const suggestions = this.getDateSuggestions(context);
+      resolve(suggestions.length ? suggestions : [context.query]);
+    }, 250);
+  });
+}
+```
+
+### 17.1. **Optimisation du cache de contexte** 🔄 PARTIELLEMENT FAIT
+**Statut :** Cache temporaire implémenté mais peut être optimisé.
+
+**État actuel :**
+- ✅ Cache temporaire de 5 secondes dans `ContextAnalyzer` (ligne 18)
+- ✅ Nettoyage automatique du cache après timeout
+- ⚠️ Cache par fichier + ligne, pourrait être plus intelligent
+
+**Amélioration :**
+- Utiliser un cache basé sur le hash du contenu du document plutôt que la ligne
+- Invalider le cache seulement si le contenu a changé
+- Réduire la taille du cache avec un LRU (Least Recently Used)
 
 ### 18. **Optimisation des regex** ✅ FAIT
 **Statut :** Les regex sont compilées une seule fois dans `initializeRegex()` et stockées comme propriétés de classe.
@@ -438,21 +537,73 @@ Les fichiers de traduction du plugin sont **complets** pour toutes les langues (
 - Pre-commit hooks avec linting
 - CI/CD avec vérifications automatiques
 
-### 32. **Validation des formats**
+### 32. **Validation des formats** ❌ À FAIRE
+**Problème actuel :**
+- Pas de validation des formats Moment.js dans les settings
+- Formats invalides peuvent causer des erreurs silencieuses
+- Pas de prévisualisation du format dans les settings
+
 **Amélioration :**
 - Valider les formats Moment.js dans les settings
 - Afficher des erreurs claires pour formats invalides
-- Prévisualisation du format dans les settings
+- Prévisualisation du format dans les settings avec date d'exemple
+- Validation en temps réel lors de la saisie
+
+**Implémentation suggérée :**
+```typescript
+// Dans settings.ts
+function validateMomentFormat(format: string): { valid: boolean; error?: string } {
+  try {
+    const testDate = window.moment();
+    const formatted = testDate.format(format);
+    // Vérifier que le format produit quelque chose de valide
+    if (!formatted || formatted === format) {
+      return { valid: false, error: "Format invalide ou non reconnu" };
+    }
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
+}
+```
+
+### 32.1. **Gestion des erreurs de parsing silencieuses** ❌ À FAIRE
+**Problème actuel :**
+- Certaines erreurs de parsing sont ignorées silencieusement
+- Pas de feedback utilisateur quand une date ne peut pas être parsée
+- `getParseCommand` retourne simplement sans action si parsing échoue (ligne 71-77)
+
+**Amélioration :**
+- Afficher une notification Obsidian si le parsing échoue
+- Logger les erreurs de parsing pour le débogage
+- Option pour afficher un message d'erreur dans l'éditeur
+- Mode verbose pour les développeurs
 
 ---
 
 ## 📚 Documentation
 
-### 33. **Documentation API complète**
+### 33. **Documentation API complète** ❌ À FAIRE
+**Problème actuel :**
+- Manque de JSDoc pour les méthodes publiques
+- Pas d'exemples d'utilisation dans le code
+- Pas de guide pour les développeurs de plugins tiers
+
 **Amélioration :**
-- JSDoc pour toutes les fonctions publiques
+- JSDoc pour toutes les fonctions publiques (voir #5.1)
 - Exemples d'utilisation dans la documentation
 - Guide pour les développeurs de plugins tiers
+- Documentation des types TypeScript exportés
+- Exemples de code dans le README
+
+**Méthodes publiques à documenter :**
+- `parse(dateString: string, format: string): NLDResult`
+- `parseDate(dateString: string): NLDResult`
+- `parseDateRange(dateString: string): NLDRangeResult | null`
+- `parseTime(dateString: string): NLDResult`
+- `hasTimeComponent(text: string): boolean`
+- `parser.getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date`
+- `parser.getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null`
 
 ### 34. **Guide utilisateur amélioré**
 **Amélioration :**
@@ -471,33 +622,147 @@ Les fichiers de traduction du plugin sont **complets** pour toutes les langues (
 
 ## 🔒 Sécurité & Robustesse
 
-### 36. **Validation des entrées**
+### 36. **Validation des entrées** ❌ À FAIRE
 **Problème actuel :**
 - Pas de validation stricte des entrées utilisateur
-- Risque d'injection dans les formats
+- Risque d'injection dans les formats Moment.js
+- Paramètres URI non validés dans `actionHandler` (ligne 266)
+- Pas de sanitization des entrées utilisateur
 
 **Amélioration :**
-- Sanitizer pour les formats
-- Validation des paramètres URI
+- Sanitizer pour les formats Moment.js (voir #32)
+- Validation des paramètres URI dans `actionHandler`
 - Protection contre les entrées malveillantes
+- Limitation de la longueur des chaînes d'entrée
+- Validation des caractères spéciaux
 
-### 37. **Gestion des edge cases**
-**Amélioration :**
-- Gérer les années bissextiles correctement
-- Gérer les changements d'heure (DST)
-- Gérer les dates invalides gracieusement
+**Implémentation suggérée :**
+```typescript
+// Dans main.ts actionHandler
+async actionHandler(params: ObsidianProtocolData): Promise<void> {
+  // Valider et sanitizer les paramètres
+  const day = params.day?.trim().substring(0, 100); // Limiter la longueur
+  if (!day || !/^[a-zA-Z0-9\s\-àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+$/i.test(day)) {
+    logger.warn("Invalid day parameter in URI", { day: params.day });
+    return;
+  }
+  // ... reste du code
+}
+```
 
-### 38. **Fallbacks robustes**
-**Amélioration :**
-- Fallback si chrono-node échoue
-- Fallback si une langue n'est pas disponible
-- Mode dégradé si le parser principal échoue
+### 36.1. **Protection contre les attaques par déni de service** ❌ À FAIRE
+**Problème actuel :**
+- Pas de limite sur la taille des entrées
+- Expressions regex complexes peuvent être exploitées (ReDoS)
+- Pas de timeout sur les opérations de parsing
 
-### 39. **Migration des settings**
 **Amélioration :**
-- Système de migration automatique des settings
+- Limiter la longueur des chaînes d'entrée (ex: 200 caractères max)
+- Timeout sur les opérations de parsing longues
+- Validation des patterns regex pour éviter ReDoS
+- Limitation du nombre de suggestions retournées
+
+### 37. **Gestion des edge cases** 🔄 PARTIELLEMENT FAIT
+**Statut :** Certains edge cases sont gérés, mais d'autres peuvent être améliorés.
+
+**État actuel :**
+- ✅ Moment.js gère automatiquement les années bissextiles
+- ✅ Les dates invalides retournent `Invalid date` (ligne 208 dans main.ts)
+- ⚠️ Pas de gestion explicite des changements d'heure (DST)
+- ⚠️ Pas de gestion des dates très anciennes ou très futures
+
+**Amélioration :**
+- Gérer explicitement les changements d'heure (DST) avec moment-timezone
+- Valider les plages de dates raisonnables (ex: 1900-2100)
+- Gérer les dates invalides avec des messages d'erreur clairs
+- Gérer les cas limites comme "in 0 days" ou "in -1 days"
+- Gérer les expressions ambiguës (ex: "next week" le dimanche)
+
+**Cas limites à gérer :**
+- Dates très anciennes (< 1900) ou très futures (> 2100)
+- Expressions avec valeurs négatives ("in -1 day")
+- Expressions avec zéro ("in 0 days")
+- Plages de dates invalides ("from Friday to Monday" dans le passé)
+- Changements de mois/année lors de calculs relatifs
+
+### 38. **Fallbacks robustes** ✅ PARTIELLEMENT FAIT
+**Statut :** Des fallbacks existent mais peuvent être améliorés.
+
+**État actuel :**
+- ✅ Fallback vers l'anglais si l'initialisation du parser échoue (ligne 119-134 dans main.ts)
+- ✅ Fallback vers l'anglais si aucune langue ne peut être initialisée (ligne 56-75 dans chrono.ts)
+- ✅ Notifications utilisateur pour les erreurs critiques
+- ⚠️ Pas de mode dégradé si chrono-node échoue complètement
+- ⚠️ Pas de fallback pour les expressions non parsées
+
+**Amélioration :**
+- Mode dégradé avec parsing basique si chrono-node échoue
+- Fallback vers parsing manuel pour expressions simples
+- Cache des fallbacks pour éviter les recalculs
+- Option pour désactiver chrono-node et utiliser uniquement le parsing manuel
+- Fallback intelligent entre langues (essayer toutes les langues activées)
+
+**Implémentation suggérée :**
+```typescript
+// Mode dégradé dans parser.ts
+private fallbackParse(text: string): Date {
+  // Parsing basique sans chrono-node
+  const lower = text.toLowerCase().trim();
+  if (lower === "today" || lower === "aujourd'hui") {
+    return new Date();
+  }
+  // ... autres cas simples
+  return new Date(); // Dernier recours
+}
+```
+
+### 39. **Migration des settings** ❌ À FAIRE
+**Problème actuel :**
+- Pas de système de migration automatique des settings
+- Pas de validation des settings au chargement
+- Pas de versioning des settings
+- Risque de corruption des settings
+
+**Amélioration :**
+- Système de migration automatique des settings avec versioning
 - Validation des settings au chargement
 - Reset aux valeurs par défaut si corrompus
+- Backup automatique des settings avant migration
+- Migration progressive (v0.8 → v0.9 → v1.0)
+
+**Implémentation suggérée :**
+```typescript
+// Dans settings.ts
+interface NLDSettingsV1 extends NLDSettings {
+  _version?: number; // Version des settings
+}
+
+async loadSettings(): Promise<void> {
+  const loadedData = await this.loadData();
+  const version = loadedData._version || 0;
+  
+  // Migration selon la version
+  if (version < 1) {
+    loadedData = migrateFromV0ToV1(loadedData);
+  }
+  
+  // Validation
+  const validated = validateSettings(loadedData);
+  this.settings = Object.assign({}, DEFAULT_SETTINGS, validated);
+}
+```
+
+### 39.1. **Validation des settings au démarrage** ❌ À FAIRE
+**Problème actuel :**
+- Pas de validation des settings chargés
+- Settings corrompus peuvent causer des erreurs silencieuses
+- Pas de récupération automatique
+
+**Amélioration :**
+- Valider tous les champs des settings au chargement
+- Vérifier les types et plages de valeurs
+- Réinitialiser les champs invalides aux valeurs par défaut
+- Logger les problèmes de validation pour le débogage
 
 ### 40. **Logging structuré** ✅ FAIT
 **Statut :** Système de logging structuré implémenté.
@@ -514,11 +779,40 @@ Les fichiers de traduction du plugin sont **complets** pour toutes les langues (
 
 ## 🔌 Intégrations
 
-### 41. **API publique améliorée**
+### 41. **API publique améliorée** 🔄 PARTIELLEMENT FAIT
+**Statut :** L'API de base existe mais peut être améliorée.
+
+**État actuel :**
+- ✅ Parser exposé publiquement (`plugin.parser`)
+- ✅ Méthodes de parsing publiques (`parse`, `parseDate`, `parseDateRange`)
+- ✅ Settings accessibles publiquement
+- ⚠️ Pas de documentation complète de l'API
+- ⚠️ Pas de types TypeScript exportés pour les utilisateurs
+- ⚠️ Pas d'événements ou callbacks pour les plugins tiers
+
 **Amélioration :**
-- Exposer plus de méthodes publiques
-- Documentation de l'API
-- Types TypeScript pour les utilisateurs de l'API
+- Exposer plus de méthodes publiques (ex: `getAvailableLanguages()`, `isLanguageEnabled()`)
+- Documentation complète de l'API (voir #33)
+- Types TypeScript exportés dans un fichier `api.d.ts`
+- Événements pour notifier les changements (ex: `onDateParsed`, `onLanguageChanged`)
+- Callbacks pour personnaliser le comportement
+- Exemples d'utilisation dans la documentation
+
+**Méthodes à ajouter :**
+```typescript
+// Dans main.ts
+public getAvailableLanguages(): string[] {
+  return ['en', 'fr', 'de', 'ja', 'nl', 'pt', 'es', 'it'];
+}
+
+public isLanguageEnabled(lang: string): boolean {
+  return this.settings.languages.includes(lang);
+}
+
+public on(event: 'dateParsed' | 'languageChanged', callback: Function): void {
+  // Système d'événements
+}
+```
 
 ### 42. **Intégration avec Templater**
 **Amélioration :**
@@ -544,22 +838,29 @@ Les fichiers de traduction du plugin sont **complets** pour toutes les langues (
 2. **Refactoring du système de langues** (#1) 🔄 Partiellement fait
 3. **Exposer le parser publiquement** (#2) ✅ **FAIT**
 4. **Cache de parsing** (#15) ✅ **FAIT**
-5. **Support des fuseaux horaires** (#6) ❌ À faire
+5. **Validation des formats** (#32) ❌ À faire - **Important pour la stabilité**
+6. **Validation des entrées** (#36) ❌ À faire - **Important pour la sécurité**
+7. **Migration des settings** (#39) ❌ À faire - **Important pour la compatibilité**
 
 ### 🟡 Priorité Moyenne
-6. **Gestion d'erreurs améliorée** (#3) ✅ **FAIT**
-7. **Séparation des responsabilités** (#4) ✅ **FAIT**
-8. **Raccourcis clavier personnalisables** (#20) ❌ À faire
-9. **Support des dates relatives avancées** (#7) ✅ **FAIT**
-10. **Optimisation des regex** (#18) ✅ **FAIT**
-11. **Validation des formats** (#32) ❌ À faire
+8. **Gestion d'erreurs améliorée** (#3) ✅ **FAIT**
+9. **Séparation des responsabilités** (#4) ✅ **FAIT**
+10. **Support des dates relatives avancées** (#7) ✅ **FAIT**
+11. **Optimisation des regex** (#18) ✅ **FAIT**
+12. **Debouncing des suggestions** (#17) ❌ À faire - **Améliore les performances**
+13. **Lazy loading des langues** (#16) ❌ À faire - **Améliore le temps de démarrage**
+14. **Raccourcis clavier personnalisables** (#20) ❌ À faire
+15. **Documentation API** (#33) ❌ À faire - **Important pour les développeurs**
+16. **Support des fuseaux horaires** (#6) ❌ À faire
 
 ### 🟢 Basse Priorité
-11. **Plus de langues** (#25) 🔄 Partiellement fait (es, it ajoutés)
-12. **Templates de dates** (#11) ❌ À faire
-13. **Support des plages de dates** (#9) ✅ **FAIT**
-14. **Mode batch** (#10) ❌ À faire
-15. **Documentation API** (#33) ❌ À faire
+17. **Plus de langues** (#25) 🔄 Partiellement fait (es, it ajoutés)
+18. **Templates de dates** (#11) ❌ À faire
+19. **Support des plages de dates** (#9) ✅ **FAIT**
+20. **Mode batch** (#10) ❌ À faire
+21. **JSDoc pour toutes les fonctions** (#5.1) ❌ À faire
+22. **Tests d'intégration** (#46) ❌ À faire
+23. **Optimisation de la mémoire** (#45) ❌ À faire
 
 ---
 
@@ -626,8 +927,154 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - Tests complets écrits et **tous les tests passent (95/95 - 100%)** ✅
 
 ### Points à Améliorer ⚠️
-- Double système de langues (flags + array)
-- Pas de support fuseaux horaires
+- Double système de langues (flags + array) - **#1**
+- Pas de support fuseaux horaires - **#6**
+- Pas de debouncing des suggestions - **#17**
+- Manque de documentation JSDoc - **#5.1, #33**
+- Pas de validation stricte des formats - **#32**
+- Pas de migration automatique des settings - **#39**
+- Pas de lazy loading des langues - **#16**
+- Pas de validation des entrées utilisateur - **#36**
+- Pas de protection contre ReDoS - **#36.1**
+- Pas de gestion explicite des edge cases (DST, dates limites) - **#37**
+- Pas de tests d'intégration - **#46**
+- Pas d'optimisation de la mémoire - **#45**
+
+---
+
+## 🆕 Nouvelles Améliorations Identifiées (Janvier 2025)
+
+### 45. **Optimisation de la mémoire** ❌ À FAIRE
+**Problème actuel :**
+- Cache de parsing peut grandir indéfiniment (pas de limite de taille)
+- Cache de contexte utilise un timeout mais pas de limite de taille
+- Historique limité à 100 entrées mais pas de nettoyage périodique
+
+**Amélioration :**
+- Limiter la taille du cache de parsing (ex: 500 entrées max avec LRU)
+- Nettoyage périodique des caches inutilisés
+- Limite de mémoire pour l'historique
+- Monitoring de l'utilisation mémoire
+
+### 46. **Tests d'intégration** ❌ À FAIRE
+**Problème actuel :**
+- Seulement des tests unitaires pour le parser
+- Pas de tests d'intégration pour les commandes
+- Pas de tests pour l'interface utilisateur (date picker, suggestions)
+
+**Amélioration :**
+- Tests d'intégration pour les commandes (`getParseCommand`, etc.)
+- Tests pour le date picker modal
+- Tests pour le système de suggestions
+- Tests end-to-end avec Obsidian mocké
+
+### 47. **Amélioration de l'accessibilité** ❌ À FAIRE
+**Problème actuel :**
+- Pas de support clavier complet pour le date picker
+- Pas d'ARIA labels pour les éléments interactifs
+- Pas de support pour les lecteurs d'écran
+
+**Amélioration :**
+- Support clavier complet (Tab, Enter, Escape)
+- ARIA labels pour tous les éléments interactifs
+- Support pour les lecteurs d'écran
+- Contraste des couleurs respectant WCAG
+
+### 48. **Gestion des erreurs de réseau/storage** ❌ À FAIRE
+**Problème actuel :**
+- Pas de gestion d'erreur si le vault est en lecture seule
+- Pas de gestion d'erreur si le stockage de l'historique échoue
+- Erreurs silencieuses dans `HistoryManager.saveHistory()` (ligne 64)
+
+**Amélioration :**
+- Vérifier si le vault est en écriture avant de sauvegarder
+- Gérer les erreurs de stockage gracieusement
+- Notifier l'utilisateur si la sauvegarde échoue
+- Mode dégradé si le stockage n'est pas disponible
+
+### 49. **Support des formats de date personnalisés par langue** ❌ À FAIRE
+**Problème actuel :**
+- Un seul format de date global pour toutes les langues
+- Pas de support des formats locaux (DD/MM/YYYY vs MM/DD/YYYY)
+
+**Amélioration :**
+- Format de date par langue dans les settings
+- Détection automatique du format préféré selon la langue
+- Support des formats locaux (DD/MM/YYYY pour FR, MM/DD/YYYY pour EN-US)
+
+### 50. **Optimisation des performances du parsing** ❌ À FAIRE
+**Problème actuel :**
+- Parsing séquentiel de toutes les langues activées
+- Pas de parallélisation possible
+- Regex complexes peuvent être lentes pour de longues chaînes
+
+**Amélioration :**
+- Parsing parallèle des langues (Web Workers si disponible)
+- Optimisation des regex (utiliser des regex plus simples quand possible)
+- Early exit si une langue trouve un match parfait
+- Profiling pour identifier les goulots d'étranglement
+
+### 51. **Support des expressions de date complexes** ❌ À FAIRE
+**Problème actuel :**
+- Pas de support pour "the 15th of next month"
+- Pas de support pour "last day of month"
+- Pas de support pour "first Monday of month"
+
+**Amélioration :**
+- Parser "the Xth of next month"
+- Parser "last day of month"
+- Parser "first/last weekday of month"
+- Support multi-langues pour ces expressions
+
+### 52. **Amélioration de l'interface du date picker** ❌ À FAIRE
+**Problème actuel :**
+- Interface basique sans calendrier visuel
+- Pas de navigation par mois/année
+- Pas de sélection rapide de dates courantes
+
+**Amélioration :**
+- Calendrier visuel dans le modal
+- Navigation par mois/année
+- Boutons rapides (Today, Tomorrow, Next Week, etc.)
+- Support du mode sombre (voir #21)
+- Raccourcis clavier pour navigation
+
+### 53. **Support des expressions de temps relatives complexes** ❌ À FAIRE
+**Problème actuel :**
+- Support limité pour "in 2 hours and 30 minutes"
+- Pas de support pour "at noon", "at midnight"
+- Pas de support pour "end of day", "start of day"
+
+**Amélioration :**
+- Parser "in X hours and Y minutes" (déjà partiellement fait)
+- Parser "at noon", "at midnight" dans toutes les langues
+- Parser "end of day", "start of day"
+- Support des expressions comme "in half an hour"
+
+### 54. **Export/Import des settings** ❌ À FAIRE
+**Problème actuel :**
+- Pas de moyen d'exporter les settings
+- Pas de moyen d'importer des settings
+- Difficile de partager la configuration entre appareils
+
+**Amélioration :**
+- Bouton "Export settings" dans les settings
+- Bouton "Import settings" dans les settings
+- Format JSON pour l'export/import
+- Validation des settings importés
+- Option pour exporter uniquement certains settings
+
+### 55. **Support des raccourcis clavier pour les suggestions** ❌ À FAIRE
+**Problème actuel :**
+- Seulement Shift+Enter pour garder l'alias
+- Pas de raccourcis pour naviguer dans les suggestions
+- Pas de raccourcis pour sélectionner rapidement
+
+**Amélioration :**
+- Raccourcis clavier personnalisables pour les suggestions
+- Navigation au clavier dans la liste (flèches haut/bas)
+- Raccourci pour sélectionner la première suggestion
+- Raccourci pour fermer les suggestions
 
 
 
