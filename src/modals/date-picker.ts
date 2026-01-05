@@ -62,6 +62,7 @@ export default class DatePickerModal extends Modal {
         .setName("Date format")
         .setDesc("Moment format to be used")
         .addMomentFormat((momentEl) => {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           momentEl.setPlaceholder("YYYY-MM-DD HH:mm");
           momentEl.setValue(momentFormat);
           momentEl.onChange((value) => {
