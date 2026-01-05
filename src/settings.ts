@@ -2,6 +2,10 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import NaturalLanguageDates from "./main";
 import { getLocaleWeekStart, validateMomentFormat } from "./utils";
 
+/**
+ * Day of the week type for week start preference.
+ * Can be a specific day or "locale-default" to use the system locale.
+ */
 export type DayOfWeek =
   | "sunday"
   | "monday"
@@ -12,6 +16,10 @@ export type DayOfWeek =
   | "saturday"
   | "locale-default";
 
+/**
+ * Plugin settings interface.
+ * Contains all configuration options for the Natural Language Dates plugin.
+ */
 export interface NLDSettings {
   autosuggestToggleLink: boolean;
   autocompleteTriggerPhrase: string;

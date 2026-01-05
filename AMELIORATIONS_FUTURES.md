@@ -583,27 +583,50 @@ Les fichiers de traduction du plugin sont **complets** pour toutes les langues (
 
 ## 📚 Documentation
 
-### 33. **Documentation API complète** ❌ À FAIRE
-**Problème actuel :**
-- Manque de JSDoc pour les méthodes publiques
-- Pas d'exemples d'utilisation dans le code
-- Pas de guide pour les développeurs de plugins tiers
+### 33. **Documentation API complète** ✅ FAIT
+**Statut :** Documentation API professionnelle complète en anglais avec JSDoc et guide développeur.
 
-**Amélioration :**
-- JSDoc pour toutes les fonctions publiques (voir #5.1)
-- Exemples d'utilisation dans la documentation
-- Guide pour les développeurs de plugins tiers
-- Documentation des types TypeScript exportés
-- Exemples de code dans le README
+**Implémentation :**
+- ✅ JSDoc complet en anglais pour toutes les méthodes publiques (`src/main.ts`, `src/parser.ts`)
+  - `parse()` : Documentation complète avec exemples
+  - `parseDate()` : Documentation avec détection automatique du temps
+  - `parseDateRange()` : Documentation avec exemples de plages
+  - `parseTime()` : Documentation pour parsing de temps
+  - `hasTimeComponent()` : Documentation pour détection de temps
+  - Méthodes du parser : `getParsedDate()`, `getParsedDateRange()`, `hasTimeComponent()`
+- ✅ JSDoc pour toutes les interfaces et types exportés (`src/parser.ts`, `src/settings.ts`)
+  - `NLDResult` : Interface documentée avec exemples
+  - `NLDRangeResult` : Interface documentée avec exemples
+  - `NLDSettings` : Interface documentée
+  - `DayOfWeek` : Type documenté
+- ✅ Fichier `API.md` professionnel créé avec :
+  - Table des matières complète
+  - Guide de démarrage pour développeurs
+  - Documentation complète de toutes les méthodes publiques
+  - Exemples de code pour chaque méthode
+  - Documentation des types et interfaces
+  - Section d'exemples avancés
+  - Guide d'intégration avec d'autres plugins
+  - Référence des formats Moment.js
+- ✅ Section API ajoutée dans `README.md` :
+  - Lien vers la documentation complète
+  - Exemples de démarrage rapide
+  - Support TypeScript documenté
+  - Exemples de code pratiques
 
-**Méthodes publiques à documenter :**
-- `parse(dateString: string, format: string): NLDResult`
-- `parseDate(dateString: string): NLDResult`
-- `parseDateRange(dateString: string): NLDRangeResult | null`
-- `parseTime(dateString: string): NLDResult`
-- `hasTimeComponent(text: string): boolean`
-- `parser.getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date`
-- `parser.getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null`
+**Fichiers créés/modifiés :**
+- `API.md` - Documentation API complète (nouveau fichier)
+- `src/main.ts` - JSDoc ajouté pour toutes les méthodes publiques
+- `src/parser.ts` - JSDoc ajouté pour interfaces et méthodes publiques
+- `src/settings.ts` - JSDoc ajouté pour types et interfaces
+- `README.md` - Section API ajoutée avec exemples
+
+**Résultat :**
+- ✅ Documentation professionnelle en anglais
+- ✅ JSDoc complet pour IntelliSense et autocomplétion
+- ✅ Guide complet pour développeurs de plugins tiers
+- ✅ Exemples de code pratiques et avancés
+- ✅ Support TypeScript documenté
 
 ### 34. **Guide utilisateur amélioré**
 **Amélioration :**
@@ -853,7 +876,7 @@ public on(event: 'dateParsed' | 'languageChanged', callback: Function): void {
 12. **Debouncing des suggestions** (#17) ❌ À faire - **Améliore les performances**
 13. **Lazy loading des langues** (#16) ❌ À faire - **Améliore le temps de démarrage**
 14. **Raccourcis clavier personnalisables** (#20) ❌ À faire
-15. **Documentation API** (#33) ❌ À faire - **Important pour les développeurs**
+15. **Documentation API** (#33) ✅ **FAIT** - **Important pour les développeurs**
 16. **Support des fuseaux horaires** (#6) ❌ À faire
 
 ### 🟢 Basse Priorité
@@ -888,6 +911,7 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - **#18** - Optimisation des regex (compilation unique, dynamique)
 - **#29** - Suite de tests unitaires (95/95 tests passent - 100% de réussite) ✅ **COMPLET**
 - **#32** - Validation des formats (validation en temps réel avec prévisualisation) ✅ **FAIT**
+- **#33** - Documentation API complète (JSDoc + API.md professionnel en anglais) ✅ **FAIT**
 - **#36** - Validation des entrées (sanitization complète et protection contre les injections) ✅ **FAIT**
 - **#40** - Logging structuré (système de logging avec niveaux)
 

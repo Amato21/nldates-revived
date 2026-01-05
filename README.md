@@ -5,6 +5,23 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 
 ## New Features
 
+### v0.9.5 - Security & Documentation Improvements
+* **Input Validation & Security:**
+    * Complete input sanitization to prevent injection attacks
+    * Format validation with real-time preview in settings
+    * URI parameter validation for secure protocol handling
+    * Input length limits and character validation
+* **API Documentation:**
+    * Complete JSDoc documentation for all public methods
+    * Comprehensive API.md guide for developers
+    * TypeScript type definitions fully documented
+    * Code examples and integration guides
+* **Format Validation:**
+    * Real-time format validation in settings with preview
+    * Clear error messages for invalid formats
+    * Automatic fallback to default formats on error
+    * Protection against dangerous characters in formats
+
 ### v0.9.0 - Advanced Multilingual Support 🚀
 * **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, and Italian**!
     * Each language works **100%** with its own native words and units
@@ -96,18 +113,54 @@ Powered by the [chrono-node](https://github.com/wanasit/chrono) library.
 
 ---
 
-## 🔧 For Developers & URI
+## 🔧 For Developers & API
 
-The plugin creates a global object for use in other plugins or via Obsidian URI.
+### Complete API Documentation
+
+For complete API documentation, see **[API.md](API.md)** - a comprehensive guide with:
+- All public methods and their parameters
+- TypeScript interfaces and types
+- Code examples for common use cases
+- Advanced usage patterns
+- Integration examples
+
+### Quick Start
+
+**Accessing the Plugin:**
+```typescript
+const nldatesPlugin = app.plugins.plugins['nldates-obsidian-revived'] as NaturalLanguageDates;
+```
+
+**Basic Usage:**
+```typescript
+// Parse a date
+const result = nldatesPlugin.parseDate("tomorrow");
+console.log(result.formattedString); // "2025-01-06"
+
+// Parse with custom format
+const custom = nldatesPlugin.parse("next Monday", "dddd, MMMM Do");
+console.log(custom.formattedString); // "Monday, January 6th"
+
+// Parse date ranges
+const range = nldatesPlugin.parseDateRange("from Monday to Friday");
+if (range) {
+  console.log(range.dateList?.length); // 5
+  range.dateList?.forEach(date => {
+    console.log(date.format("YYYY-MM-DD"));
+  });
+}
+
+// Check for time component
+const hasTime = nldatesPlugin.hasTimeComponent("next Monday at 3pm"); // true
+```
 
 **URI Action:** `obsidian://nldates?day=tomorrow&newPane=yes`
 
-**API Usage:**
-```ts
-const nldatesPlugin = app.plugins.getPlugin("nldates-revived");
-const parsedResult = nldatesPlugin.parseDate("next year");
-
-console.log(parsedResult.moment.format("YYYY"));
+**TypeScript Support:**
+```typescript
+import type NaturalLanguageDates from 'nldates-obsidian-revived';
+import type { NLDResult, NLDRangeResult } from 'nldates-obsidian-revived/src/parser';
+import type { NLDSettings } from 'nldates-obsidian-revived/src/settings';
 ```
 
 ### Architecture

@@ -18,20 +18,56 @@ import {
 // The moment package is bundled with Obsidian, but the Moment type is not exported from obsidian module
 type Moment = import("moment").Moment;
 
+/**
+ * Result object returned by date parsing methods.
+ * Contains the parsed date in multiple formats for convenience.
+ * 
+ * @example
+ * ```typescript
+ * const result = plugin.parseDate("tomorrow");
+ * console.log(result.formattedString); // "2025-01-06"
+ * console.log(result.date); // Date object
+ * console.log(result.moment.format("dddd")); // "Monday"
+ * ```
+ */
 export interface NLDResult {
+  /** Formatted date string according to the specified format */
   formattedString: string;
+  /** Native JavaScript Date object */
   date: Date;
+  /** Moment.js object for advanced date manipulation */
   moment: Moment;
 }
 
+/**
+ * Result object returned by date range parsing methods.
+ * Contains the start and end dates of a parsed range, plus a list of all dates in the range.
+ * 
+ * @example
+ * ```typescript
+ * const range = plugin.parseDateRange("from Monday to Friday");
+ * if (range) {
+ *   console.log(range.startDate); // Date object for Monday
+ *   console.log(range.endDate); // Date object for Friday
+ *   console.log(range.dateList?.length); // 5 (Monday through Friday)
+ * }
+ * ```
+ */
 export interface NLDRangeResult {
+  /** Formatted range string (e.g., "2025-01-06 to 2025-01-10") */
   formattedString: string;
+  /** Start date of the range as a native Date object */
   startDate: Date;
+  /** End date of the range as a native Date object */
   endDate: Date;
+  /** Start date as a Moment.js object */
   startMoment: Moment;
+  /** End date as a Moment.js object */
   endMoment: Moment;
+  /** Always true for range results */
   isRange: true;
-  dateList?: Moment[]; // List of all dates in the range
+  /** Optional list of all dates in the range as Moment objects */
+  dateList?: Moment[];
 }
 
 export default class NLDParser {
@@ -323,6 +359,28 @@ export default class NLDParser {
   }
 
   // --- MAIN ENGINE ---
+  /**
+   * Parses a natural language date string and returns a Date object.
+   * 
+   * Supports multiple languages and various date expressions:
+   * - Immediate dates: "today", "tomorrow", "yesterday", "now"
+   * - Relative dates: "in 2 days", "in 3 weeks", "in 1 month"
+   * - Combined durations: "in 2 weeks and 3 days"
+   * - Weekdays: "next Monday", "last Friday", "this Wednesday"
+   * - Weekdays with time: "next Monday at 3pm"
+   * - Periods: "next week", "next month", "next year"
+   * 
+   * @param selectedText - Natural language date string to parse (e.g., "tomorrow", "in 2 days", "next Monday")
+   * @param weekStartPreference - Day of week to consider as week start (affects "next week" calculations)
+   * @returns Parsed Date object, or current date if parsing fails
+   * 
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en', 'fr']);
+   * const date = parser.getParsedDate("tomorrow", "monday");
+   * console.log(date); // Date object for tomorrow
+   * ```
+   */
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
     // Vérifier si le jour a changé pour invalider le cache
     const currentDay = this.getDayOfYear();
@@ -637,7 +695,27 @@ export default class NLDParser {
     return this.cacheAndReturn(cacheKey, chronoResult);
   }
 
-  // --- METHOD FOR PARSING DATE RANGES ---
+  /**
+   * Parses a natural language date range string and returns a range result.
+   * 
+   * Supports various range expressions:
+   * - Weekday ranges: "from Monday to Friday"
+   * - Week ranges: "next week" (returns all days of next week)
+   * - Works in all enabled languages with native translations
+   * 
+   * @param selectedText - Natural language date range string (e.g., "from Monday to Friday", "next week")
+   * @param weekStartPreference - Day of week to consider as week start
+   * @returns NLDRangeResult object with start/end dates and date list, or null if not a range
+   * 
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en', 'fr']);
+   * const range = parser.getParsedDateRange("from Monday to Friday", "monday");
+   * if (range) {
+   *   console.log(range.dateList?.length); // 5 (Monday through Friday)
+   * }
+   * ```
+   */
   getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null {
     const text = selectedText.toLowerCase().trim();
     
@@ -800,6 +878,25 @@ export default class NLDParser {
   }
 
   // --- TIME DETECTION (FOR DISPLAY) ---
+  /**
+   * Checks if a text string contains a time component.
+   * 
+   * Detects various time expressions:
+   * - Explicit times: "at 3pm", "at 15:00", "à 15h"
+   * - Time in relative expressions: "in 2 hours", "dans 2 heures"
+   * - Works with all enabled languages
+   * 
+   * @param text - Text string to check for time component
+   * @returns true if a time component is detected, false otherwise
+   * 
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en', 'fr']);
+   * parser.hasTimeComponent("next Monday at 3pm"); // true
+   * parser.hasTimeComponent("tomorrow"); // false
+   * parser.hasTimeComponent("in 2 hours"); // true
+   * ```
+   */
   hasTimeComponent(text: string): boolean {
     return this.timeDetector.hasTimeComponent(text);
   }

@@ -277,11 +277,25 @@ export default class NaturalLanguageDates extends Plugin {
     await this.saveData(this.settings);
   }
 
-  /*
-    @param dateString: A string that contains a date in natural language, e.g. today, tomorrow, next week
-    @param format: A string that contains the formatting string for a Moment
-    @returns NLDResult: An object containing the date, a cloned Moment and the formatted string.
-  */
+  /**
+   * Parses a natural language date string and formats it according to the specified format.
+   * 
+   * This is the core parsing method that accepts a custom format string.
+   * The input is validated and sanitized before parsing.
+   * 
+   * @param dateString - Natural language date string (e.g., "today", "tomorrow", "in 2 days", "next Monday")
+   * @param format - Moment.js format string (e.g., "YYYY-MM-DD", "DD/MM/YYYY", "MMMM Do, YYYY")
+   * @returns NLDResult object containing the formatted string, Date object, and Moment object
+   * 
+   * @example
+   * ```typescript
+   * const result = plugin.parse("tomorrow", "YYYY-MM-DD");
+   * console.log(result.formattedString); // "2025-01-06"
+   * 
+   * const result2 = plugin.parse("next Monday", "dddd, MMMM Do");
+   * console.log(result2.formattedString); // "Monday, January 6th"
+   * ```
+   */
   parse(dateString: string, format: string): NLDResult {
     if (!this.parser) {
       // Parser not yet initialized, initialize it now
@@ -322,10 +336,25 @@ export default class NaturalLanguageDates extends Plugin {
     };
   }
 
-  /*
-    @param dateString: A string that contains a date in natural language, e.g. today, tomorrow, next week
-    @returns NLDResult: An object containing the date, a cloned Moment and the formatted string.
-  */
+  /**
+   * Parses a natural language date string using the plugin's configured date format.
+   * 
+   * Automatically detects if the input contains a time component and includes it in the output.
+   * Uses the format from plugin settings (default: "YYYY-MM-DD").
+   * 
+   * @param dateString - Natural language date string (e.g., "today", "tomorrow", "next Monday at 3pm")
+   * @returns NLDResult object with formatted string using configured format
+   * 
+   * @example
+   * ```typescript
+   * // If settings.format is "YYYY-MM-DD" and settings.timeFormat is "HH:mm"
+   * const result = plugin.parseDate("tomorrow");
+   * console.log(result.formattedString); // "2025-01-06"
+   * 
+   * const result2 = plugin.parseDate("next Monday at 3pm");
+   * console.log(result2.formattedString); // "2025-01-06 15:00"
+   * ```
+   */
   parseDate(dateString: string): NLDResult {
     // Valider et sanitizer l'entrée utilisateur
     const sanitizedInput = validateUriParam(dateString, 200);
@@ -375,10 +404,33 @@ export default class NaturalLanguageDates extends Plugin {
     return result;
   }
 
-  /*
-    @param dateString: A string that contains a date range in natural language, e.g. "from Monday to Friday", "next week"
-    @returns NLDRangeResult | null: An object containing the date range, or null if not a range
-  */
+  /**
+   * Parses a natural language date range string.
+   * 
+   * Supports various range expressions:
+   * - Weekday ranges: "from Monday to Friday" / "de lundi à vendredi"
+   * - Week ranges: "next week" / "semaine prochaine" (returns all days of the week)
+   * 
+   * The result includes a list of all dates in the range for easy iteration.
+   * 
+   * @param dateString - Natural language date range string
+   * @returns NLDRangeResult object with start/end dates and date list, or null if not a range
+   * 
+   * @example
+   * ```typescript
+   * const range = plugin.parseDateRange("from Monday to Friday");
+   * if (range) {
+   *   console.log(range.startDate); // Date for Monday
+   *   console.log(range.endDate); // Date for Friday
+   *   console.log(range.dateList?.length); // 5
+   *   
+   *   // Iterate over all dates in range
+   *   range.dateList?.forEach(date => {
+   *     console.log(date.format("YYYY-MM-DD"));
+   *   });
+   * }
+   * ```
+   */
   parseDateRange(dateString: string): import("./parser").NLDRangeResult | null {
     if (!this.parser) {
       this.resetParser();
@@ -394,6 +446,25 @@ export default class NaturalLanguageDates extends Plugin {
     return this.parser.getParsedDateRange(sanitizedInput, this.settings.weekStart);
   }
 
+  /**
+   * Parses a natural language time string using the plugin's configured time format.
+   * 
+   * Extracts only the time component from the input and formats it according to settings.
+   * Uses the time format from plugin settings (default: "HH:mm").
+   * 
+   * @param dateString - Natural language time string (e.g., "now", "in 2 hours", "at 3pm")
+   * @returns NLDResult object with formatted time string
+   * 
+   * @example
+   * ```typescript
+   * // If settings.timeFormat is "HH:mm"
+   * const result = plugin.parseTime("in 2 hours");
+   * console.log(result.formattedString); // "17:30" (if current time is 15:30)
+   * 
+   * const result2 = plugin.parseTime("at 3pm");
+   * console.log(result2.formattedString); // "15:00"
+   * ```
+   */
   parseTime(dateString: string): NLDResult {
     // Valider et sanitizer l'entrée utilisateur
     const sanitizedInput = validateUriParam(dateString, 200);
@@ -418,6 +489,23 @@ export default class NaturalLanguageDates extends Plugin {
     return this.parse(sanitizedInput, this.settings.timeFormat);
   }
 
+  /**
+   * Checks if a text string contains a time component.
+   * 
+   * Useful for determining whether to include time formatting in the output.
+   * Detects various time expressions in all enabled languages.
+   * 
+   * @param text - Text string to check for time component
+   * @returns true if a time component is detected, false otherwise
+   * 
+   * @example
+   * ```typescript
+   * plugin.hasTimeComponent("next Monday at 3pm"); // true
+   * plugin.hasTimeComponent("tomorrow"); // false
+   * plugin.hasTimeComponent("in 2 hours"); // true
+   * plugin.hasTimeComponent("dans 2 heures"); // true (French)
+   * ```
+   */
   hasTimeComponent(text: string): boolean {
     if (!this.parser) {
       this.resetParser();
