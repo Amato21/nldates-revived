@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import NaturalLanguageDates from "./main";
-import { getLocaleWeekStart } from "./utils";
+import { getLocaleWeekStart, validateMomentFormat } from "./utils";
 
 export type DayOfWeek =
   | "sunday"
@@ -101,7 +101,7 @@ export class NLDSettingsTab extends PluginSettingTab {
 
     new Setting(containerEl).setHeading().setName("Parser settings");
 
-    new Setting(containerEl)
+    const dateFormatSetting = new Setting(containerEl)
       .setName("Date format")
       .setDesc("Output format for parsed dates")
       .addMomentFormat((text) =>
@@ -109,10 +109,26 @@ export class NLDSettingsTab extends PluginSettingTab {
           .setDefaultFormat("YYYY-MM-DD")
           .setValue(this.plugin.settings.format)
           .onChange(async (value) => {
-            this.plugin.settings.format = value || "YYYY-MM-DD";
-            await this.plugin.saveSettings();
+            const validated = validateMomentFormat(value || "YYYY-MM-DD");
+            if (validated.valid) {
+              this.plugin.settings.format = value || "YYYY-MM-DD";
+              await this.plugin.saveSettings();
+              // Mettre à jour la description avec la prévisualisation
+              dateFormatSetting.setDesc(`Output format for parsed dates${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+            } else {
+              // Afficher l'erreur dans la description
+              dateFormatSetting.setDesc(`Output format for parsed dates - ⚠️ ${validated.error || "Format invalide"}`);
+              // Ne pas sauvegarder le format invalide, restaurer le précédent
+              text.setValue(this.plugin.settings.format);
+            }
           })
       );
+    
+    // Afficher la prévisualisation initiale
+    const initialValidation = validateMomentFormat(this.plugin.settings.format);
+    if (initialValidation.valid && initialValidation.preview) {
+      dateFormatSetting.setDesc(`Output format for parsed dates (Preview: ${initialValidation.preview})`);
+    }
 
     new Setting(containerEl)
       .setName("Week starts on")
@@ -142,7 +158,7 @@ export class NLDSettingsTab extends PluginSettingTab {
 
     new Setting(containerEl).setHeading().setName("Hotkey formatting settings");
 
-    new Setting(containerEl)
+    const timeFormatSetting = new Setting(containerEl)
       .setName("Time format")
       .setDesc("Format for the hotkeys that include the current time")
       .addMomentFormat((text) =>
@@ -150,10 +166,26 @@ export class NLDSettingsTab extends PluginSettingTab {
           .setDefaultFormat("HH:mm")
           .setValue(this.plugin.settings.timeFormat)
           .onChange(async (value) => {
-            this.plugin.settings.timeFormat = value || "HH:mm";
-            await this.plugin.saveSettings();
+            const validated = validateMomentFormat(value || "HH:mm");
+            if (validated.valid) {
+              this.plugin.settings.timeFormat = value || "HH:mm";
+              await this.plugin.saveSettings();
+              // Mettre à jour la description avec la prévisualisation
+              timeFormatSetting.setDesc(`Format for the hotkeys that include the current time${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+            } else {
+              // Afficher l'erreur dans la description
+              timeFormatSetting.setDesc(`Format for the hotkeys that include the current time - ⚠️ ${validated.error || "Format invalide"}`);
+              // Ne pas sauvegarder le format invalide, restaurer le précédent
+              text.setValue(this.plugin.settings.timeFormat);
+            }
           })
       );
+    
+    // Afficher la prévisualisation initiale
+    const initialTimeValidation = validateMomentFormat(this.plugin.settings.timeFormat);
+    if (initialTimeValidation.valid && initialTimeValidation.preview) {
+      timeFormatSetting.setDesc(`Format for the hotkeys that include the current time (Preview: ${initialTimeValidation.preview})`);
+    }
 
     new Setting(containerEl)
       .setName("Separator")

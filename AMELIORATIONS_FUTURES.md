@@ -537,35 +537,35 @@ Les fichiers de traduction du plugin sont **complets** pour toutes les langues (
 - Pre-commit hooks avec linting
 - CI/CD avec vérifications automatiques
 
-### 32. **Validation des formats** ❌ À FAIRE
-**Problème actuel :**
-- Pas de validation des formats Moment.js dans les settings
-- Formats invalides peuvent causer des erreurs silencieuses
-- Pas de prévisualisation du format dans les settings
+### 32. **Validation des formats** ✅ FAIT
+**Statut :** Implémenté avec validation en temps réel et prévisualisation dans les settings.
 
-**Amélioration :**
-- Valider les formats Moment.js dans les settings
-- Afficher des erreurs claires pour formats invalides
-- Prévisualisation du format dans les settings avec date d'exemple
-- Validation en temps réel lors de la saisie
+**Implémentation :**
+- ✅ Fonction `validateMomentFormat()` dans `src/utils.ts` (lignes 202-235)
+  - Valide les formats Moment.js avec test réel
+  - Retourne un objet avec `valid`, `error` optionnel et `preview` optionnel
+  - Limite la longueur des formats (100 caractères max)
+  - Détecte les caractères dangereux pour éviter les injections
+- ✅ Validation en temps réel dans les settings (`src/settings.ts`)
+  - Validation pour le format de date (lignes 104-120)
+  - Validation pour le format de temps (lignes 145-161)
+  - Prévisualisation du format avec date d'exemple
+  - Affichage d'erreurs claires si le format est invalide
+  - Les formats invalides ne sont pas sauvegardés
+- ✅ Validation dans le modal date-picker (`src/modals/date-picker.ts`, lignes 195-220)
+  - Validation du format `modalMomentFormat` avec prévisualisation
+  - Protection contre les formats invalides lors de l'utilisation
+- ✅ Validation dans les méthodes de parsing (`src/main.ts`)
+  - `parse()` : valide le format avant utilisation (lignes 285-323)
+  - `parseDate()` : valide les formats de date et temps (lignes 329-376)
+  - `parseTime()` : valide le format de temps (lignes 389-407)
+  - Utilisation de formats par défaut en cas d'erreur
 
-**Implémentation suggérée :**
-```typescript
-// Dans settings.ts
-function validateMomentFormat(format: string): { valid: boolean; error?: string } {
-  try {
-    const testDate = window.moment();
-    const formatted = testDate.format(format);
-    // Vérifier que le format produit quelque chose de valide
-    if (!formatted || formatted === format) {
-      return { valid: false, error: "Format invalide ou non reconnu" };
-    }
-    return { valid: true };
-  } catch (error) {
-    return { valid: false, error: error.message };
-  }
-}
-```
+**Résultat :**
+- ✅ Formats invalides détectés immédiatement
+- ✅ Prévisualisation en temps réel dans les settings
+- ✅ Protection contre les erreurs silencieuses
+- ✅ Protection contre les injections dans les formats
 
 ### 32.1. **Gestion des erreurs de parsing silencieuses** ❌ À FAIRE
 **Problème actuel :**
@@ -622,33 +622,36 @@ function validateMomentFormat(format: string): { valid: boolean; error?: string 
 
 ## 🔒 Sécurité & Robustesse
 
-### 36. **Validation des entrées** ❌ À FAIRE
-**Problème actuel :**
-- Pas de validation stricte des entrées utilisateur
-- Risque d'injection dans les formats Moment.js
-- Paramètres URI non validés dans `actionHandler` (ligne 266)
-- Pas de sanitization des entrées utilisateur
+### 36. **Validation des entrées** ✅ FAIT
+**Statut :** Implémenté avec sanitization complète des entrées utilisateur et validation des paramètres URI.
 
-**Amélioration :**
-- Sanitizer pour les formats Moment.js (voir #32)
-- Validation des paramètres URI dans `actionHandler`
-- Protection contre les entrées malveillantes
-- Limitation de la longueur des chaînes d'entrée
-- Validation des caractères spéciaux
+**Implémentation :**
+- ✅ Fonction `sanitizeInput()` dans `src/utils.ts` (lignes 237-260)
+  - Limite la longueur des entrées (200 caractères par défaut, configurable)
+  - Valide les caractères autorisés (lettres, chiffres, espaces, tirets, caractères accentués, ponctuation)
+  - Rejette les entrées vides ou null
+  - Protection contre les injections de caractères malveillants
+- ✅ Fonction `validateUriParam()` dans `src/utils.ts` (lignes 262-265)
+  - Validation spécialisée pour les paramètres URI
+  - Limite de 100 caractères par défaut pour les paramètres URI
+- ✅ Validation dans `actionHandler()` (`src/main.ts`, lignes 350-365)
+  - Validation et sanitization du paramètre `day` avant utilisation
+  - Logging des tentatives d'injection
+  - Retour anticipé si le paramètre est invalide
+- ✅ Validation dans toutes les méthodes de parsing (`src/main.ts`)
+  - `parse()` : sanitization de l'entrée utilisateur (lignes 285-323)
+  - `parseDate()` : validation de l'entrée (lignes 329-376)
+  - `parseTime()` : validation de l'entrée (lignes 389-407)
+  - `parseDateRange()` : validation de l'entrée (lignes 382-395)
+  - Retour de dates invalides plutôt que de planter en cas d'entrée invalide
 
-**Implémentation suggérée :**
-```typescript
-// Dans main.ts actionHandler
-async actionHandler(params: ObsidianProtocolData): Promise<void> {
-  // Valider et sanitizer les paramètres
-  const day = params.day?.trim().substring(0, 100); // Limiter la longueur
-  if (!day || !/^[a-zA-Z0-9\s\-àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ]+$/i.test(day)) {
-    logger.warn("Invalid day parameter in URI", { day: params.day });
-    return;
-  }
-  // ... reste du code
-}
-```
+**Résultat :**
+- ✅ Protection contre les injections dans les formats Moment.js
+- ✅ Validation stricte des paramètres URI
+- ✅ Protection contre les entrées malveillantes
+- ✅ Limitation de la longueur des chaînes d'entrée
+- ✅ Validation des caractères spéciaux
+- ✅ Gestion gracieuse des erreurs avec logging
 
 ### 36.1. **Protection contre les attaques par déni de service** ❌ À FAIRE
 **Problème actuel :**
@@ -838,8 +841,8 @@ public on(event: 'dateParsed' | 'languageChanged', callback: Function): void {
 2. **Refactoring du système de langues** (#1) 🔄 Partiellement fait
 3. **Exposer le parser publiquement** (#2) ✅ **FAIT**
 4. **Cache de parsing** (#15) ✅ **FAIT**
-5. **Validation des formats** (#32) ❌ À faire - **Important pour la stabilité**
-6. **Validation des entrées** (#36) ❌ À faire - **Important pour la sécurité**
+5. **Validation des formats** (#32) ✅ **FAIT** - **Important pour la stabilité**
+6. **Validation des entrées** (#36) ✅ **FAIT** - **Important pour la sécurité**
 7. **Migration des settings** (#39) ❌ À faire - **Important pour la compatibilité**
 
 ### 🟡 Priorité Moyenne
@@ -884,6 +887,8 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - **#15** - Cache de parsing (invalidation quotidienne automatique)
 - **#18** - Optimisation des regex (compilation unique, dynamique)
 - **#29** - Suite de tests unitaires (95/95 tests passent - 100% de réussite) ✅ **COMPLET**
+- **#32** - Validation des formats (validation en temps réel avec prévisualisation) ✅ **FAIT**
+- **#36** - Validation des entrées (sanitization complète et protection contre les injections) ✅ **FAIT**
 - **#40** - Logging structuré (système de logging avec niveaux)
 
 ### 🔄 Partiellement Implémentées
@@ -931,10 +936,8 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - Pas de support fuseaux horaires - **#6**
 - Pas de debouncing des suggestions - **#17**
 - Manque de documentation JSDoc - **#5.1, #33**
-- Pas de validation stricte des formats - **#32**
 - Pas de migration automatique des settings - **#39**
 - Pas de lazy loading des langues - **#16**
-- Pas de validation des entrées utilisateur - **#36**
 - Pas de protection contre ReDoS - **#36.1**
 - Pas de gestion explicite des edge cases (DST, dates limites) - **#37**
 - Pas de tests d'intégration - **#46**

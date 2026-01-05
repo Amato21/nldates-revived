@@ -1,7 +1,7 @@
 import { App, MarkdownView, Modal, Setting } from "obsidian";
-import { generateMarkdownLink, getLocaleWeekStart } from "../utils";
+import { generateMarkdownLink, getLocaleWeekStart, validateMomentFormat } from "../utils";
 import type NaturalLanguageDates from "../main";
-import { DayOfWeek } from "../settings";
+import { DayOfWeek, DEFAULT_SETTINGS } from "../settings";
 import t from "../lang/helper";
 
 type Moment = import("moment").Moment;
@@ -57,8 +57,13 @@ export default class DatePickerModal extends Modal {
       // Utiliser la date sélectionnée dans le calendrier si disponible
       const dateToParse = cleanDateInput || this.selectedDate.format("YYYY-MM-DD");
       const parsedDate = this.plugin.parseDate(dateToParse);
+      
+      // Valider le format avant utilisation
+      const formatValidation = validateMomentFormat(momentFormat);
+      const formatToUse = formatValidation.valid ? momentFormat : DEFAULT_SETTINGS.modalMomentFormat;
+      
       let parsedDateString = parsedDate.moment.isValid()
-        ? parsedDate.moment.format(momentFormat)
+        ? parsedDate.moment.format(formatToUse)
         : "";
 
       if (insertAsLink) {
@@ -193,19 +198,35 @@ export default class DatePickerModal extends Modal {
     updatePreview();
 
     // Options de format
-    new Setting(inputSection)
+    const formatSetting = new Setting(inputSection)
       .setName("Date format")
       .setDesc("Moment format to be used")
       .addMomentFormat((momentEl) => {
         momentEl.setPlaceholder("YYYY-MM-DD HH:mm");
         momentEl.setValue(momentFormat);
         momentEl.onChange((value) => {
-          momentFormat = value.trim() || "YYYY-MM-DD HH:mm";
-          this.plugin.settings.modalMomentFormat = momentFormat;
-          void this.plugin.saveSettings();
-          updatePreview();
+          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD HH:mm");
+          if (validated.valid) {
+            momentFormat = value.trim() || "YYYY-MM-DD HH:mm";
+            this.plugin.settings.modalMomentFormat = momentFormat;
+            void this.plugin.saveSettings();
+            updatePreview();
+            // Mettre à jour la description avec la prévisualisation
+            formatSetting.setDesc(`Moment format to be used${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+          } else {
+            // Afficher l'erreur dans la description
+            formatSetting.setDesc(`Moment format to be used - ⚠️ ${validated.error || "Format invalide"}`);
+            // Ne pas sauvegarder le format invalide, restaurer le précédent
+            momentEl.setValue(momentFormat);
+          }
         });
       });
+    
+    // Afficher la prévisualisation initiale
+    const initialValidation = validateMomentFormat(momentFormat);
+    if (initialValidation.valid && initialValidation.preview) {
+      formatSetting.setDesc(`Moment format to be used (Preview: ${initialValidation.preview})`);
+    }
 
     new Setting(inputSection)
       .setName("Add as link?")

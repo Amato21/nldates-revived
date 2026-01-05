@@ -76,6 +76,84 @@ export function parseTruthy(flag: string): boolean {
   return ["y", "yes", "1", "t", "true"].indexOf(flag.toLowerCase()) >= 0;
 }
 
+/**
+ * Valide un format Moment.js et retourne un résultat avec prévisualisation
+ * @param format - Le format Moment.js à valider
+ * @returns Un objet contenant valid (booléen), error (optionnel), preview (optionnel)
+ */
+export function validateMomentFormat(format: string): { valid: boolean; error?: string; preview?: string } {
+  if (!format || typeof format !== 'string') {
+    return { valid: false, error: "Le format ne peut pas être vide" };
+  }
+
+  // Limiter la longueur du format pour éviter les attaques
+  const MAX_FORMAT_LENGTH = 100;
+  if (format.length > MAX_FORMAT_LENGTH) {
+    return { valid: false, error: `Le format ne peut pas dépasser ${MAX_FORMAT_LENGTH} caractères` };
+  }
+
+  try {
+    const testDate = window.moment();
+    const formatted = testDate.format(format);
+    
+    // Vérifier que le format produit quelque chose de valide
+    if (!formatted || formatted === format) {
+      return { valid: false, error: "Format invalide ou non reconnu" };
+    }
+    
+    // Vérifier que le format ne contient pas de caractères dangereux
+    // Moment.js utilise des caractères spéciaux, mais on veut éviter les injections
+    // Les formats Moment.js valides contiennent principalement des lettres, chiffres et caractères de ponctuation
+    const dangerousPattern = /[<>\"'`]/;
+    if (dangerousPattern.test(format)) {
+      return { valid: false, error: "Le format contient des caractères non autorisés" };
+    }
+    
+    return { valid: true, preview: formatted };
+  } catch (error) {
+    return { valid: false, error: error instanceof Error ? error.message : "Erreur lors de la validation du format" };
+  }
+}
+
+/**
+ * Sanitize et valide une entrée utilisateur pour éviter les injections
+ * @param input - L'entrée à sanitizer
+ * @param maxLength - Longueur maximale autorisée (défaut: 200)
+ * @returns L'entrée sanitizée ou null si invalide
+ */
+export function sanitizeInput(input: string | undefined | null, maxLength: number = 200): string | null {
+  if (!input || typeof input !== 'string') {
+    return null;
+  }
+
+  // Limiter la longueur
+  const trimmed = input.trim().substring(0, maxLength);
+  
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  // Valider les caractères - autoriser les lettres, chiffres, espaces, tirets, caractères accentués
+  // et quelques caractères spéciaux pour les dates en langage naturel
+  const validPattern = /^[a-zA-Z0-9\s\-àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ.,:;!?()]+$/i;
+  
+  if (!validPattern.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Valide un paramètre URI pour éviter les injections
+ * @param param - Le paramètre à valider
+ * @param maxLength - Longueur maximale autorisée (défaut: 100)
+ * @returns Le paramètre validé ou null si invalide
+ */
+export function validateUriParam(param: string | undefined | null, maxLength: number = 100): string | null {
+  return sanitizeInput(param, maxLength);
+}
+
 export function getWeekNumber(dayOfWeek: Omit<DayOfWeek, "locale-default">): number {
   return daysOfWeek.indexOf(dayOfWeek);
 }

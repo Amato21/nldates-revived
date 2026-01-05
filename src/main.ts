@@ -10,7 +10,7 @@ import {
   getCurrentTimeCommand,
   getNowCommand,
 } from "./commands";
-import { getFormattedDate, getOrCreateDailyNote, parseTruthy } from "./utils";
+import { getFormattedDate, getOrCreateDailyNote, parseTruthy, validateUriParam, validateMomentFormat } from "./utils";
 import HistoryManager from "./history-manager";
 import ContextAnalyzer from "./context-analyzer";
 import { logger } from "./logger";
@@ -287,10 +287,32 @@ export default class NaturalLanguageDates extends Plugin {
       // Parser not yet initialized, initialize it now
       this.resetParser();
     }
-    const date = this.parser.getParsedDate(dateString, this.settings.weekStart);
+
+    // Valider le format avant utilisation
+    const formatValidation = validateMomentFormat(format);
+    if (!formatValidation.valid) {
+      logger.warn("Invalid format in parse()", { format, error: formatValidation.error });
+      // Utiliser le format par défaut en cas d'erreur
+      format = DEFAULT_SETTINGS.format;
+    }
+
+    // Valider et sanitizer l'entrée utilisateur
+    const sanitizedInput = validateUriParam(dateString, 200);
+    if (!sanitizedInput) {
+      logger.warn("Invalid input in parse()", { dateString });
+      // Retourner une date invalide plutôt que de planter
+      const invalidDate = new Date(NaN);
+      return {
+        formattedString: "Invalid date",
+        date: invalidDate,
+        moment: window.moment(invalidDate),
+      };
+    }
+
+    const date = this.parser.getParsedDate(sanitizedInput, this.settings.weekStart);
     const formattedString = getFormattedDate(date, format);
     if (formattedString === "Invalid date") {
-      logger.debug("Input date can't be parsed by nldates", { dateString });
+      logger.debug("Input date can't be parsed by nldates", { dateString: sanitizedInput });
     }
 
     return {
@@ -305,23 +327,51 @@ export default class NaturalLanguageDates extends Plugin {
     @returns NLDResult: An object containing the date, a cloned Moment and the formatted string.
   */
   parseDate(dateString: string): NLDResult {
+    // Valider et sanitizer l'entrée utilisateur
+    const sanitizedInput = validateUriParam(dateString, 200);
+    if (!sanitizedInput) {
+      logger.warn("Invalid input in parseDate()", { dateString });
+      const invalidDate = new Date(NaN);
+      return {
+        formattedString: "Invalid date",
+        date: invalidDate,
+        moment: window.moment(invalidDate),
+      };
+    }
+
+    // Valider le format de date
+    const dateFormatValidation = validateMomentFormat(this.settings.format);
+    if (!dateFormatValidation.valid) {
+      logger.warn("Invalid date format in settings", { format: this.settings.format, error: dateFormatValidation.error });
+      // Utiliser le format par défaut
+      this.settings.format = DEFAULT_SETTINGS.format;
+    }
+
     // 1. Ask the parser if time is detected
-    const hasTime = this.parser.hasTimeComponent(dateString);
+    const hasTime = this.parser.hasTimeComponent(sanitizedInput);
     let formatToUse = this.settings.format;
 
     // 2. If time is detected...
     if (hasTime) {
       const timeFormat = this.settings.timeFormat || "HH:mm";
       
-      // TIP: Here we format "Date TIME."
-      // But BEWARE: it is the "date-suggest.ts" file that will add the [[ ]].
-      // If we don't touch date-suggest, it will make [[Date Time]].
-      // To make [[Date]] Time, we have to be clever.
-      
-      formatToUse = `${formatToUse} ${timeFormat}`;
+      // Valider le format de temps
+      const timeFormatValidation = validateMomentFormat(timeFormat);
+      if (!timeFormatValidation.valid) {
+        logger.warn("Invalid time format in settings", { format: timeFormat, error: timeFormatValidation.error });
+        // Utiliser le format par défaut
+        formatToUse = `${this.settings.format} ${DEFAULT_SETTINGS.timeFormat}`;
+      } else {
+        // TIP: Here we format "Date TIME."
+        // But BEWARE: it is the "date-suggest.ts" file that will add the [[ ]].
+        // If we don't touch date-suggest, it will make [[Date Time]].
+        // To make [[Date]] Time, we have to be clever.
+        
+        formatToUse = `${formatToUse} ${timeFormat}`;
+      }
     }
 
-    const result = this.parse(dateString, formatToUse);
+    const result = this.parse(sanitizedInput, formatToUse);
     return result;
   }
 
@@ -333,11 +383,39 @@ export default class NaturalLanguageDates extends Plugin {
     if (!this.parser) {
       this.resetParser();
     }
-    return this.parser.getParsedDateRange(dateString, this.settings.weekStart);
+
+    // Valider et sanitizer l'entrée utilisateur
+    const sanitizedInput = validateUriParam(dateString, 200);
+    if (!sanitizedInput) {
+      logger.warn("Invalid input in parseDateRange()", { dateString });
+      return null;
+    }
+
+    return this.parser.getParsedDateRange(sanitizedInput, this.settings.weekStart);
   }
 
   parseTime(dateString: string): NLDResult {
-    return this.parse(dateString, this.settings.timeFormat);
+    // Valider et sanitizer l'entrée utilisateur
+    const sanitizedInput = validateUriParam(dateString, 200);
+    if (!sanitizedInput) {
+      logger.warn("Invalid input in parseTime()", { dateString });
+      const invalidDate = new Date(NaN);
+      return {
+        formattedString: "Invalid date",
+        date: invalidDate,
+        moment: window.moment(invalidDate),
+      };
+    }
+
+    // Valider le format de temps
+    const timeFormatValidation = validateMomentFormat(this.settings.timeFormat);
+    if (!timeFormatValidation.valid) {
+      logger.warn("Invalid time format in settings", { format: this.settings.timeFormat, error: timeFormatValidation.error });
+      // Utiliser le format par défaut
+      return this.parse(sanitizedInput, DEFAULT_SETTINGS.timeFormat);
+    }
+
+    return this.parse(sanitizedInput, this.settings.timeFormat);
   }
 
   hasTimeComponent(text: string): boolean {
@@ -350,7 +428,14 @@ export default class NaturalLanguageDates extends Plugin {
   async actionHandler(params: ObsidianProtocolData): Promise<void> {
     const { workspace } = this.app;
 
-    const date = this.parseDate(params.day);
+    // Valider et sanitizer les paramètres URI pour éviter les injections
+    const day = validateUriParam(params.day, 100);
+    if (!day) {
+      logger.warn("Invalid day parameter in URI", { day: params.day });
+      return;
+    }
+
+    const date = this.parseDate(day);
     const newPane = parseTruthy(params.newPane || "yes");
 
     if (date.moment.isValid()) {
