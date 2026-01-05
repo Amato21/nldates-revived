@@ -1,21 +1,27 @@
 import { App, MarkdownView, Editor } from "obsidian";
 import type NaturalLanguageDates from "./main";
 import t from "./lang/helper";
+import { LRUCache } from "./lru-cache";
+import { logger } from "./logger";
 
 const CONTEXT_LINES = 10; // Nombre de lignes à analyser avant et après le curseur
 const MAX_DATES_TO_EXTRACT = 10; // Nombre maximum de dates à extraire du contexte
+const MAX_CACHE_SIZE = 200; // Limite de taille du cache de contexte
+const CACHE_TIMEOUT = 5000; // 5 secondes de cache
+const CLEANUP_INTERVAL = 30000; // Nettoyage périodique toutes les 30 secondes
 
 export interface ContextInfo {
   datesInContext: string[]; // Dates trouvées dans le contexte (formats naturels détectés)
   title?: string; // Titre de la note
   tags: string[]; // Tags de la note
+  timestamp: number; // Timestamp de création pour le nettoyage
 }
 
 export default class ContextAnalyzer {
   private app: App;
   private plugin: NaturalLanguageDates;
-  private cache: Map<string, ContextInfo> = new Map(); // Cache temporaire par fichier
-  private cacheTimeout: number = 5000; // 5 secondes de cache
+  private cache: LRUCache<string, ContextInfo>; // Cache temporaire par fichier avec limite de taille
+  private cleanupInterval: number | null = null; // ID de l'intervalle de nettoyage
   
   // Patterns regex pour la détection de dates (générés dynamiquement)
   private datePatterns: RegExp[] = [];
@@ -23,7 +29,53 @@ export default class ContextAnalyzer {
   constructor(app: App, plugin: NaturalLanguageDates) {
     this.app = app;
     this.plugin = plugin;
+    this.cache = new LRUCache<string, ContextInfo>(MAX_CACHE_SIZE);
     this.initializeDatePatterns();
+    this.startPeriodicCleanup();
+  }
+
+  /**
+   * Démarre le nettoyage périodique du cache
+   */
+  private startPeriodicCleanup(): void {
+    // Nettoyer toutes les 30 secondes
+    this.cleanupInterval = window.setInterval(() => {
+      this.cleanupExpiredEntries();
+    }, CLEANUP_INTERVAL);
+  }
+
+  /**
+   * Arrête le nettoyage périodique (à appeler lors de la destruction)
+   */
+  stopPeriodicCleanup(): void {
+    if (this.cleanupInterval !== null) {
+      window.clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  /**
+   * Nettoie les entrées expirées du cache
+   */
+  private cleanupExpiredEntries(): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+
+    // Parcourir toutes les entrées du cache
+    for (const [key, value] of this.cache.entries()) {
+      if (value.timestamp && (now - value.timestamp) > CACHE_TIMEOUT) {
+        keysToDelete.push(key);
+      }
+    }
+
+    // Supprimer les entrées expirées
+    for (const key of keysToDelete) {
+      this.cache.delete(key);
+    }
+
+    if (keysToDelete.length > 0) {
+      logger.debug(`Nettoyage du cache de contexte: ${keysToDelete.length} entrées supprimées`);
+    }
   }
 
   /**
@@ -150,6 +202,14 @@ export default class ContextAnalyzer {
   }
 
   /**
+   * Nettoie le cache lors de la destruction de l'instance
+   */
+  destroy(): void {
+    this.stopPeriodicCleanup();
+    this.clearCache();
+  }
+
+  /**
    * Analyse le contexte autour du curseur de manière synchrone (utilise le cache)
    */
   analyzeContextSync(editor: Editor, cursorLine: number): ContextInfo {
@@ -167,12 +227,20 @@ export default class ContextAnalyzer {
     const cacheKey = `${file.path}-${cursorLine}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
-      return cached;
+      // Vérifier si l'entrée n'est pas expirée
+      const now = Date.now();
+      if (cached.timestamp && (now - cached.timestamp) <= CACHE_TIMEOUT) {
+        return cached;
+      } else {
+        // Entrée expirée, la supprimer
+        this.cache.delete(cacheKey);
+      }
     }
 
     const context: ContextInfo = {
       datesInContext: [],
       tags: [],
+      timestamp: Date.now(),
     };
 
     try {
@@ -204,11 +272,8 @@ export default class ContextAnalyzer {
       // Extraire les dates du contexte
       context.datesInContext = this.extractDatesFromContext(contextText);
 
-      // Mettre en cache (avec nettoyage périodique)
+      // Mettre en cache (le LRU cache gère automatiquement la limite de taille)
       this.cache.set(cacheKey, context);
-      setTimeout(() => {
-        this.cache.delete(cacheKey);
-      }, this.cacheTimeout);
 
     } catch (error) {
       console.error("Erreur lors de l'analyse du contexte:", error);
@@ -274,5 +339,15 @@ export default class ContextAnalyzer {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  /**
+   * Retourne les statistiques du cache de contexte
+   */
+  getCacheStats(): { size: number; maxSize: number } {
+    return {
+      size: this.cache.size,
+      maxSize: this.cache.maxSizeLimit,
+    };
   }
 }

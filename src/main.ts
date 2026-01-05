@@ -21,6 +21,8 @@ export default class NaturalLanguageDates extends Plugin {
   public settings: NLDSettings;
   public historyManager: HistoryManager;
   public contextAnalyzer: ContextAnalyzer;
+  private memoryMonitoringInterval: number | null = null;
+  private readonly MEMORY_MONITORING_INTERVAL = 600000; // Toutes les 10 minutes
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -93,6 +95,9 @@ export default class NaturalLanguageDates extends Plugin {
     this.addSettingTab(new NLDSettingsTab(this.app, this));
     this.registerObsidianProtocolHandler("nldates", this.actionHandler.bind(this));
     this.registerEditorSuggest(new DateSuggest(this.app, this));
+
+    // Démarrer le monitoring de la mémoire
+    this.startMemoryMonitoring();
   }
 
   resetParser(): void {
@@ -141,7 +146,86 @@ export default class NaturalLanguageDates extends Plugin {
   }
 
   onunload(): void {
-    // Plugin unloaded
+    // Arrêter le monitoring de la mémoire
+    this.stopMemoryMonitoring();
+    
+    // Nettoyer les ressources
+    if (this.contextAnalyzer) {
+      this.contextAnalyzer.destroy();
+    }
+    if (this.historyManager) {
+      this.historyManager.destroy();
+    }
+  }
+
+  /**
+   * Démarre le monitoring périodique de l'utilisation mémoire
+   */
+  private startMemoryMonitoring(): void {
+    // Logger les statistiques toutes les 10 minutes
+    this.memoryMonitoringInterval = window.setInterval(() => {
+      this.logMemoryUsage();
+    }, this.MEMORY_MONITORING_INTERVAL);
+    
+    // Logger immédiatement au démarrage
+    this.logMemoryUsage();
+  }
+
+  /**
+   * Arrête le monitoring de la mémoire
+   */
+  private stopMemoryMonitoring(): void {
+    if (this.memoryMonitoringInterval !== null) {
+      window.clearInterval(this.memoryMonitoringInterval);
+      this.memoryMonitoringInterval = null;
+    }
+  }
+
+  /**
+   * Log les statistiques d'utilisation mémoire des caches
+   */
+  private logMemoryUsage(): void {
+    try {
+      const stats: {
+        parsingCache?: { size: number; maxSize: number };
+        contextCache?: { size: number; maxSize: number };
+        history?: { size: number; maxSize: number };
+      } = {};
+
+      // Statistiques du cache de parsing
+      if (this.parser) {
+        stats.parsingCache = this.parser.getCacheStats();
+      }
+
+      // Statistiques du cache de contexte
+      if (this.contextAnalyzer) {
+        stats.contextCache = this.contextAnalyzer.getCacheStats();
+      }
+
+      // Statistiques de l'historique
+      if (this.historyManager) {
+        this.historyManager.getHistory().then(history => {
+          stats.history = {
+            size: Object.keys(history).length,
+            maxSize: 100, // MAX_HISTORY_SIZE
+          };
+          
+          logger.debug("Utilisation mémoire des caches", stats);
+        }).catch(err => {
+          logger.warn("Impossible de récupérer les statistiques de l'historique", { error: err });
+          // Logger quand même les autres statistiques
+          if (Object.keys(stats).length > 0) {
+            logger.debug("Utilisation mémoire des caches", stats);
+          }
+        });
+      } else {
+        if (Object.keys(stats).length > 0) {
+          logger.debug("Utilisation mémoire des caches", stats);
+        }
+      }
+    } catch (error) {
+      logger.warn("Erreur lors du monitoring de la mémoire", { error });
+    }
   }
 
   async loadSettings(): Promise<void> {

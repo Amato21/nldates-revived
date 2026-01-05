@@ -1,4 +1,5 @@
 import { Plugin, normalizePath } from "obsidian";
+import { logger } from "./logger";
 
 export interface SelectionHistory {
   [suggestion: string]: number; // Nombre de fois que cette suggestion a été sélectionnée
@@ -6,6 +7,7 @@ export interface SelectionHistory {
 
 const MAX_HISTORY_SIZE = 100; // Limite du nombre d'entrées dans l'historique
 const HISTORY_FILE = ".obsidian/plugins/nldates-revived/history.json";
+const CLEANUP_INTERVAL = 300000; // Nettoyage périodique toutes les 5 minutes
 
 export default class HistoryManager {
   private plugin: Plugin;
@@ -13,9 +15,52 @@ export default class HistoryManager {
   private historyLoaded: boolean = false;
   private cachedTopSuggestions: string[] = [];
   private cacheValid: boolean = false;
+  private cleanupInterval: number | null = null; // ID de l'intervalle de nettoyage
 
   constructor(plugin: Plugin) {
     this.plugin = plugin;
+    this.startPeriodicCleanup();
+  }
+
+  /**
+   * Démarre le nettoyage périodique de l'historique
+   */
+  private startPeriodicCleanup(): void {
+    // Nettoyer toutes les 5 minutes
+    this.cleanupInterval = window.setInterval(() => {
+      this.performPeriodicCleanup();
+    }, CLEANUP_INTERVAL);
+  }
+
+  /**
+   * Arrête le nettoyage périodique (à appeler lors de la destruction)
+   */
+  stopPeriodicCleanup(): void {
+    if (this.cleanupInterval !== null) {
+      window.clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  /**
+   * Effectue un nettoyage périodique de l'historique
+   * Réduit la taille si nécessaire et nettoie les entrées peu utilisées
+   */
+  private performPeriodicCleanup(): void {
+    if (!this.historyLoaded) {
+      return;
+    }
+
+    const currentSize = Object.keys(this.history).length;
+    
+    // Si l'historique dépasse la limite, le réduire
+    if (currentSize > MAX_HISTORY_SIZE) {
+      this.trimHistory();
+      logger.debug(`Nettoyage périodique de l'historique: réduit de ${currentSize} à ${Object.keys(this.history).length} entrées`);
+    }
+
+    // Mettre à jour le cache des suggestions
+    this.updateCache();
   }
 
   /**
@@ -183,6 +228,13 @@ export default class HistoryManager {
     this.cachedTopSuggestions = [];
     this.cacheValid = true;
     await this.saveHistory();
+  }
+
+  /**
+   * Nettoie les ressources lors de la destruction de l'instance
+   */
+  destroy(): void {
+    this.stopPeriodicCleanup();
   }
 
   /**

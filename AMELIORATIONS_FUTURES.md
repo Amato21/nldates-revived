@@ -944,17 +944,24 @@ Ce document liste les améliorations potentielles identifiées après une analys
 
 ## 🆕 Nouvelles Améliorations Identifiées (Janvier 2025)
 
-### 45. **Optimisation de la mémoire** ❌ À FAIRE
+### 45. **Optimisation de la mémoire** ✅ TERMINÉ
 **Problème actuel :**
 - Cache de parsing peut grandir indéfiniment (pas de limite de taille)
 - Cache de contexte utilise un timeout mais pas de limite de taille
 - Historique limité à 100 entrées mais pas de nettoyage périodique
 
 **Amélioration :**
-- Limiter la taille du cache de parsing (ex: 500 entrées max avec LRU)
-- Nettoyage périodique des caches inutilisés
-- Limite de mémoire pour l'historique
-- Monitoring de l'utilisation mémoire
+- ✅ Limiter la taille du cache de parsing (500 entrées max avec LRU)
+- ✅ Nettoyage périodique des caches inutilisés
+- ✅ Limite de mémoire pour l'historique (nettoyage périodique toutes les 5 minutes)
+- ✅ Monitoring de l'utilisation mémoire (logging toutes les 10 minutes)
+
+**Implémentation :**
+- Création d'une classe `LRUCache` pour gérer les caches avec limite de taille
+- Cache de parsing : LRU avec 500 entrées max
+- Cache de contexte : LRU avec 200 entrées max + nettoyage toutes les 30 secondes
+- Historique : nettoyage périodique toutes les 5 minutes
+- Monitoring : logging automatique des statistiques des caches toutes les 10 minutes
 
 ### 46. **Tests d'intégration** ❌ À FAIRE
 **Problème actuel :**

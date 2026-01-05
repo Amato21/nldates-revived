@@ -4,6 +4,7 @@ import t from "./lang/helper";
 import { logger } from "./logger";
 import { ErrorCodes } from "./errors";
 import { TimeDetector, TimeDetectorDependencies } from "./time-detector";
+import { LRUCache } from "./lru-cache";
 
 import { DayOfWeek } from "./settings";
 import {
@@ -49,9 +50,10 @@ export default class NLDParser {
   prefixKeywords: { this: Set<string>; next: Set<string>; last: Set<string> };
   timeUnitMap: Map<string, 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years'>;
   
-  // Cache for parsed dates
-  private cache: Map<string, Date>;
+  // Cache for parsed dates (LRU avec limite de 500 entrées)
+  private cache: LRUCache<string, Date>;
   private cacheDay: number; // Day of year for cache invalidation
+  private readonly MAX_CACHE_SIZE = 500;
   
   // Time detector
   private timeDetector: TimeDetector;
@@ -61,7 +63,7 @@ export default class NLDParser {
     this.chronos = getChronos(languages);
     this.initializeRegex();
     this.initializeKeywords();
-    this.cache = new Map<string, Date>();
+    this.cache = new LRUCache<string, Date>(this.MAX_CACHE_SIZE);
     this.cacheDay = this.getDayOfYear();
     
     // Initialize time detector
@@ -800,5 +802,16 @@ export default class NLDParser {
   // --- TIME DETECTION (FOR DISPLAY) ---
   hasTimeComponent(text: string): boolean {
     return this.timeDetector.hasTimeComponent(text);
+  }
+
+  // --- CACHE STATISTICS (FOR MONITORING) ---
+  /**
+   * Retourne les statistiques du cache de parsing
+   */
+  getCacheStats(): { size: number; maxSize: number } {
+    return {
+      size: this.cache.size,
+      maxSize: this.cache.maxSizeLimit,
+    };
   }
 }
