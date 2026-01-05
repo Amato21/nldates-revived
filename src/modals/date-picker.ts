@@ -1,6 +1,5 @@
 import { App, MarkdownView, Modal, Setting } from "obsidian";
-import { generateMarkdownLink } from "src/utils";
-import { getLocaleWeekStart } from "src/utils";
+import { generateMarkdownLink, getLocaleWeekStart } from "../utils";
 import type NaturalLanguageDates from "../main";
 import { DayOfWeek } from "../settings";
 import t from "../lang/helper";
@@ -18,6 +17,7 @@ export default class DatePickerModal extends Modal {
   private isDarkMode: boolean;
   private themeObserver: MutationObserver | null = null;
   private keyboardHandler: ((e: KeyboardEvent) => void) | null = null;
+  private updateSelectedDateFn: ((date: Moment) => void) | null = null;
 
   constructor(app: App, plugin: NaturalLanguageDates) {
     super(app);
@@ -86,6 +86,9 @@ export default class DatePickerModal extends Modal {
       updatePreview();
       this.renderCalendar();
     };
+
+    // Stocker la fonction pour qu'elle soit accessible depuis renderCalendar
+    this.updateSelectedDateFn = updateSelectedDate;
 
     // Container principal
     const container = contentEl.createDiv("nld-date-picker-container");
@@ -244,22 +247,50 @@ export default class DatePickerModal extends Modal {
     this.quickButtonsEl.createEl("div", { cls: "nld-quick-buttons-label", text: "Quick select:" });
 
     const primaryLang = this.plugin.settings.languages[0] || "en";
+    
+    // Fonction helper pour obtenir la première variante d'une traduction
+    const getFirstVariant = (key: string): string => {
+      const translation = t(key, primaryLang);
+      if (translation === "NOTFOUND") {
+        return key;
+      }
+      // Prendre la première variante si plusieurs (séparées par |)
+      return translation.split("|")[0].trim();
+    };
+
     const quickOptions = [
-      { key: "today", moment: window.moment() },
-      { key: "tomorrow", moment: window.moment().add(1, "day") },
-      { key: "yesterday", moment: window.moment().subtract(1, "day") },
-      { key: "next week", moment: window.moment().add(1, "week") },
-      { key: "next month", moment: window.moment().add(1, "month") },
-      { key: "next year", moment: window.moment().add(1, "year") },
+      { 
+        label: getFirstVariant("today"), 
+        moment: window.moment() 
+      },
+      { 
+        label: getFirstVariant("tomorrow"), 
+        moment: window.moment().add(1, "day") 
+      },
+      { 
+        label: getFirstVariant("yesterday"), 
+        moment: window.moment().subtract(1, "day") 
+      },
+      { 
+        label: `${getFirstVariant("next")} ${getFirstVariant("week")}`, 
+        moment: window.moment().add(1, "week") 
+      },
+      { 
+        label: `${getFirstVariant("next")} ${getFirstVariant("month")}`, 
+        moment: window.moment().add(1, "month") 
+      },
+      { 
+        label: `${getFirstVariant("next")} ${getFirstVariant("year")}`, 
+        moment: window.moment().add(1, "year") 
+      },
     ];
 
     const buttonsContainer = this.quickButtonsEl.createDiv("nld-quick-buttons-grid");
 
     quickOptions.forEach((option) => {
-      const label = t(option.key.replace(" ", ""), primaryLang);
       const button = buttonsContainer.createEl("button", {
         cls: "nld-quick-btn",
-        text: label !== "NOTFOUND" ? label : option.key,
+        text: option.label,
       });
 
       button.addEventListener("click", () => {
@@ -321,17 +352,19 @@ export default class DatePickerModal extends Modal {
     let currentDate = startDate.clone();
 
     while (currentDate.isSameOrBefore(endDate, "day")) {
+      // Capturer la date actuelle dans une variable locale pour éviter les problèmes de closure
+      const dateForThisDay = currentDate.clone();
       const dayEl = grid.createDiv("nld-calendar-day");
-      const dayNumber = currentDate.date();
+      const dayNumber = dateForThisDay.date();
 
       // Style selon le type de jour
-      if (currentDate.isSame(today, "day")) {
+      if (dateForThisDay.isSame(today, "day")) {
         dayEl.addClass("nld-today");
       }
-      if (currentDate.isSame(this.selectedDate, "day")) {
+      if (dateForThisDay.isSame(this.selectedDate, "day")) {
         dayEl.addClass("nld-selected");
       }
-      if (!currentDate.isSame(this.currentMonth, "month")) {
+      if (!dateForThisDay.isSame(this.currentMonth, "month")) {
         dayEl.addClass("nld-other-month");
       }
 
@@ -340,28 +373,8 @@ export default class DatePickerModal extends Modal {
 
       // Événement de clic
       dayEl.addEventListener("click", () => {
-        this.selectedDate = currentDate.clone();
-        if (this.dateInputEl) {
-          this.dateInputEl.value = this.selectedDate.format("YYYY-MM-DD");
-        }
-        this.renderCalendar();
-        if (this.previewEl) {
-          const getDateStr = () => {
-            const parsedDate = this.plugin.parseDate(this.selectedDate.format("YYYY-MM-DD"));
-            let parsedDateString = parsedDate.moment.isValid()
-              ? parsedDate.moment.format(this.plugin.settings.modalMomentFormat)
-              : "";
-
-            if (this.plugin.settings.modalToggleLink) {
-              parsedDateString = generateMarkdownLink(
-                this.app,
-                parsedDateString,
-                undefined
-              );
-            }
-            return parsedDateString;
-          };
-          this.previewEl.setText(getDateStr());
+        if (this.updateSelectedDateFn) {
+          this.updateSelectedDateFn(dateForThisDay);
         }
       });
 

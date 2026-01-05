@@ -963,17 +963,42 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - Historique : nettoyage périodique toutes les 5 minutes
 - Monitoring : logging automatique des statistiques des caches toutes les 10 minutes
 
-### 46. **Tests d'intégration** ❌ À FAIRE
+### 46. **Tests d'intégration** ✅ TERMINÉ
 **Problème actuel :**
 - Seulement des tests unitaires pour le parser
 - Pas de tests d'intégration pour les commandes
 - Pas de tests pour l'interface utilisateur (date picker, suggestions)
 
 **Amélioration :**
-- Tests d'intégration pour les commandes (`getParseCommand`, etc.)
-- Tests pour le date picker modal
-- Tests pour le système de suggestions
-- Tests end-to-end avec Obsidian mocké
+- ✅ Tests d'intégration pour les commandes (`getParseCommand`, etc.)
+- ✅ Tests pour le date picker modal
+- ✅ Tests pour le système de suggestions
+- ✅ Tests end-to-end avec Obsidian mocké
+
+**Implémentation :**
+- **commands.test.ts** : Tests d'intégration pour toutes les commandes
+  - `getParseCommand` avec différents modes (replace, link, clean, time)
+  - Gestion des plages de dates
+  - Gestion des dates avec composant temporel
+  - `getNowCommand`, `getCurrentDateCommand`, `getCurrentTimeCommand`
+  - Gestion des erreurs et cas limites
+  
+- **date-picker.test.ts** : Tests pour le modal de sélection de date
+  - Initialisation et détection du mode sombre
+  - Rendu du calendrier et des boutons rapides
+  - Sélection de dates et mise à jour de l'input
+  - Navigation par mois/année
+  - Raccourcis clavier
+  - Insertion de dates formatées
+  
+- **date-suggest.test.ts** : Tests pour le système de suggestions
+  - Génération de suggestions basiques
+  - Suggestions intelligentes (historique + contexte)
+  - Support multilingue
+  - Suggestions temporelles et relatives
+  - Enregistrement des sélections dans l'historique
+  
+- **Mocks améliorés** : Mock d'Obsidian étendu pour supporter Modal, EditorSuggest, Setting, etc.
 
 ### 47. **Amélioration de l'accessibilité** ❌ À FAIRE
 **Problème actuel :**

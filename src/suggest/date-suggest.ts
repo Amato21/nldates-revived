@@ -8,9 +8,9 @@ import {
   MarkdownView,
   TFile,
 } from "obsidian";
-import type NaturalLanguageDates from "src/main";
+import type NaturalLanguageDates from "../main";
 import t from "../lang/helper";
-import { generateMarkdownLink } from "src/utils";
+import { generateMarkdownLink } from "../utils";
 
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
