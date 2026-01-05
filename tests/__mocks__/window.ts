@@ -1,7 +1,7 @@
-// Mock global pour window.moment
+// Global mock for window.moment
 import * as moment from 'moment';
 
-// Définir window.moment dès l'importation de ce fichier
+// Define window.moment as soon as this file is imported
 if (typeof global !== 'undefined') {
   (global as any).window = (global as any).window || {};
   (global as any).window.moment = moment;

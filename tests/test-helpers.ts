@@ -1,11 +1,11 @@
 import moment from 'moment';
 
 /**
- * Vérifie que deux dates sont les mêmes avec une tolérance
- * @param actual Date réelle
- * @param expected Date attendue
- * @param precision Précision de comparaison ('year', 'month', 'day', 'hour', 'minute', 'second')
- * @param toleranceSeconds Tolérance en secondes (par défaut 60 pour les minutes, 3600 pour les heures, etc.)
+ * Verifies that two dates are the same with a tolerance
+ * @param actual Actual date
+ * @param expected Expected date
+ * @param precision Comparison precision ('year', 'month', 'day', 'hour', 'minute', 'second')
+ * @param toleranceSeconds Tolerance in seconds (default 60 for minutes, 3600 for hours, etc.)
  */
 export function expectSameDate(
   actual: Date,
@@ -16,7 +16,7 @@ export function expectSameDate(
   const actualMoment = moment(actual);
   const expectedMoment = moment.isMoment(expected) ? expected : moment(expected);
 
-  // Définir la tolérance par défaut selon la précision
+  // Set default tolerance according to precision
   if (toleranceSeconds === undefined) {
     switch (precision) {
       case 'second':
@@ -29,25 +29,25 @@ export function expectSameDate(
         toleranceSeconds = 3600;
         break;
       case 'day':
-        toleranceSeconds = 86400; // 24 heures
+        toleranceSeconds = 86400; // 24 hours
         break;
       default:
         toleranceSeconds = 0;
     }
   }
 
-  // Si on compare au niveau du jour ou plus, utiliser isSame
+  // If comparing at day level or higher, use isSame
   if (['year', 'month', 'day'].includes(precision)) {
     expect(actualMoment.isSame(expectedMoment, precision)).toBe(true);
   } else {
-    // Pour les heures/minutes/secondes, utiliser une tolérance
+    // For hours/minutes/seconds, use a tolerance
     const diff = Math.abs(actualMoment.diff(expectedMoment, 'seconds'));
     expect(diff).toBeLessThanOrEqual(toleranceSeconds);
   }
 }
 
 /**
- * Vérifie qu'une date est dans une plage de dates
+ * Verifies that a date is within a date range
  */
 export function expectDateInRange(
   date: Date,
@@ -63,7 +63,7 @@ export function expectDateInRange(
 }
 
 /**
- * Vérifie qu'une date est dans le futur
+ * Verifies that a date is in the future
  */
 export function expectFutureDate(date: Date, fromDate: Date = new Date()): void {
   const dateMoment = moment(date);
@@ -72,7 +72,7 @@ export function expectFutureDate(date: Date, fromDate: Date = new Date()): void 
 }
 
 /**
- * Vérifie qu'une date est dans le passé
+ * Verifies that a date is in the past
  */
 export function expectPastDate(date: Date, fromDate: Date = new Date()): void {
   const dateMoment = moment(date);
@@ -81,7 +81,7 @@ export function expectPastDate(date: Date, fromDate: Date = new Date()): void {
 }
 
 /**
- * Crée une date fixe pour les tests (pour éviter les problèmes de timing)
+ * Creates a fixed date for tests (to avoid timing issues)
  */
 export function createTestDate(
   year: number,

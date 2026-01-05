@@ -1,7 +1,7 @@
 import * as moment from 'moment';
 
-// Définir window.moment IMMÉDIATEMENT, pas dans la fonction async
-// car la fonction async s'exécute après le chargement des modules
+// Define window.moment IMMEDIATELY, not in the async function
+// because the async function executes after module loading
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).window = (globalThis as any).window || {};
   (globalThis as any).window.moment = moment;
@@ -13,8 +13,8 @@ if (typeof global !== 'undefined') {
 }
 
 export default async () => {
-  // Ce hook s'exécute avant tous les tests
-  // Réassurer que window.moment est disponible
+  // This hook runs before all tests
+  // Reassure that window.moment is available
   if (typeof globalThis !== 'undefined') {
     (globalThis as any).window = (globalThis as any).window || {};
     (globalThis as any).window.moment = moment;

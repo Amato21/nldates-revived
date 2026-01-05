@@ -1,4 +1,4 @@
-// IMPORTANT: Ce fichier DOIT importer setup.ts en premier pour définir window.moment
+// IMPORTANT: This file MUST import setup.ts first to define window.moment
 import './setup';
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -12,151 +12,151 @@ describe('NLDParser', () => {
   const weekStartPreference: DayOfWeek = 'monday';
 
   beforeEach(() => {
-    // S'assurer que window.moment est disponible (déjà fait dans setup.ts, mais on s'assure ici aussi)
+    // Ensure window.moment is available (already done in setup.ts, but we ensure it here too)
     const contexts = [globalThis, global, typeof window !== 'undefined' ? window : null].filter(Boolean);
     contexts.forEach((ctx: any) => {
       if (ctx) {
         ctx.window = ctx.window || {};
-        ctx.window.moment = moment; // moment est maintenant importé comme fonction par défaut
+        ctx.window.moment = moment; // moment is now imported as default function
       }
     });
     
-    // Réinitialiser le parser avec toutes les langues
+    // Reset parser with all languages
     parser = new NLDParser(['en', 'fr', 'de', 'pt', 'nl', 'es', 'it', 'ja']);
   });
 
-  describe('Priorité 1: Expressions de base (today, tomorrow, yesterday, now)', () => {
-    describe('Anglais', () => {
-      it("devrait parser 'today'", () => {
+  describe('Priority 1: Basic expressions (today, tomorrow, yesterday, now)', () => {
+    describe('English', () => {
+      it("should parse 'today'", () => {
         const result = parser.getParsedDate('today', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'tomorrow'", () => {
+      it("should parse 'tomorrow'", () => {
         const result = parser.getParsedDate('tomorrow', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
 
-      it("devrait parser 'yesterday'", () => {
+      it("should parse 'yesterday'", () => {
         const result = parser.getParsedDate('yesterday', weekStartPreference);
         const yesterday = moment().subtract(1, 'days').startOf('day');
         expectSameDate(result, yesterday, 'day');
       });
 
-      it("devrait parser 'now'", () => {
+      it("should parse 'now'", () => {
         const result = parser.getParsedDate('now', weekStartPreference);
         const now = new Date();
-        // La différence devrait être de moins d'une seconde
+        // The difference should be less than one second
         expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
       });
     });
 
-    describe('Français', () => {
-      it("devrait parser 'Aujourd'hui'", () => {
+    describe('French', () => {
+      it("should parse 'Aujourd'hui'", () => {
         const result = parser.getParsedDate("Aujourd'hui", weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'Demain'", () => {
+      it("should parse 'Demain'", () => {
         const result = parser.getParsedDate('Demain', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
 
-      it("devrait parser 'Hier'", () => {
+      it("should parse 'Hier'", () => {
         const result = parser.getParsedDate('Hier', weekStartPreference);
         const yesterday = moment().subtract(1, 'days').startOf('day');
         expectSameDate(result, yesterday, 'day');
       });
 
-      it("devrait parser 'maintenant'", () => {
+      it("should parse 'maintenant'", () => {
         const result = parser.getParsedDate('maintenant', weekStartPreference);
         const now = new Date();
         expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
       });
     });
 
-    describe('Allemand', () => {
-      it("devrait parser 'Heute'", () => {
+    describe('German', () => {
+      it("should parse 'Heute'", () => {
         const result = parser.getParsedDate('Heute', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'Morgen'", () => {
+      it("should parse 'Morgen'", () => {
         const result = parser.getParsedDate('Morgen', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
     });
 
-    describe('Portugais', () => {
-      it("devrait parser 'Hoje'", () => {
+    describe('Portuguese', () => {
+      it("should parse 'Hoje'", () => {
         const result = parser.getParsedDate('Hoje', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'Amanhã'", () => {
+      it("should parse 'Amanhã'", () => {
         const result = parser.getParsedDate('Amanhã', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
     });
 
-    describe('Néerlandais', () => {
-      it("devrait parser 'Vandaag'", () => {
+    describe('Dutch', () => {
+      it("should parse 'Vandaag'", () => {
         const result = parser.getParsedDate('Vandaag', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'Morgen'", () => {
+      it("should parse 'Morgen'", () => {
         const result = parser.getParsedDate('Morgen', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
     });
 
-    describe('Espagnol', () => {
-      it("devrait parser 'Hoy'", () => {
+    describe('Spanish', () => {
+      it("should parse 'Hoy'", () => {
         const result = parser.getParsedDate('Hoy', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'Mañana'", () => {
+      it("should parse 'Mañana'", () => {
         const result = parser.getParsedDate('Mañana', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
     });
 
-    describe('Italien', () => {
-      it("devrait parser 'Oggi'", () => {
+    describe('Italian', () => {
+      it("should parse 'Oggi'", () => {
         const result = parser.getParsedDate('Oggi', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser 'Domani'", () => {
+      it("should parse 'Domani'", () => {
         const result = parser.getParsedDate('Domani', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
     });
 
-    describe('Japonais', () => {
-      it("devrait parser '今日'", () => {
+    describe('Japanese', () => {
+      it("should parse '今日'", () => {
         const result = parser.getParsedDate('今日', weekStartPreference);
         const today = moment().startOf('day');
         expectSameDate(result, today, 'day');
       });
 
-      it("devrait parser '明日'", () => {
+      it("should parse '明日'", () => {
         const result = parser.getParsedDate('明日', weekStartPreference);
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
@@ -164,105 +164,105 @@ describe('NLDParser', () => {
     });
   });
 
-  describe('Priorité 1: Expressions relatives simples (in 2 days, in 2 weeks)', () => {
-    describe('Anglais', () => {
-      it("devrait parser 'in 2 days'", () => {
+  describe('Priority 1: Simple relative expressions (in 2 days, in 2 weeks)', () => {
+    describe('English', () => {
+      it("should parse 'in 2 days'", () => {
         const result = parser.getParsedDate('in 2 days', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 2 weeks'", () => {
+      it("should parse 'in 2 weeks'", () => {
         const result = parser.getParsedDate('in 2 weeks', weekStartPreference);
         const expected = moment().add(2, 'weeks');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 3 months'", () => {
+      it("should parse 'in 3 months'", () => {
         const result = parser.getParsedDate('in 3 months', weekStartPreference);
         const expected = moment().add(3, 'months');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 1 year'", () => {
+      it("should parse 'in 1 year'", () => {
         const result = parser.getParsedDate('in 1 year', weekStartPreference);
         const expected = moment().add(1, 'years');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 30 minutes'", () => {
+      it("should parse 'in 30 minutes'", () => {
         const result = parser.getParsedDate('in 30 minutes', weekStartPreference);
         const expected = moment().add(30, 'minutes');
         expectSameDate(result, expected, 'minute', 60);
       });
 
-      it("devrait parser 'in 5 hours'", () => {
+      it("should parse 'in 5 hours'", () => {
         const result = parser.getParsedDate('in 5 hours', weekStartPreference);
         const expected = moment().add(5, 'hours');
         expectSameDate(result, expected, 'hour', 3600);
       });
     });
 
-    describe('Français', () => {
-      it("devrait parser 'dans 2 jours'", () => {
+    describe('French', () => {
+      it("should parse 'dans 2 jours'", () => {
         const result = parser.getParsedDate('dans 2 jours', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'dans 2 semaines'", () => {
+      it("should parse 'dans 2 semaines'", () => {
         const result = parser.getParsedDate('dans 2 semaines', weekStartPreference);
         const expected = moment().add(2, 'weeks');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'dans 3 mois'", () => {
+      it("should parse 'dans 3 mois'", () => {
         const result = parser.getParsedDate('dans 3 mois', weekStartPreference);
         const expected = moment().add(3, 'months');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Allemand', () => {
-      it("devrait parser 'in 2 Tagen'", () => {
+    describe('German', () => {
+      it("should parse 'in 2 Tagen'", () => {
         const result = parser.getParsedDate('in 2 Tagen', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 2 Wochen'", () => {
+      it("should parse 'in 2 Wochen'", () => {
         const result = parser.getParsedDate('in 2 Wochen', weekStartPreference);
         const expected = moment().add(2, 'weeks');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Portugais', () => {
-      it("devrait parser 'em 2 dias'", () => {
+    describe('Portuguese', () => {
+      it("should parse 'em 2 dias'", () => {
         const result = parser.getParsedDate('em 2 dias', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Néerlandais', () => {
-      it("devrait parser 'over 2 dagen'", () => {
+    describe('Dutch', () => {
+      it("should parse 'over 2 dagen'", () => {
         const result = parser.getParsedDate('over 2 dagen', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Espagnol', () => {
-      it("devrait parser 'en 2 días'", () => {
+    describe('Spanish', () => {
+      it("should parse 'en 2 días'", () => {
         const result = parser.getParsedDate('en 2 días', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Italien', () => {
-      it("devrait parser 'tra 2 giorni'", () => {
+    describe('Italian', () => {
+      it("should parse 'tra 2 giorni'", () => {
         const result = parser.getParsedDate('tra 2 giorni', weekStartPreference);
         const expected = moment().add(2, 'days');
         expectSameDate(result, expected, 'day');
@@ -270,75 +270,75 @@ describe('NLDParser', () => {
     });
   });
 
-  describe('Priorité 2: Combinaisons (in 2 weeks and 3 days)', () => {
-    describe('Anglais', () => {
-      it("devrait parser 'in 2 weeks and 3 days'", () => {
+  describe('Priority 2: Combinations (in 2 weeks and 3 days)', () => {
+    describe('English', () => {
+      it("should parse 'in 2 weeks and 3 days'", () => {
         const result = parser.getParsedDate('in 2 weeks and 3 days', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 1 month and 5 days'", () => {
+      it("should parse 'in 1 month and 5 days'", () => {
         const result = parser.getParsedDate('in 1 month and 5 days', weekStartPreference);
         const expected = moment().add(1, 'months').add(5, 'days');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'in 2 weeks and 3 hours'", () => {
+      it("should parse 'in 2 weeks and 3 hours'", () => {
         const result = parser.getParsedDate('in 2 weeks and 3 hours', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'hours');
         expectSameDate(result, expected, 'minute', 60);
       });
     });
 
-    describe('Français', () => {
-      it("devrait parser 'dans 2 semaines et 3 jours'", () => {
+    describe('French', () => {
+      it("should parse 'dans 2 semaines et 3 jours'", () => {
         const result = parser.getParsedDate('dans 2 semaines et 3 jours', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
 
-      it("devrait parser 'dans 1 mois et 5 jours'", () => {
+      it("should parse 'dans 1 mois et 5 jours'", () => {
         const result = parser.getParsedDate('dans 1 mois et 5 jours', weekStartPreference);
         const expected = moment().add(1, 'months').add(5, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Allemand', () => {
-      it("devrait parser 'in 2 Wochen und 3 Tagen'", () => {
+    describe('German', () => {
+      it("should parse 'in 2 Wochen und 3 Tagen'", () => {
         const result = parser.getParsedDate('in 2 Wochen und 3 Tagen', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Portugais', () => {
-      it("devrait parser 'em 2 semanas e 3 dias'", () => {
+    describe('Portuguese', () => {
+      it("should parse 'em 2 semanas e 3 dias'", () => {
         const result = parser.getParsedDate('em 2 semanas e 3 dias', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Néerlandais', () => {
-      it("devrait parser 'over 2 weken en 3 dagen'", () => {
+    describe('Dutch', () => {
+      it("should parse 'over 2 weken en 3 dagen'", () => {
         const result = parser.getParsedDate('over 2 weken en 3 dagen', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Espagnol', () => {
-      it("devrait parser 'en 2 semanas y 3 días'", () => {
+    describe('Spanish', () => {
+      it("should parse 'en 2 semanas y 3 días'", () => {
         const result = parser.getParsedDate('en 2 semanas y 3 días', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
     });
 
-    describe('Italien', () => {
-      it("devrait parser 'tra 2 settimane e 3 giorni'", () => {
+    describe('Italian', () => {
+      it("should parse 'tra 2 settimane e 3 giorni'", () => {
         const result = parser.getParsedDate('tra 2 settimane e 3 giorni', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
@@ -346,45 +346,45 @@ describe('NLDParser', () => {
     });
   });
 
-  describe('Priorité 3: Jours de semaine (next Monday, next Monday at 3pm)', () => {
-    describe('Anglais', () => {
-      it("devrait parser 'next Monday'", () => {
+  describe('Priority 3: Weekdays (next Monday, next Monday at 3pm)', () => {
+    describe('English', () => {
+      it("should parse 'next Monday'", () => {
         const result = parser.getParsedDate('next Monday', weekStartPreference);
         const today = moment();
         const nextMonday = moment().add(1, 'weeks').day(1); // 1 = Monday
         if (today.day() === 1) {
-          // Si on est déjà lundi, next Monday devrait être dans une semaine
+          // If we're already on Monday, next Monday should be in a week
           expect(moment(result).isSame(nextMonday, 'day')).toBe(true);
         } else {
-          // Sinon, on vérifie que c'est un lundi futur
+          // Otherwise, verify that it's a future Monday
           expect(moment(result).day()).toBe(1);
           expect(moment(result).isAfter(today, 'day')).toBe(true);
         }
       });
 
-      it("devrait parser 'next Friday'", () => {
+      it("should parse 'next Friday'", () => {
         const result = parser.getParsedDate('next Friday', weekStartPreference);
         expect(moment(result).day()).toBe(5); // 5 = Friday
         expect(moment(result).isSameOrAfter(moment(), 'day')).toBe(true);
       });
 
-      it("devrait parser 'last Monday'", () => {
+      it("should parse 'last Monday'", () => {
         const result = parser.getParsedDate('last Monday', weekStartPreference);
         expect(moment(result).day()).toBe(1); // 1 = Monday
       });
 
-      it("devrait parser 'this Friday'", () => {
+      it("should parse 'this Friday'", () => {
         const result = parser.getParsedDate('this Friday', weekStartPreference);
         expect(moment(result).day()).toBe(5); // 5 = Friday
       });
 
-      it("devrait parser 'next Monday at 3pm'", () => {
+      it("should parse 'next Monday at 3pm'", () => {
         const result = parser.getParsedDate('next Monday at 3pm', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
         expect(moment(result).hour()).toBe(15); // 3pm = 15:00
       });
 
-      it("devrait parser 'next Monday at 3:30pm'", () => {
+      it("should parse 'next Monday at 3:30pm'", () => {
         const result = parser.getParsedDate('next Monday at 3:30pm', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
         expect(moment(result).hour()).toBe(15); // 3pm
@@ -392,56 +392,56 @@ describe('NLDParser', () => {
       });
     });
 
-    describe('Français', () => {
-      it("devrait parser 'prochain Lundi'", () => {
+    describe('French', () => {
+      it("should parse 'prochain Lundi'", () => {
         const result = parser.getParsedDate('prochain Lundi', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
       });
 
-      it("devrait parser 'prochain Lundi à 15h'", () => {
+      it("should parse 'prochain Lundi à 15h'", () => {
         const result = parser.getParsedDate('prochain Lundi à 15h', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
         expect(moment(result).hour()).toBe(15);
       });
     });
 
-    describe('Allemand', () => {
-      it("devrait parser 'nächster Montag'", () => {
+    describe('German', () => {
+      it("should parse 'nächster Montag'", () => {
         const result = parser.getParsedDate('nächster Montag', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
       });
 
-      it("devrait parser 'nächster Montag um 15 Uhr'", () => {
+      it("should parse 'nächster Montag um 15 Uhr'", () => {
         const result = parser.getParsedDate('nächster Montag um 15 Uhr', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
       });
     });
 
-    describe('Portugais', () => {
-      it("devrait parser 'próxima Segunda-feira'", () => {
+    describe('Portuguese', () => {
+      it("should parse 'próxima Segunda-feira'", () => {
         const result = parser.getParsedDate('próxima Segunda-feira', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
       });
     });
 
-    describe('Espagnol', () => {
-      it("devrait parser 'próximo Lunes'", () => {
+    describe('Spanish', () => {
+      it("should parse 'próximo Lunes'", () => {
         const result = parser.getParsedDate('próximo Lunes', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
       });
     });
 
-    describe('Italien', () => {
-      it("devrait parser 'prossimo Lunedì'", () => {
+    describe('Italian', () => {
+      it("should parse 'prossimo Lunedì'", () => {
         const result = parser.getParsedDate('prossimo Lunedì', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
       });
     });
   });
 
-  describe('Plages de dates (from Monday to Friday, next week)', () => {
-    describe('Anglais', () => {
-      it("devrait parser 'from Monday to Friday' comme range", () => {
+  describe('Date ranges (from Monday to Friday, next week)', () => {
+    describe('English', () => {
+      it("should parse 'from Monday to Friday' as range", () => {
         const result = parser.getParsedDateRange('from Monday to Friday', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
@@ -453,19 +453,19 @@ describe('NLDParser', () => {
         expect(result!.dateList!.length).toBeGreaterThan(0);
       });
 
-      it("devrait parser 'next week' comme range", () => {
+      it("should parse 'next week' as range", () => {
         const result = parser.getParsedDateRange('next week', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
         expect(result?.startDate).toBeDefined();
         expect(result?.endDate).toBeDefined();
         expect(result!.dateList).toBeDefined();
-        expect(result!.dateList!.length).toBe(7); // Une semaine = 7 jours
+        expect(result!.dateList!.length).toBe(7); // A week = 7 days
       });
     });
 
-    describe('Français', () => {
-      it("devrait parser 'de Lundi à Vendredi' comme range", () => {
+    describe('French', () => {
+      it("should parse 'de Lundi à Vendredi' as range", () => {
         const result = parser.getParsedDateRange('de Lundi à Vendredi', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
@@ -473,7 +473,7 @@ describe('NLDParser', () => {
         expect(moment(result!.endDate).day()).toBe(5); // Friday
       });
 
-      it("devrait parser 'semaine prochaine' comme range", () => {
+      it("should parse 'semaine prochaine' as range", () => {
         const result = parser.getParsedDateRange('semaine prochaine', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
@@ -481,40 +481,40 @@ describe('NLDParser', () => {
       });
     });
 
-    describe('Allemand', () => {
-      it("devrait parser 'von Montag bis Freitag' comme range", () => {
+    describe('German', () => {
+      it("should parse 'von Montag bis Freitag' as range", () => {
         const result = parser.getParsedDateRange('von Montag bis Freitag', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
       });
     });
 
-    describe('Portugais', () => {
-      it("devrait parser 'de Segunda-feira até Sexta-feira' comme range", () => {
+    describe('Portuguese', () => {
+      it("should parse 'de Segunda-feira até Sexta-feira' as range", () => {
         const result = parser.getParsedDateRange('de Segunda-feira até Sexta-feira', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
       });
     });
 
-    describe('Néerlandais', () => {
-      it("devrait parser 'van maandag tot vrijdag' comme range", () => {
+    describe('Dutch', () => {
+      it("should parse 'van maandag tot vrijdag' as range", () => {
         const result = parser.getParsedDateRange('van maandag tot vrijdag', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
       });
     });
 
-    describe('Espagnol', () => {
-      it("devrait parser 'de Lunes a Viernes' comme range", () => {
+    describe('Spanish', () => {
+      it("should parse 'de Lunes a Viernes' as range", () => {
         const result = parser.getParsedDateRange('de Lunes a Viernes', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
       });
     });
 
-    describe('Italien', () => {
-      it("devrait parser 'da Lunedì a Venerdì' comme range", () => {
+    describe('Italian', () => {
+      it("should parse 'da Lunedì a Venerdì' as range", () => {
         const result = parser.getParsedDateRange('da Lunedì a Venerdì', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
@@ -522,37 +522,37 @@ describe('NLDParser', () => {
     });
   });
 
-  describe('Cas limites et gestion d\'erreurs', () => {
-    it("devrait retourner aujourd'hui pour une chaîne vide", () => {
+  describe('Edge cases and error handling', () => {
+    it("should return today for an empty string", () => {
       const result = parser.getParsedDate('', weekStartPreference);
       const today = moment().startOf('day');
       expectSameDate(result, today, 'day');
     });
 
-    it("devrait retourner aujourd'hui pour une chaîne invalide", () => {
+    it("should return today for an invalid string", () => {
       const result = parser.getParsedDate('xyz123', weekStartPreference);
-      // Si chrono-node échoue, le parser retourne aujourd'hui par défaut
+      // If chrono-node fails, the parser returns today by default
       expect(result).toBeInstanceOf(Date);
     });
 
-    it("devrait gérer 'next month'", () => {
+    it("should handle 'next month'", () => {
       const result = parser.getParsedDate('next month', weekStartPreference);
       const expected = moment().add(1, 'months').startOf('month');
       expectSameDate(result, expected, 'day');
     });
 
-    it("devrait gérer 'next year'", () => {
+    it("should handle 'next year'", () => {
       const result = parser.getParsedDate('next year', weekStartPreference);
       const expected = moment().add(1, 'years').startOf('year');
       expectSameDate(result, expected, 'day');
     });
 
-    it("devrait retourner null pour getParsedDateRange avec une chaîne invalide", () => {
+    it("should return null for getParsedDateRange with an invalid string", () => {
       const result = parser.getParsedDateRange('invalid string', weekStartPreference);
       expect(result).toBeNull();
     });
 
-    it("devrait gérer les variantes de casse (majuscules/minuscules)", () => {
+    it("should handle case variants (uppercase/lowercase)", () => {
       const result1 = parser.getParsedDate('TOMORROW', weekStartPreference);
       const result2 = parser.getParsedDate('tomorrow', weekStartPreference);
       const result3 = parser.getParsedDate('Tomorrow', weekStartPreference);
@@ -563,13 +563,13 @@ describe('NLDParser', () => {
       expectSameDate(result3, tomorrow, 'day');
     });
 
-    it("devrait gérer les espaces supplémentaires", () => {
+    it("should handle extra spaces", () => {
       const result = parser.getParsedDate('  tomorrow  ', weekStartPreference);
       const tomorrow = moment().add(1, 'days').startOf('day');
       expectSameDate(result, tomorrow, 'day');
     });
 
-    it("devrait détecter si une expression a une composante temporelle", () => {
+    it("should detect if an expression has a time component", () => {
       expect(parser.hasTimeComponent('now')).toBe(true);
       expect(parser.hasTimeComponent('today')).toBe(false);
       expect(parser.hasTimeComponent('in 30 minutes')).toBe(true);
@@ -578,23 +578,23 @@ describe('NLDParser', () => {
       expect(parser.hasTimeComponent('next Monday')).toBe(false);
     });
 
-    it("devrait gérer 'in 2 weeks and 3 days' avec détection de temps", () => {
-      // Avec heures/minutes = a du temps
+    it("should handle 'in 2 weeks and 3 days' with time detection", () => {
+      // With hours/minutes = has time
       expect(parser.hasTimeComponent('in 2 weeks and 3 hours')).toBe(true);
-      // Avec jours/semaines seulement = pas de temps
+      // With days/weeks only = no time
       expect(parser.hasTimeComponent('in 2 weeks and 3 days')).toBe(false);
     });
   });
 
-  describe('Parser avec une seule langue', () => {
-    it("devrait fonctionner avec seulement l'anglais", () => {
+  describe('Parser with a single language', () => {
+    it("should work with English only", () => {
       const singleLangParser = new NLDParser(['en']);
       const result = singleLangParser.getParsedDate('tomorrow', weekStartPreference);
       const tomorrow = moment().add(1, 'days').startOf('day');
       expectSameDate(result, tomorrow, 'day');
     });
 
-    it("devrait fonctionner avec seulement le français", () => {
+    it("should work with French only", () => {
       const singleLangParser = new NLDParser(['fr']);
       const result = singleLangParser.getParsedDate('Demain', weekStartPreference);
       const tomorrow = moment().add(1, 'days').startOf('day');
@@ -602,53 +602,53 @@ describe('NLDParser', () => {
     });
   });
 
-  // ==================== CAS LIMITES ADDITIONNELS ====================
+  // ==================== ADDITIONAL EDGE CASES ====================
   
-  describe('Cas limites additionnels', () => {
-    it("devrait gérer les expressions avec des nombres grands", () => {
+  describe('Additional edge cases', () => {
+    it("should handle expressions with large numbers", () => {
       const result = parser.getParsedDate('in 100 days', weekStartPreference);
       const expected = moment().add(100, 'days');
       expectSameDate(result, expected, 'day');
     });
 
-    it("devrait gérer 'in 0 days' (devrait retourner aujourd'hui)", () => {
+    it("should handle 'in 0 days' (should return today)", () => {
       const result = parser.getParsedDate('in 0 days', weekStartPreference);
       const today = moment().startOf('day');
       expectSameDate(result, today, 'day');
     });
 
-    it("devrait gérer les expressions avec plusieurs unités de temps différentes", () => {
+    it("should handle expressions with multiple different time units", () => {
       const result = parser.getParsedDate('in 1 year and 2 months and 3 weeks and 4 days', weekStartPreference);
-      // Vérifier que ça retourne bien une date
+      // Verify that it returns a valid date
       expect(result).toBeInstanceOf(Date);
       expectFutureDate(result);
     });
 
-    it("devrait gérer les expressions avec des caractères spéciaux", () => {
+    it("should handle expressions with special characters", () => {
       const result = parser.getParsedDate('tomorrow!!!', weekStartPreference);
-      // Devrait quand même parser 'tomorrow'
+      // Should still parse 'tomorrow'
       const tomorrow = moment().add(1, 'days').startOf('day');
       expectSameDate(result, tomorrow, 'day');
     });
 
-    it("devrait gérer les expressions mixtes (chiffres et texte)", () => {
+    it("should handle mixed expressions (numbers and text)", () => {
       const result = parser.getParsedDate('in 2weeks', weekStartPreference);
       const expected = moment().add(2, 'weeks');
       expectSameDate(result, expected, 'day');
     });
 
-    it("devrait gérer 'last week' comme range", () => {
+    it("should handle 'last week' as range", () => {
       const result = parser.getParsedDateRange('last week', weekStartPreference);
-      // Note: Cette fonctionnalité pourrait ne pas être implémentée
-      // Si elle retourne null, c'est OK pour l'instant
+      // Note: This feature might not be implemented
+      // If it returns null, that's OK for now
       if (result) {
         expect(result.isRange).toBe(true);
         expect(result.dateList!.length).toBe(7);
       }
     });
 
-    it("devrait gérer les jours de semaine avec des variantes", () => {
-      // Tester les abréviations
+    it("should handle weekdays with variants", () => {
+      // Test abbreviations
       const resultMon = parser.getParsedDate('next Mon', weekStartPreference);
       expect(moment(resultMon).day()).toBe(1);
 
@@ -656,7 +656,7 @@ describe('NLDParser', () => {
       expect(moment(resultFri).day()).toBe(5);
     });
 
-    it("devrait gérer les plages de dates avec le même jour", () => {
+    it("should handle date ranges with the same day", () => {
       const result = parser.getParsedDateRange('from Monday to Monday', weekStartPreference);
       if (result) {
         expect(result.isRange).toBe(true);
@@ -665,33 +665,33 @@ describe('NLDParser', () => {
       }
     });
 
-    it("devrait gérer les expressions avec des temps 24h", () => {
+    it("should handle expressions with 24h time", () => {
       const result = parser.getParsedDate('next Monday at 15:00', weekStartPreference);
       expect(moment(result).day()).toBe(1);
       expect(moment(result).hour()).toBe(15);
     });
 
-    it("devrait gérer 'yesterday' comme date passée", () => {
+    it("should handle 'yesterday' as past date", () => {
       const result = parser.getParsedDate('yesterday', weekStartPreference);
       expectPastDate(result);
     });
 
-    it("devrait retourner une date valide même pour des expressions ambiguës", () => {
+    it("should return a valid date even for ambiguous expressions", () => {
       const result = parser.getParsedDate('monday', weekStartPreference);
-      // Devrait retourner une date valide (peut être lundi passé ou futur selon l'implémentation)
+      // Should return a valid date (may be past or future Monday depending on implementation)
       expect(result).toBeInstanceOf(Date);
     });
 
-    it("devrait gérer les expressions avec 'ago' si supportées", () => {
-      // Teste si '2 days ago' fonctionne (peut être géré par chrono-node)
+    it("should handle expressions with 'ago' if supported", () => {
+      // Test if '2 days ago' works (may be handled by chrono-node)
       const result = parser.getParsedDate('2 days ago', weekStartPreference);
       if (result) {
         expectPastDate(result);
       }
     });
 
-    it("devrait gérer les nombres ordinaux", () => {
-      // Teste '1st', '2nd', etc. si supportés
+    it("should handle ordinal numbers", () => {
+      // Test '1st', '2nd', etc. if supported
       const result = parser.getParsedDate('January 1st', weekStartPreference);
       if (result) {
         expect(result).toBeInstanceOf(Date);
@@ -699,10 +699,10 @@ describe('NLDParser', () => {
     });
   });
 
-  // ==================== TESTS D'INTÉGRATION ====================
+  // ==================== INTEGRATION TESTS ====================
   
-  describe('Tests d\'intégration', () => {
-    it("devrait parser une séquence d'expressions différentes", () => {
+  describe('Integration tests', () => {
+    it("should parse a sequence of different expressions", () => {
       const expressions = [
         'today',
         'tomorrow',
@@ -718,7 +718,7 @@ describe('NLDParser', () => {
       });
     });
 
-    it("devrait parser des expressions dans toutes les langues configurées", () => {
+    it("should parse expressions in all configured languages", () => {
       const expressions = {
         en: 'tomorrow',
         fr: 'Demain',
@@ -737,7 +737,7 @@ describe('NLDParser', () => {
       });
     });
 
-    it("devrait gérer hasTimeComponent pour différentes expressions", () => {
+    it("should handle hasTimeComponent for different expressions", () => {
       const withTime = ['now', 'in 30 minutes', 'next Monday at 3pm', 'in 2 hours'];
       const withoutTime = ['today', 'tomorrow', 'in 2 days', 'next Monday'];
 
@@ -750,8 +750,8 @@ describe('NLDParser', () => {
       });
     });
 
-    it("devrait maintenir la cohérence entre getParsedDate et getParsedDateRange", () => {
-      // Pour 'next week', les deux méthodes devraient retourner des résultats cohérents
+    it("should maintain consistency between getParsedDate and getParsedDateRange", () => {
+      // For 'next week', both methods should return consistent results
       const rangeResult = parser.getParsedDateRange('next week', weekStartPreference);
       
       if (rangeResult) {
