@@ -64,7 +64,9 @@ Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias 
 
 ### Commands (Ctrl/Cmd + P)
 * **Parse natural language date:** Replaces selected text with a link (e.g. select "demain" -> becomes `[[2024-12-31]]`).
-* **Insert current date/time:** Quickly insert timestamps.
+* **Insert the current date and time:** Quickly insert a timestamp with both date and time.
+* **Insert the current date:** Inserts only the current date.
+* **Insert the current time:** Inserts only the current time.
 * **Date Picker:** Opens a calendar view to pick a date visually.
 
 ### Configuration
@@ -102,7 +104,7 @@ The plugin creates a global object for use in other plugins or via Obsidian URI.
 
 **API Usage:**
 ```ts
-const nldatesPlugin = app.plugins.getPlugin("nldates-obsidian");
+const nldatesPlugin = app.plugins.getPlugin("nldates-revived");
 const parsedResult = nldatesPlugin.parseDate("next year");
 
 console.log(parsedResult.moment.format("YYYY"));
