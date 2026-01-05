@@ -3,7 +3,7 @@
 This is a **revived and improved version** of the popular "Natural Language Dates" plugin for Obsidian.
 It brings the plugin back to life with a modern engine, true multilingual support, and smarter time handling.
 
-## ✨ New Features
+## New Features
 
 ### v0.9.0 - Advanced Multilingual Support 🚀
 * **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, and Italian**!
@@ -12,13 +12,13 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
     * All time units (minutes, hours, days, weeks, months, years) are fully translated
     * All weekdays are recognized in all languages
     * Dynamic regex generation from translations - no hardcoded words!
-* **✨ Advanced Relative Dates:** Support for complex date expressions!
+* **Advanced Relative Dates:** Support for complex date expressions!
     * **Combined durations:** `@in 2 weeks and 3 days`, `@dans 2 semaines et 3 jours`
     * **Weekday with time:** `@next Monday at 3pm`, `@prochain lundi à 15h`
     * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
     * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
     * Works in all supported languages with native translations
-* **🧠 Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
+* **Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
     * **History-based suggestions:** The plugin learns your frequently used date patterns and prioritizes them in suggestions
     * **Context-aware detection:** Automatically detects dates already present in your current document (within ±10 lines) and suggests them
     * **Multi-language context detection:** Context analysis works with all enabled languages - detects dates in French, English, Japanese, and more!
@@ -28,14 +28,14 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 ### v0.8.0
 * **🌍 Multilingual Support:** Now supports **English, French, German, Japanese, Dutch, and Portuguese**!
     * *Examples:* `@tomorrow`, `@in 20 minutes`, `@Next Monday`, `@next friday`.
-* **🧠 Smart Time Parsing:** The plugin intelligently detects if you included a time in your sentence.
-* **🔗 Hybrid Links:**
+* **Smart Time Parsing:** The plugin intelligently detects if you included a time in your sentence.
+* **Hybrid Links:**
     * Dates without time: `[[2024-12-30]]`
     * Dates **with** time: `[[2024-12-30]] 23:45` (Keeps your graph clean!).
 
 ---
 
-## 🚀 How to Install
+## How to Install
 
 ### Via BRAT (Recommended for now)
 Since this is a new fork, the quickest way to get updates is via the **BRAT** plugin:
@@ -45,7 +45,7 @@ Since this is a new fork, the quickest way to get updates is via the **BRAT** pl
 
 ---
 
-## ✍️ Usage
+## Usage
 
 ### Date Autosuggest
 Type `@` (default trigger) followed by a natural date.
@@ -126,3 +126,13 @@ The plugin uses a modular architecture with specialized components:
     * Supports all enabled languages (French, English, Japanese, German, Spanish, Italian, Portuguese, Dutch)
 
 Both components are optimized for performance: no vault-wide scanning, only analyzes the current document, and uses efficient caching strategies.
+
+---
+
+## Maintenance & Community
+
+This project is **open source** (MIT License). The primary goal is to provide a working, reliable tool for the Obsidian community.
+
+**Community First:** If this repository becomes inactive or unmaintained in the future, please feel free to fork it and take over maintenance immediately—no permission needed! The community's needs come first, and we'd be delighted to see the project continue to evolve and improve.
+
+Your contributions, forks, and improvements are always welcome! 🚀
