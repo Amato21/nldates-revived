@@ -1033,18 +1033,26 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - Parser "first/last weekday of month"
 - Support multi-langues pour ces expressions
 
-### 52. **Amélioration de l'interface du date picker** ❌ À FAIRE
+### 52. **Amélioration de l'interface du date picker** ✅ TERMINÉ
 **Problème actuel :**
 - Interface basique sans calendrier visuel
 - Pas de navigation par mois/année
 - Pas de sélection rapide de dates courantes
 
 **Amélioration :**
-- Calendrier visuel dans le modal
-- Navigation par mois/année
-- Boutons rapides (Today, Tomorrow, Next Week, etc.)
-- Support du mode sombre (voir #21)
-- Raccourcis clavier pour navigation
+- ✅ Calendrier visuel dans le modal avec grille de dates
+- ✅ Navigation par mois/année (boutons précédent/suivant + sélecteurs dropdown)
+- ✅ Boutons rapides (Today, Tomorrow, Yesterday, Next Week, Next Month, Next Year)
+- ✅ Support du mode sombre avec détection automatique et adaptation des couleurs
+- ✅ Raccourcis clavier pour navigation (flèches, Home, Escape)
+
+**Implémentation :**
+- Calendrier visuel avec grille 7x7 affichant les jours du mois
+- Navigation intuitive avec boutons et sélecteurs d'année/mois
+- Boutons rapides traduits selon la langue principale du plugin
+- Styles CSS adaptatifs pour le mode sombre/clair
+- Raccourcis clavier : ←/→ (mois), ↑/↓ (mois), Home (aujourd'hui), Escape (fermer)
+- Conservation de toutes les fonctionnalités existantes (format personnalisé, lien, saisie manuelle)
 
 ### 53. **Support des expressions de temps relatives complexes** ❌ À FAIRE
 **Problème actuel :**
