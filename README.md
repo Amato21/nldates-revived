@@ -40,7 +40,7 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 ### Via BRAT (Recommended for now)
 Since this is a new fork, the quickest way to get updates is via the **BRAT** plugin:
 1.  Install **BRAT** from the Community Plugins store.
-2.  Add a Beta Plugin with this URL: `https://github.com/Amato21/nldates-obsidian-revived`
+2.  Add a Beta Plugin with this URL: `https://github.com/Amato21/nldates-revived`
 3.  Enjoy!
 
 ---
