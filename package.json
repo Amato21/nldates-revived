@@ -1,12 +1,16 @@
 {
   "name": "nldates-obsidian",
-  "version": "0.6.2",
+  "version": "0.9.0",
   "description": "Plugin to parse natural language dates in Obsidian",
   "main": "main.js",
   "scripts": {
     "lint": "eslint . --ext .ts",
     "dev": "rollup --config rollup.config.js -w",
-    "build": "rollup --config rollup.config.js"
+    "build": "rollup --config rollup.config.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -19,12 +23,16 @@
     "@types/node": "16.11.7",
     "@typescript-eslint/eslint-plugin": "5.3.1",
     "@typescript-eslint/parser": "5.3.1",
+    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/ui": "^4.0.16",
     "eslint": "8.2.0",
+    "moment": "^2.30.1",
     "obsidian": "latest",
     "prettier": "2.4.1",
     "rollup": "^2.60.0",
     "tslib": "2.4.0",
-    "typescript": "4.7.4"
+    "typescript": "4.7.4",
+    "vitest": "^4.0.16"
   },
   "dependencies": {
     "chrono-node": "^2.9.0",

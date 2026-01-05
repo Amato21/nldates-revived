@@ -1,14 +1,27 @@
-# Intellij
-*.iml
-.idea
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
 
-# npm
-node_modules
+# nyc test coverage
+.nyc_output
 
-# build
-main.js
+# Dependency directories
+node_modules/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
 *.js.map
 
-# MacOS
-.DS_Store
-AMELIORATIONS_FUTURES.md
+# Test outputs
+test-results/
