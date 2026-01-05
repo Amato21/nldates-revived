@@ -126,16 +126,22 @@ export default class NaturalLanguageDates extends Plugin {
         logger.info('Parser initialized with English fallback');
         
         // Notifier l'utilisateur uniquement pour les erreurs critiques
-        this.app.notifications.create({
-          msg: 'Natural Language Dates: Failed to initialize with selected languages. Using English as fallback.',
-          duration: 5000,
-        });
+        const appWithNotifications = this.app as typeof this.app & { notifications: { create: (options: { msg: string; duration: number }) => void } };
+        if (appWithNotifications.notifications) {
+          appWithNotifications.notifications.create({
+            msg: 'Natural Language Dates: Failed to initialize with selected languages. Using English as fallback.',
+            duration: 5000,
+          });
+        }
       } catch (fallbackError) {
         logger.error('Failed to initialize parser even with English fallback', { error: fallbackError });
-        this.app.notifications.create({
-          msg: 'Natural Language Dates: Critical error - parser initialization failed. Please restart Obsidian.',
-          duration: 10000,
-        });
+        const appWithNotifications = this.app as typeof this.app & { notifications: { create: (options: { msg: string; duration: number }) => void } };
+        if (appWithNotifications.notifications) {
+          appWithNotifications.notifications.create({
+            msg: 'Natural Language Dates: Critical error - parser initialization failed. Please restart Obsidian.',
+            duration: 10000,
+          });
+        }
       }
     }
     
