@@ -75,4 +75,3 @@ const parsedResult = nldatesPlugin.parseDate("next year");
 
 console.log(parsedResult.moment.format("YYYY"));
 
-
