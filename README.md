@@ -74,3 +74,5 @@ const nldatesPlugin = app.plugins.getPlugin("nldates-obsidian");
 const parsedResult = nldatesPlugin.parseDate("next year");
 
 console.log(parsedResult.moment.format("YYYY"));
+
+
