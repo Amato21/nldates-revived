@@ -7,6 +7,7 @@ import {
 
 import { DayOfWeek } from "./settings";
 import { DateFormatter } from "./date-formatter";
+import t from "./lang/helper";
 
 // Type alias for Moment from the moment library bundled with Obsidian
 // Using the type from the moment library types since moment is bundled with Obsidian
@@ -276,4 +277,62 @@ export function parseOrdinalNumberPattern(match: string): number {
 
   num = num.replace(/(?:st|nd|rd|th)$/i, "");
   return parseInt(num);
+}
+
+/**
+ * Détermine si une expression temporelle relative courte (minutes/heures) devrait omettre la date
+ * car elle reste dans la même journée (aujourd'hui)
+ * @param text - Le texte de l'expression temporelle (ex: "dans 15 min", "in 2 hours")
+ * @param languages - Les langues supportées pour détecter les patterns
+ * @returns true si c'est une expression relative courte qui reste aujourd'hui
+ */
+export function shouldOmitDateForShortRelative(text: string, languages: string[]): boolean {
+  const lowerText = text.toLowerCase().trim();
+  
+  // Patterns pour détecter les expressions relatives courtes (minutes/heures) dans toutes les langues
+  // On cherche des patterns comme "dans X min", "in X hours", etc.
+  const shortRelativePatterns: RegExp[] = [];
+  
+  // Pour chaque langue, créer des patterns pour "dans/in/over/etc. X minutes/heures"
+  for (const lang of languages) {
+    try {
+      const inWord = t("in", lang);
+      if (inWord && inWord !== "NOTFOUND") {
+        const inWords = inWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
+        const minuteWord = t("minute", lang);
+        const hourWord = t("hour", lang);
+        
+        if (minuteWord && minuteWord !== "NOTFOUND") {
+          const minuteWords = minuteWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
+          for (const inW of inWords) {
+            for (const minW of minuteWords) {
+              // Pattern: "dans X minutes" ou "dans X min"
+              const escapedIn = inW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const escapedMin = minW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const pattern = new RegExp(`^${escapedIn}\\s+\\d+\\s+${escapedMin}`, 'i');
+              shortRelativePatterns.push(pattern);
+            }
+          }
+        }
+        
+        if (hourWord && hourWord !== "NOTFOUND") {
+          const hourWords = hourWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
+          for (const inW of inWords) {
+            for (const hW of hourWords) {
+              // Pattern: "dans X heures" ou "in X hours"
+              const escapedIn = inW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const escapedHour = hW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const pattern = new RegExp(`^${escapedIn}\\s+\\d+\\s+${escapedHour}`, 'i');
+              shortRelativePatterns.push(pattern);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Ignorer les erreurs de traduction
+    }
+  }
+  
+  // Vérifier si le texte correspond à un pattern d'expression relative courte
+  return shortRelativePatterns.some(pattern => pattern.test(lowerText));
 }

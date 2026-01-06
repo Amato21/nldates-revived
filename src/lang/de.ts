@@ -24,6 +24,8 @@ const dict = {
   daysago: "vor %{timeDelta} Tagen",
   weeksago: "vor %{timeDelta} Wochen",
   monthsago: "vor %{timeDelta} Monaten",
+  minutesago: "vor %{timeDelta} Minuten",
+  hoursago: "vor %{timeDelta} Stunden",
   time: "Zeit",
   now: "jetzt",
   plusminutes: "+%{timeDelta} Minuten",

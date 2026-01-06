@@ -6,6 +6,15 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 ## New Features
 
 ### v0.9.5 - Security & Documentation Improvements
+* **Past Time Expressions Support:**
+    * Full support for past expressions in all languages: `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden`, `@hace 5 minutos`
+    * Suggestions now include past expressions (`minutesago`, `hoursago`) alongside future ones
+    * Works seamlessly with all 8 supported languages
+* **Smart Date Formatting:**
+    * When using short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`), only the time is displayed (e.g., `14:30`) instead of `[[2024-01-15]] 14:30`
+    * Automatically detects when a relative expression stays within today
+    * Cleaner, more intuitive output for short-term relative dates
+    * Full date still shown for dates beyond today or longer durations
 * **Input Validation & Security:**
     * Complete input sanitization to prevent injection attacks
     * Format validation with real-time preview in settings
@@ -34,6 +43,8 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
     * **Weekday with time:** `@next Monday at 3pm`, `@prochain lundi à 15h`
     * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
     * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
+    * **Past expressions:** `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden` (all languages!)
+    * **Smart formatting:** Short relative expressions for today show only time (e.g., `@in 15 min` → `14:30` instead of `[[2024-01-15]] 14:30`)
     * Works in all supported languages with native translations
 * **Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
     * **History-based suggestions:** The plugin learns your frequently used date patterns and prioritizes them in suggestions
@@ -69,9 +80,12 @@ Type `@` (default trigger) followed by a natural date.
 
 * `@today` → `[[2024-12-30]]`
 * `@tomorrow` → `[[2024-12-31]]`
-* `@in 20 minutes` → `[[2024-12-30]] 23:50`
-* `@in 2 weeks and 3 days` → `[[2025-01-22]]`
+* `@in 20 minutes` → `14:30` (smart formatting: only time when it's today!)
+* `@in 2 hours` → `16:30` (smart formatting for today)
+* `@in 2 weeks and 3 days` → `[[2025-01-22]]` (full date for future dates)
 * `@next Monday at 3pm` → `[[2025-01-06]] 15:00`
+* `@il y a 3 min` → `14:27` (past expressions supported!)
+* `@3 minutes ago` → `14:27` (works in all languages)
 * `@from Monday to Friday` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]]`
 * `@next week` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]], [[2025-01-11]], [[2025-01-12]]`
 
@@ -96,6 +110,8 @@ Go to **Settings > Natural Language Dates**:
     * **Enable smart suggestions:** Master toggle for all intelligent features
     * **History-based suggestions:** Learn from your frequently used date patterns
     * **Context-based suggestions:** Detect dates from the current document context
+* **Date Formatting:**
+    * **Omit date for short relative expressions:** When enabled, short relative expressions for today (e.g., `@in 15 min`, `@dans 2 heures`) will display only the time (e.g., `14:30`) instead of `[[2024-01-15]] 14:30` (enabled by default)
 
 **Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to 100 most frequent entries for optimal performance.
 

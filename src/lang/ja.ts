@@ -24,6 +24,8 @@ const dict = {
   daysago: "%{timeDelta}日前", // X days ago
   weeksago: "%{timeDelta}週間前",
   monthsago: "%{timeDelta}ヶ月前",
+  minutesago: "%{timeDelta}分前", // X minutes ago
+  hoursago: "%{timeDelta}時間前", // X hours ago
   time: "時間",
   now: "今", // Ima (Maintenant)
   plusminutes: "+%{timeDelta} 分",

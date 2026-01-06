@@ -900,6 +900,8 @@ Ce document liste les améliorations potentielles identifiées après une analys
 
 ## 📈 Résumé des Améliorations Implémentées
 
+**Dernière mise à jour :** Janvier 2025
+
 ### ✅ Complètement Implémentées
 - **#2** - Exposer le parser publiquement
 - **#3** - Gestion d'erreurs améliorée (logging structuré, notifications Obsidian, NLDParseError)
@@ -914,6 +916,8 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - **#33** - Documentation API complète (JSDoc + API.md professionnel en anglais) ✅ **FAIT**
 - **#36** - Validation des entrées (sanitization complète et protection contre les injections) ✅ **FAIT**
 - **#40** - Logging structuré (système de logging avec niveaux)
+- **#56** - Support complet des expressions passées (Past Expressions) ✅ **TERMINÉ** (Janvier 2025)
+- **#57** - Optimisation du formatage : omission intelligente de la date ✅ **TERMINÉ** (Janvier 2025)
 
 ### 🔄 Partiellement Implémentées
 - **#1** - Refactoring du système de langues (synchronisation automatique ajoutée, mais double système persiste)
@@ -970,6 +974,79 @@ Ce document liste les améliorations potentielles identifiées après une analys
 ---
 
 ## 🆕 Nouvelles Améliorations Identifiées (Janvier 2025)
+
+### 56. **Support complet des expressions passées (Past Expressions)** ✅ TERMINÉ
+**Statut :** Implémenté avec support complet dans toutes les langues et suggestions intelligentes.
+
+**Problème initial :**
+- Les expressions passées comme "il y a 3 min" fonctionnaient pour le parsing mais n'apparaissaient pas dans les suggestions
+- Manquait les traductions `minutesago` et `hoursago` dans tous les fichiers de langue
+- Le parser ne gérait que "ago" en anglais, pas les autres langues
+
+**Implémentation :**
+- ✅ Ajout des traductions `minutesago` et `hoursago` dans toutes les langues (fr, en, de, pt, nl, es, it, ja)
+  - Français : "il y a %{timeDelta} minutes/heures"
+  - Anglais : "%{timeDelta} minutes/hours ago"
+  - Allemand : "vor %{timeDelta} Minuten/Stunden"
+  - Portugais : "há %{timeDelta} minutos/horas"
+  - Néerlandais : "%{timeDelta} minuten/uren geleden"
+  - Espagnol : "hace %{timeDelta} minutos/horas"
+  - Italien : "%{timeDelta} minuti/ore fa"
+  - Japonais : "%{timeDelta}分前/%{timeDelta}時間前"
+- ✅ Amélioration du parser pour gérer "il y a X minutes/heures" dans toutes les langues (`src/parser.ts`)
+  - Génération dynamique de regex depuis les traductions
+  - Support multi-langues pour toutes les expressions passées
+  - Fonctionne avec "il y a 3 min", "vor 2 Stunden", "hace 5 minutos", etc.
+- ✅ Ajout des suggestions `minutesago` et `hoursago` dans `date-suggest.ts`
+  - Les suggestions incluent maintenant les expressions passées
+  - Quand vous tapez "3", vous voyez "il y a 3 minutes", "il y a 3 heures", etc.
+
+**Fichiers modifiés :**
+- `src/lang/*.ts` - Ajout des traductions `minutesago` et `hoursago`
+- `src/parser.ts` - Amélioration du parsing des expressions passées multi-langues
+- `src/suggest/date-suggest.ts` - Ajout des suggestions pour expressions passées
+
+**Résultat :**
+- ✅ Toutes les expressions passées fonctionnent dans toutes les langues
+- ✅ Les suggestions incluent maintenant les expressions passées
+- ✅ Parsing robuste et multi-langues
+
+### 57. **Optimisation du formatage : omission intelligente de la date** ✅ TERMINÉ
+**Statut :** Implémenté avec détection automatique des expressions relatives courtes.
+
+**Problème initial :**
+- Quand on tape "@dans 15 min", le résultat était `[[2024-01-15]] 14:30`
+- C'est redondant car on sait que c'est aujourd'hui
+- L'affichage était moins lisible avec la date complète
+
+**Implémentation :**
+- ✅ Fonction helper `shouldOmitDateForShortRelative()` créée dans `src/utils.ts`
+  - Détecte les expressions relatives courtes (minutes/heures) dans toutes les langues
+  - Génère dynamiquement des patterns regex depuis les traductions
+  - Fonctionne avec toutes les langues supportées
+- ✅ Logique d'optimisation dans `src/commands.ts`
+  - Détecte si c'est aujourd'hui ET si c'est une expression relative courte
+  - Affiche seulement l'heure si les conditions sont remplies
+- ✅ Logique d'optimisation dans `src/suggest/date-suggest.ts`
+  - Même logique appliquée aux suggestions
+  - Cohérence entre commandes et suggestions
+
+**Fichiers modifiés :**
+- `src/utils.ts` - Fonction helper `shouldOmitDateForShortRelative()`
+- `src/commands.ts` - Logique d'optimisation pour le formatage
+- `src/suggest/date-suggest.ts` - Logique d'optimisation pour les suggestions
+
+**Résultats attendus :**
+- `@dans 15 min` → `14:30` (au lieu de `[[2024-01-15]] 14:30`)
+- `@in 2 hours` → `16:30` (au lieu de `[[2024-01-15]] 16:30`)
+- `@dans 2 jours` → `[[2024-01-17]]` (comportement inchangé, car ce n'est pas aujourd'hui)
+- `@demain à 14h` → `[[2024-01-16]] 14:00` (comportement inchangé, car ce n'est pas aujourd'hui)
+
+**Avantages :**
+- ✅ Affichage plus propre et lisible pour les expressions courtes
+- ✅ Moins de redondance dans les liens
+- ✅ Comportement intelligent qui s'adapte au contexte
+- ✅ Fonctionne dans toutes les langues supportées
 
 ### 45. **Optimisation de la mémoire** ✅ TERMINÉ
 **Problème actuel :**

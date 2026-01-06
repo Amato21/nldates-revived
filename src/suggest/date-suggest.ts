@@ -10,7 +10,7 @@ import {
 } from "obsidian";
 import type NaturalLanguageDates from "../main";
 import t from "../lang/helper";
-import { generateMarkdownLink } from "../utils";
+import { generateMarkdownLink, shouldOmitDateForShortRelative } from "../utils";
 
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
@@ -287,6 +287,8 @@ export default class DateSuggest extends EditorSuggest<string> {
         t("indays", lang, { timeDelta }),
         t("inweeks", lang, { timeDelta }),
         t("inmonths", lang, { timeDelta }),
+        t("minutesago", lang, { timeDelta }),
+        t("hoursago", lang, { timeDelta }),
         t("daysago", lang, { timeDelta }),
         t("weeksago", lang, { timeDelta }),
         t("monthsago", lang, { timeDelta }),
@@ -379,25 +381,47 @@ export default class DateSuggest extends EditorSuggest<string> {
       } else {
         const parsedResult = this.plugin.parseDate(suggestion);
 
+        // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
+        const isToday = parsedResult.moment.isSame(window.moment(), 'day');
+        const isRelativeShortTerm = shouldOmitDateForShortRelative(suggestion, this.plugin.settings.languages);
+        const shouldOmitDate = this.plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
+
         // --- HYBRID LINK LOGIC START ---
         // If a time is detected AND linking is enabled, we split the link.
         // Expected result: [[YYYY-MM-DD]] HH:mm
         if (hasTime && makeIntoLink) {
-          // 1. Format the date part
-          const datePart = parsedResult.moment.format(this.plugin.settings.format);
-          
-          // 2. Format the time part (fallback to HH:mm if not set)
-          const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+          if (shouldOmitDate) {
+            // CAS OPTIMISÉ : Juste l'heure pour "dans X min/heures" aujourd'hui
+            const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+            dateStr = timePart;
+            makeIntoLink = false; // Pas de lien nécessaire
+          } else {
+            // 1. Format the date part
+            const datePart = parsedResult.moment.format(this.plugin.settings.format);
+            
+            // 2. Format the time part (fallback to HH:mm if not set)
+            const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
 
-          // 3. Generate the markdown link ONLY for the date part
-          dateStr = generateMarkdownLink(
-            this.app,
-            datePart,
-            includeAlias ? suggestion : undefined
-          ) + " " + timePart; // Append time as plain text
+            // 3. Generate the markdown link ONLY for the date part
+            dateStr = generateMarkdownLink(
+              this.app,
+              datePart,
+              includeAlias ? suggestion : undefined
+            ) + " " + timePart; // Append time as plain text
 
-          // 4. Disable standard linking since we constructed it manually above
-          makeIntoLink = false; 
+            // 4. Disable standard linking since we constructed it manually above
+            makeIntoLink = false;
+          }
+        } else if (hasTime && !makeIntoLink) {
+          // Même logique si pas de lien mais avec heure
+          if (shouldOmitDate) {
+            const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+            dateStr = timePart;
+          } else {
+            const datePart = parsedResult.moment.format(this.plugin.settings.format);
+            const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+            dateStr = `${datePart} ${timePart}`;
+          }
         } else {
           // Standard behavior for dates without time (e.g., @tomorrow)
           dateStr = parsedResult.formattedString;

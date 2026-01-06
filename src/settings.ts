@@ -48,6 +48,9 @@ export interface NLDSettings {
   enableSmartSuggestions: boolean;
   enableHistorySuggestions: boolean;
   enableContextSuggestions: boolean;
+
+  // Smart date formatting
+  omitDateForShortRelative: boolean;
 }
 
 export const DEFAULT_SETTINGS: NLDSettings = {
@@ -78,6 +81,9 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   enableSmartSuggestions: true,
   enableHistorySuggestions: true,
   enableContextSuggestions: true,
+
+  // Smart date formatting
+  omitDateForShortRelative: true,
 };
 
 const weekdays = [
@@ -294,6 +300,22 @@ export class NLDSettingsTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl).setHeading().setName("Date formatting");
+
+    new Setting(containerEl)
+      .setName("Omit date for short relative expressions")
+      .setDesc(
+        "When enabled, short relative expressions for today (e.g., 'in 15 min', 'dans 2 heures') will display only the time (e.g., '14:30') instead of '[[2024-01-15]] 14:30'"
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.omitDateForShortRelative)
+          .onChange(async (value) => {
+            this.plugin.settings.omitDateForShortRelative = value;
+            await this.plugin.saveSettings();
+          })
+      );
   }
 
   protected createLanguageSetting(containerEl: HTMLElement, text: string, settingKey: keyof NLDSettings, code: string, note?: string) : Setting {
@@ -318,7 +340,10 @@ export class NLDSettingsTab extends PluginSettingTab {
         this.plugin.settings.languages.push(code);
       }
     } else {
-      this.plugin.settings.languages.remove(code);
+      const index = this.plugin.settings.languages.indexOf(code);
+      if (index > -1) {
+        this.plugin.settings.languages.splice(index, 1);
+      }
     }
   }
 }

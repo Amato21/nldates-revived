@@ -1,5 +1,5 @@
 import { MarkdownView } from "obsidian";
-import { adjustCursor, getSelectedText } from "./utils";
+import { adjustCursor, getSelectedText, shouldOmitDateForShortRelative } from "./utils";
 import NaturalLanguageDates from "./main";
 import t from "./lang/helper";
 
@@ -81,17 +81,28 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
   // On vérifie si une heure est présente dans le texte sélectionné
   const hasTime = plugin.hasTimeComponent(selectedText);
 
+  // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
+  const isToday = date.moment.isSame(window.moment(), 'day');
+  const isRelativeShortTerm = shouldOmitDateForShortRelative(selectedText, plugin.settings.languages);
+  const shouldOmitDate = plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
+
   let newStr = "";
 
   if (mode == "replace") {
     // C'est le mode par défaut (Create Link)
     if (hasTime) {
-        // CAS HYBRIDE : [[Date]] Heure
-        const datePart = date.moment.format(plugin.settings.format);
-        // Si l'utilisateur n'a pas mis de format d'heure, on force HH:mm par sécurité
-        const timePart = date.moment.format(plugin.settings.timeFormat || "HH:mm");
-        
-        newStr = `[[${datePart}]] ${timePart}`;
+        if (shouldOmitDate) {
+            // CAS OPTIMISÉ : Juste l'heure pour "dans X min/heures" aujourd'hui
+            const timePart = date.moment.format(plugin.settings.timeFormat || "HH:mm");
+            newStr = timePart;
+        } else {
+            // CAS HYBRIDE : [[Date]] Heure
+            const datePart = date.moment.format(plugin.settings.format);
+            // Si l'utilisateur n'a pas mis de format d'heure, on force HH:mm par sécurité
+            const timePart = date.moment.format(plugin.settings.timeFormat || "HH:mm");
+            
+            newStr = `[[${datePart}]] ${timePart}`;
+        }
     } else {
         // CAS CLASSIQUE : [[Date]]
         newStr = `[[${date.formattedString}]]`;
