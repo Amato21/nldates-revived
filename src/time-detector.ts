@@ -1,4 +1,4 @@
-import { Chrono, ParsedResult } from "chrono-node";
+import { Chrono } from "chrono-node";
 import t from "./lang/helper";
 
 /**
@@ -113,7 +113,7 @@ export class TimeDetector {
             return true;
           }
         }
-      } catch (e) {
+      } catch {
         // Ignore parsing errors
       }
     }

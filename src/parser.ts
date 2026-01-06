@@ -2,8 +2,7 @@ import { Chrono, ParsedResult, ParsingOption } from "chrono-node";
 import getChronos from "./chrono";
 import t from "./lang/helper";
 import { logger } from "./logger";
-import { ErrorCodes } from "./errors";
-import { TimeDetector, TimeDetectorDependencies } from "./time-detector";
+import { TimeDetector } from "./time-detector";
 
 import { DayOfWeek } from "./settings";
 import {
@@ -336,8 +335,8 @@ export default class NLDParser {
     const cacheKey = this.generateCacheKey(cleanedText, weekStartPreference);
     
     // Vérifier le cache avant de parser
-    if (this.cache.has(cacheKey)) {
-      const cachedDate = this.cache.get(cacheKey)!;
+    const cachedDate = this.cache.get(cacheKey);
+    if (cachedDate) {
       // Créer une nouvelle instance de Date pour éviter les références partagées
       return new Date(cachedDate.getTime());
     }
@@ -405,8 +404,9 @@ export default class NLDParser {
     // ============================================================
     // Helper function to get unit type
     const getUnit = (unitStr: string): 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' => {
-        if (this.timeUnitMap.has(unitStr)) {
-            return this.timeUnitMap.get(unitStr)!;
+        const unit = this.timeUnitMap.get(unitStr);
+        if (unit) {
+            return unit;
         }
         // Fallback for common abbreviations
         if (unitStr.startsWith('h')) return 'hours';
@@ -420,15 +420,11 @@ export default class NLDParser {
     
     // First check combinations "in 2 weeks and 3 days" or multiple combinations
     // Try to parse multiple combinations like "in 1 year and 2 months and 3 weeks and 4 days"
-    const multiUnitPattern = /(\d+)\s+(\w+)(?:\s+and\s+(\d+)\s+(\w+))+/gi;
-    let multiMatch;
     let hasMultiUnits = false;
     let totalMoment = window.moment();
     
     // Check for multiple units pattern (3+ units)
     const testText = cleanedText;
-    const allMatches: Array<{value: number, unit: string}> = [];
-    let match;
     
     // Try to match all "X unit" patterns after "in"
     const inPatterns = Array.from(new Set(this.languages.map(l => t("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
@@ -637,8 +633,6 @@ export default class NLDParser {
 
   // --- METHOD FOR PARSING DATE RANGES ---
   getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null {
-    const text = selectedText.toLowerCase().trim();
-    
     // Check "from Monday to Friday"
     const rangeMatch = selectedText.match(this.regexDateRange);
     if (rangeMatch) {

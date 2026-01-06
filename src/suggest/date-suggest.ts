@@ -98,7 +98,7 @@ export default class DateSuggest extends EditorSuggest<string> {
             smartSuggestions.push(suggestion);
           }
         }
-      } catch (error) {
+      } catch {
         // Ignorer les erreurs silencieusement
       }
     }
@@ -117,7 +117,7 @@ export default class DateSuggest extends EditorSuggest<string> {
             smartSuggestions.push(dateStr);
           }
         }
-      } catch (error) {
+      } catch {
         // Ignorer les erreurs silencieusement
       }
     }
@@ -176,8 +176,6 @@ export default class DateSuggest extends EditorSuggest<string> {
     const combinedRegex = new RegExp(`^(${t("in", lang)} )?([+-]?\\d+)\\s+(${t("minute", lang)}|${t("hour", lang)}|${t("day", lang)}|${t("week", lang)}|${t("month", lang)}|${t("year", lang)})\\s+(${andPattern})(\\s+.*)?$`, "i");
     const combinedMatch = inputStr.match(combinedRegex);
     if (combinedMatch) {
-      const timeDelta1 = combinedMatch[2];
-      const unit1 = combinedMatch[3];
       const afterAnd = combinedMatch[5] ? combinedMatch[5].trim() : '';
       
       // Extraire la partie avant "and" pour reconstruire correctement
@@ -244,7 +242,6 @@ export default class DateSuggest extends EditorSuggest<string> {
     const rangePartialRegex = new RegExp(`^(${fromPattern}|de|du)\\s+(${t("sunday", lang)}|${t("monday", lang)}|${t("tuesday", lang)}|${t("wednesday", lang)}|${t("thursday", lang)}|${t("friday", lang)}|${t("saturday", lang)})\\s+(${toPattern}|à|a)(\\s+.*)?$`, "i");
     const rangePartialMatch = inputStr.match(rangePartialRegex);
     if (rangePartialMatch) {
-      const startDay = rangePartialMatch[2];
       const afterTo = rangePartialMatch[4] ? rangePartialMatch[4].trim() : '';
       // Extraire la partie avant "à" ou "a" pour reconstruire correctement
       const beforeTo = inputStr.substring(0, inputStr.indexOf(rangePartialMatch[3]) + rangePartialMatch[3].length).trimEnd();

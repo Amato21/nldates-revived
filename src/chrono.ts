@@ -3,7 +3,6 @@ import * as chrono from "chrono-node";
 import { Chrono, Parser, Refiner } from "chrono-node";
 import { ORDINAL_NUMBER_PATTERN, parseOrdinalNumberPattern } from "./utils";
 import { logger } from "./logger";
-import { ErrorCodes } from "./errors";
 
 // Local type definition matching chrono-node's Configuration interface
 // Configuration is not exported from the main module, so we define it locally

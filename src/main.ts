@@ -10,7 +10,8 @@ import {
   getCurrentTimeCommand,
   getNowCommand,
 } from "./commands";
-import { getFormattedDate, getOrCreateDailyNote, parseTruthy } from "./utils";
+import { getOrCreateDailyNote, parseTruthy } from "./utils";
+import { DateFormatter } from "./date-formatter";
 import HistoryManager from "./history-manager";
 import ContextAnalyzer from "./context-analyzer";
 import { logger } from "./logger";
@@ -204,7 +205,7 @@ export default class NaturalLanguageDates extends Plugin {
       this.resetParser();
     }
     const date = this.parser.getParsedDate(dateString, this.settings.weekStart);
-    const formattedString = getFormattedDate(date, format);
+    const formattedString = DateFormatter.format(date, format);
     if (formattedString === "Invalid date") {
       logger.debug("Input date can't be parsed by nldates", { dateString });
     }
