@@ -662,7 +662,12 @@ export default class NLDParser {
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
-            m.subtract(1, 'weeks').day(dayIndex);
+            // Pour "dernier lundi", on cherche d'abord le lundi de cette semaine
+            m.day(dayIndex);
+            // Si le jour est dans le futur (après aujourd'hui), on recule d'une semaine
+            if (m.isAfter(window.moment(), 'day')) {
+                m.subtract(1, 'week');
+            }
         }
         
         // Parse time with chrono-node
@@ -695,7 +700,12 @@ export default class NLDParser {
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
-            m.subtract(1, 'weeks').day(dayIndex);
+            // Pour "dernier lundi", on cherche d'abord le lundi de cette semaine
+            m.day(dayIndex);
+            // Si le jour est dans le futur (après aujourd'hui), on recule d'une semaine
+            if (m.isAfter(window.moment(), 'day')) {
+                m.subtract(1, 'week');
+            }
         }
         return this.cacheAndReturn(cacheKey, m.toDate());
     }

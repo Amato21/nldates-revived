@@ -371,6 +371,33 @@ describe('NLDParser', () => {
       it("should parse 'last Monday'", () => {
         const result = parser.getParsedDate('last Monday', weekStartPreference);
         expect(moment(result).day()).toBe(1); // 1 = Monday
+        // Should be in the past (or today if today is Monday)
+        const today = moment();
+        if (today.day() !== 1) {
+          // If not Monday, last Monday should be in the past
+          expect(moment(result).isSameOrBefore(today, 'day')).toBe(true);
+        } else {
+          // If today is Monday, last Monday should be today or last week
+          expect(moment(result).isSameOrBefore(today, 'day')).toBe(true);
+        }
+      });
+
+      it("should parse 'last Monday' correctly - if today is Tuesday, should return yesterday's Monday", () => {
+        // This test verifies the fix: "dernier lundi" should return the most recent Monday in the past
+        const result = parser.getParsedDate('last Monday', weekStartPreference);
+        const today = moment();
+        const resultMoment = moment(result);
+        
+        expect(resultMoment.day()).toBe(1); // Must be a Monday
+        
+        // If today is Tuesday (day 2), last Monday should be yesterday
+        if (today.day() === 2) {
+          const yesterday = moment().subtract(1, 'days');
+          expect(resultMoment.isSame(yesterday, 'day')).toBe(true);
+        }
+        
+        // Last Monday should never be in the future
+        expect(resultMoment.isSameOrBefore(today, 'day')).toBe(true);
       });
 
       it("should parse 'this Friday'", () => {
@@ -445,6 +472,23 @@ describe('NLDParser', () => {
         const result = parser.getParsedDate('prochain Lundi à 15h', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
         expect(moment(result).hour()).toBe(15);
+      });
+
+      it("should parse 'dernier Lundi' correctly - should return the most recent Monday in the past", () => {
+        const result = parser.getParsedDate('dernier Lundi', weekStartPreference);
+        const today = moment();
+        const resultMoment = moment(result);
+        
+        expect(resultMoment.day()).toBe(1); // Must be a Monday
+        
+        // Last Monday should never be in the future
+        expect(resultMoment.isSameOrBefore(today, 'day')).toBe(true);
+        
+        // If today is Tuesday, last Monday should be yesterday
+        if (today.day() === 2) {
+          const yesterday = moment().subtract(1, 'days');
+          expect(resultMoment.isSame(yesterday, 'day')).toBe(true);
+        }
       });
     });
 

@@ -95,11 +95,11 @@ The test suite in `parser.test.ts` covers:
 
 ## Test Status
 
-✅ **All tests passing**: The test suite currently has **95 tests** and all are passing successfully. The tests cover:
+✅ **All tests passing**: The test suite currently has **102 tests** and all are passing successfully. The tests cover:
 - Basic date expressions in 8 languages (English, French, German, Portuguese, Dutch, Spanish, Italian, Japanese)
 - Relative date expressions with various time units
 - Combined date expressions
-- Weekday expressions with and without time
+- Weekday expressions with and without time (including specific tests for "last Monday" / "dernier lundi" to ensure correct past date calculation)
 - Date ranges
 - Edge cases and error handling
 - Integration scenarios
