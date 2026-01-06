@@ -435,9 +435,9 @@ export default class NLDParser {
     }
 
     // ============================================================
-    // LEVEL 1.5: PAST EXPRESSIONS (2 days ago)
+    // LEVEL 1.5: PAST EXPRESSIONS (2 days ago, il y a 3 min)
     // ============================================================
-    // Check for "ago" expressions (e.g., "2 days ago")
+    // Check for "ago" expressions in English (e.g., "2 days ago")
     const agoMatch = text.match(/^(\d+)\s+(\w+)\s+ago$/i);
     if (agoMatch) {
         const value = parseInt(agoMatch[1]);
@@ -458,6 +458,49 @@ export default class NLDParser {
         }
         
         return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
+    }
+    
+    // Check for past expressions in all languages (e.g., "il y a 3 minutes", "vor 2 Stunden", etc.)
+    for (const lang of this.languages) {
+        const minutesAgoPattern = t("minutesago", lang);
+        const hoursAgoPattern = t("hoursago", lang);
+        const daysAgoPattern = t("daysago", lang);
+        const weeksAgoPattern = t("weeksago", lang);
+        const monthsAgoPattern = t("monthsago", lang);
+        
+        // Helper function to convert pattern to regex
+        // Example: "il y a %{timeDelta} minutes" -> "il y a (\d+) minutes"
+        const patternToRegex = (pattern: string): RegExp | null => {
+            if (!pattern || pattern === "NOTFOUND") return null;
+            
+            // Escape special regex characters except %{timeDelta}
+            let regexStr = pattern
+                .replace(/%\{timeDelta\}/g, '(\\d+)')
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                .replace(/\s+/g, '\\s+');
+            
+            return new RegExp(`^${regexStr}$`, 'i');
+        };
+        
+        // Try to match each pattern
+        const patterns = [
+            { pattern: minutesAgoPattern, unit: 'minutes' as const },
+            { pattern: hoursAgoPattern, unit: 'hours' as const },
+            { pattern: daysAgoPattern, unit: 'days' as const },
+            { pattern: weeksAgoPattern, unit: 'weeks' as const },
+            { pattern: monthsAgoPattern, unit: 'months' as const },
+        ];
+        
+        for (const { pattern, unit } of patterns) {
+            const regex = patternToRegex(pattern);
+            if (regex) {
+                const match = cleanedText.match(regex);
+                if (match) {
+                    const value = parseInt(match[1]);
+                    return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
+                }
+            }
+        }
     }
 
     // ============================================================

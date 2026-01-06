@@ -24,6 +24,8 @@ const dict = {
   daysago: "%{timeDelta} giorni fa",
   weeksago: "%{timeDelta} settimane fa",
   monthsago: "%{timeDelta} mesi fa",
+  minutesago: "%{timeDelta} minuti fa",
+  hoursago: "%{timeDelta} ore fa",
   time: "ora",
   now: "adesso|ora",
   plusminutes: "+%{timeDelta} minuti",
