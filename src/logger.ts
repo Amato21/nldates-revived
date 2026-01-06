@@ -4,13 +4,6 @@
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  context?: unknown;
-}
-
 /**
  * Formate une entrée de log avec timestamp
  */
