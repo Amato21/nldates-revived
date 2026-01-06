@@ -655,6 +655,10 @@ export default class NLDParser {
         
         if (this.prefixKeywords.this.has(prefix)) {
             m.day(dayIndex);
+            // If the day is in the past (before today), move to next week
+            if (m.isBefore(window.moment(), 'day')) {
+                m.add(1, 'week');
+            }
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
@@ -684,6 +688,10 @@ export default class NLDParser {
         
         if (this.prefixKeywords.this.has(prefix)) {
             m.day(dayIndex);
+            // If the day is in the past (before today), move to next week
+            if (m.isBefore(window.moment(), 'day')) {
+                m.add(1, 'week');
+            }
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {

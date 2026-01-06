@@ -375,7 +375,10 @@ describe('NLDParser', () => {
 
       it("should parse 'this Friday'", () => {
         const result = parser.getParsedDate('this Friday', weekStartPreference);
+        const today = moment();
         expect(moment(result).day()).toBe(5); // 5 = Friday
+        // Should be today or in the future (not in the past)
+        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
       });
 
       it("should parse 'next Monday at 3pm'", () => {
@@ -420,6 +423,22 @@ describe('NLDParser', () => {
       it("should parse 'prochain Lundi'", () => {
         const result = parser.getParsedDate('prochain Lundi', weekStartPreference);
         expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'ce Lundi' as next Monday (or today if Monday)", () => {
+        const result = parser.getParsedDate('ce Lundi', weekStartPreference);
+        const today = moment();
+        expect(moment(result).day()).toBe(1); // Monday = 1
+        // Should be today or in the future (not in the past)
+        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+      });
+
+      it("should parse 'ce Vendredi' as next Friday (or today if Friday)", () => {
+        const result = parser.getParsedDate('ce Vendredi', weekStartPreference);
+        const today = moment();
+        expect(moment(result).day()).toBe(5); // Friday = 5
+        // Should be today or in the future (not in the past)
+        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
       });
 
       it("should parse 'prochain Lundi à 15h'", () => {
