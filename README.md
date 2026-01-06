@@ -6,6 +6,15 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 ## New Features
 
 ### v0.9.5 - Security & Documentation Improvements
+* **Past Time Expressions Support:**
+    * Full support for past expressions in all languages: `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden`, `@hace 5 minutos`
+    * Suggestions now include past expressions (`minutesago`, `hoursago`) alongside future ones
+    * Works seamlessly with all 8 supported languages
+* **Smart Date Formatting:**
+    * When using short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`), only the time is displayed (e.g., `14:30`) instead of `[[2024-01-15]] 14:30`
+    * Automatically detects when a relative expression stays within today
+    * Cleaner, more intuitive output for short-term relative dates
+    * Full date still shown for dates beyond today or longer durations
 * **Input Validation & Security:**
     * Complete input sanitization to prevent injection attacks
     * Format validation with real-time preview in settings
