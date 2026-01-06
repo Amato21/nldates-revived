@@ -1,18 +1,15 @@
-import { MarkdownView } from "obsidian";
-import { adjustCursor, getSelectedText, shouldOmitDateForShortRelative } from "./utils";
+import { adjustCursor, getSelectedText, shouldOmitDateForShortRelative, getActiveEditor } from "./utils";
 import NaturalLanguageDates from "./main";
 import t from "./lang/helper";
 
 export function getParseCommand(plugin: NaturalLanguageDates, mode: string): void {
   const { workspace } = plugin.app;
-  const activeView = workspace.getActiveViewOfType(MarkdownView);
+  const editor = getActiveEditor(workspace);
 
-  // The active view might not be a markdown view
-  if (!activeView) {
+  // L'éditeur pourrait ne pas être disponible (par exemple dans une vue non-markdown)
+  if (!editor) {
     return;
   }
-
-  const editor = activeView.editor;
   const cursor = editor.getCursor();
   const selectedText = getSelectedText(editor);
 
@@ -130,11 +127,9 @@ export function insertMomentCommand(
   format: string
 ) {
   const { workspace } = plugin.app;
-  const activeView = workspace.getActiveViewOfType(MarkdownView);
+  const editor = getActiveEditor(workspace);
 
-  if (activeView) {
-    // The active view might not be a markdown view
-    const editor = activeView.editor;
+  if (editor) {
     editor.replaceSelection(window.moment(date).format(format));
   }
 }

@@ -10,7 +10,7 @@ import {
 } from "obsidian";
 import type NaturalLanguageDates from "../main";
 import t from "../lang/helper";
-import { generateMarkdownLink, shouldOmitDateForShortRelative } from "../utils";
+import { generateMarkdownLink, shouldOmitDateForShortRelative, getActiveEditor } from "../utils";
 
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
@@ -310,8 +310,15 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   selectSuggestion(suggestion: string, event: KeyboardEvent | MouseEvent): void {
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) {
+    // Utiliser l'éditeur du contexte si disponible, sinon chercher l'éditeur actif
+    let editor: Editor | null = null;
+    if (this.context?.editor) {
+      editor = this.context.editor;
+    } else {
+      editor = getActiveEditor(this.app.workspace);
+    }
+
+    if (!editor) {
       return;
     }
 
@@ -443,7 +450,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       return;
     }
     
-    activeView.editor.replaceRange(dateStr, this.context.start, this.context.end);
+    editor.replaceRange(dateStr, this.context.start, this.context.end);
 
     // Enregistrer la sélection dans l'historique (de manière asynchrone)
     if (this.plugin.settings.enableSmartSuggestions && 

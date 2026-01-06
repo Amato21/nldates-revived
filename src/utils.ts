@@ -1,4 +1,4 @@
-import { App, Editor, EditorRange, EditorPosition, normalizePath, TFile } from "obsidian";
+import { App, Editor, EditorRange, EditorPosition, normalizePath, TFile, MarkdownView, Workspace } from "obsidian";
 import {
   createDailyNote,
   getAllDailyNotes,
@@ -335,4 +335,59 @@ export function shouldOmitDateForShortRelative(text: string, languages: string[]
   
   // Vérifier si le texte correspond à un pattern d'expression relative courte
   return shortRelativePatterns.some(pattern => pattern.test(lowerText));
+}
+
+/**
+ * Obtient l'éditeur actif de manière flexible, compatible avec QuickAdd et autres plugins
+ * Essaie plusieurs méthodes pour trouver l'éditeur actif
+ * @param workspace - L'instance Workspace d'Obsidian
+ * @returns L'éditeur actif ou null si aucun n'est trouvé
+ */
+export function getActiveEditor(workspace: Workspace): Editor | null {
+  // Méthode 1: Utiliser activeEditor si disponible (Obsidian récent)
+  const workspaceWithActiveEditor = workspace as typeof workspace & { activeEditor?: { editor?: Editor } };
+  if (workspaceWithActiveEditor.activeEditor?.editor) {
+    return workspaceWithActiveEditor.activeEditor.editor;
+  }
+
+  // Méthode 2: Utiliser getActiveViewOfType(MarkdownView) (méthode standard)
+  const activeView = workspace.getActiveViewOfType(MarkdownView);
+  if (activeView?.editor) {
+    return activeView.editor;
+  }
+
+  // Méthode 3: Chercher dans tous les leafs pour trouver un éditeur actif
+  // Utile pour QuickAdd et autres plugins qui créent des éditeurs personnalisés
+  const activeLeaf = workspace.activeLeaf;
+  if (activeLeaf) {
+    const view = activeLeaf.view;
+    // Vérifier si la vue a un éditeur
+    const viewWithEditor = view as typeof view & { editor?: Editor };
+    if (viewWithEditor.editor) {
+      return viewWithEditor.editor;
+    }
+  }
+
+  // Méthode 4: Parcourir tous les leafs pour trouver un éditeur avec focus
+  for (const leaf of workspace.getLeavesOfType("markdown")) {
+    const view = leaf.view;
+    if (view instanceof MarkdownView && view.editor) {
+      // Vérifier si cet éditeur a le focus
+      const editorEl = (view.editor as Editor & { cm?: { hasFocus?: () => boolean } }).cm;
+      if (editorEl?.hasFocus?.()) {
+        return view.editor;
+      }
+    }
+  }
+
+  // Méthode 5: Dernier recours - prendre le premier éditeur disponible
+  const firstLeaf = workspace.getLeavesOfType("markdown")[0];
+  if (firstLeaf) {
+    const view = firstLeaf.view;
+    if (view instanceof MarkdownView && view.editor) {
+      return view.editor;
+    }
+  }
+
+  return null;
 }

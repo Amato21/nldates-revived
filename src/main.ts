@@ -10,7 +10,7 @@ import {
   getCurrentTimeCommand,
   getNowCommand,
 } from "./commands";
-import { getFormattedDate, getOrCreateDailyNote, parseTruthy, validateUriParam, validateMomentFormat } from "./utils";
+import { getFormattedDate, getOrCreateDailyNote, parseTruthy, validateUriParam, validateMomentFormat, getActiveEditor } from "./utils";
 import HistoryManager from "./history-manager";
 import ContextAnalyzer from "./context-analyzer";
 import { logger } from "./logger";
@@ -86,7 +86,7 @@ export default class NaturalLanguageDates extends Plugin {
       name: "Date picker",
       checkCallback: (checking: boolean) => {
         if (checking) {
-          return !!this.app.workspace.getActiveViewOfType(MarkdownView);
+          return !!getActiveEditor(this.app.workspace);
         }
         new DatePickerModal(this.app, this).open();
       },

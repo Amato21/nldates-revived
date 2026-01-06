@@ -1,5 +1,5 @@
 import { App, MarkdownView, Modal, Setting } from "obsidian";
-import { generateMarkdownLink, getLocaleWeekStart, validateMomentFormat } from "../utils";
+import { generateMarkdownLink, getLocaleWeekStart, validateMomentFormat, getActiveEditor } from "../utils";
 import type NaturalLanguageDates from "../main";
 import { DayOfWeek, DEFAULT_SETTINGS } from "../settings";
 import t from "../lang/helper";
@@ -481,11 +481,10 @@ export default class DatePickerModal extends Modal {
   }
 
   private insertDate(dateStr: string): void {
-    const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!activeView) {
+    const activeEditor = getActiveEditor(this.app.workspace);
+    if (!activeEditor) {
       return;
     }
-    const activeEditor = activeView.editor;
     this.close();
     activeEditor.replaceSelection(dateStr);
   }
