@@ -384,7 +384,7 @@ export default class DateSuggest extends EditorSuggest<string> {
         // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
         const isToday = parsedResult.moment.isSame(window.moment(), 'day');
         const isRelativeShortTerm = shouldOmitDateForShortRelative(suggestion, this.plugin.settings.languages);
-        const shouldOmitDate = isToday && isRelativeShortTerm && hasTime;
+        const shouldOmitDate = this.plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
 
         // --- HYBRID LINK LOGIC START ---
         // If a time is detected AND linking is enabled, we split the link.

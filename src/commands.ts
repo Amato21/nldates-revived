@@ -84,7 +84,7 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
   // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
   const isToday = date.moment.isSame(window.moment(), 'day');
   const isRelativeShortTerm = shouldOmitDateForShortRelative(selectedText, plugin.settings.languages);
-  const shouldOmitDate = isToday && isRelativeShortTerm && hasTime;
+  const shouldOmitDate = plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
 
   let newStr = "";
 

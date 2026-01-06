@@ -110,6 +110,8 @@ Go to **Settings > Natural Language Dates**:
     * **Enable smart suggestions:** Master toggle for all intelligent features
     * **History-based suggestions:** Learn from your frequently used date patterns
     * **Context-based suggestions:** Detect dates from the current document context
+* **Date Formatting:**
+    * **Omit date for short relative expressions:** When enabled, short relative expressions for today (e.g., `@in 15 min`, `@dans 2 heures`) will display only the time (e.g., `14:30`) instead of `[[2024-01-15]] 14:30` (enabled by default)
 
 **Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to 100 most frequent entries for optimal performance.
 
