@@ -16,6 +16,9 @@ export default class DatePickerModal extends Modal {
     let dateInput = "";
     let momentFormat = this.plugin.settings.modalMomentFormat;
     let insertAsLink = this.plugin.settings.modalToggleLink;
+    
+    // Moment.js format string (technical format, not UI text)
+    const MOMENT_FORMAT_PLACEHOLDER = "YYYY-MM-DD HH:mm";
 
     const getDateStr = () => {
       let cleanDateInput = dateInput;
@@ -62,10 +65,10 @@ export default class DatePickerModal extends Modal {
         .setName("Date format")
         .setDesc("Moment format to be used")
         .addMomentFormat((momentEl) => {
-          momentEl.setPlaceholder("YYYY-MM-DD HH:mm");
+          momentEl.setPlaceholder(MOMENT_FORMAT_PLACEHOLDER);
           momentEl.setValue(momentFormat);
           momentEl.onChange((value) => {
-            momentFormat = value.trim() || "YYYY-MM-DD HH:mm";
+            momentFormat = value.trim() || MOMENT_FORMAT_PLACEHOLDER;
             this.plugin.settings.modalMomentFormat = momentFormat;
             void this.plugin.saveSettings();
 
