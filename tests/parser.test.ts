@@ -390,6 +390,30 @@ describe('NLDParser', () => {
         expect(moment(result).hour()).toBe(15); // 3pm
         expect(moment(result).minute()).toBe(30);
       });
+
+      it("should parse 'Wednesday' without prefix as next Wednesday (or today if Wednesday)", () => {
+        const result = parser.getParsedDate('Wednesday', weekStartPreference);
+        const today = moment();
+        expect(moment(result).day()).toBe(3); // Wednesday = 3
+        // Should be today or in the future
+        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+      });
+
+      it("should parse 'Thursday' without prefix as next Thursday (or today if Thursday)", () => {
+        const result = parser.getParsedDate('Thursday', weekStartPreference);
+        const today = moment();
+        expect(moment(result).day()).toBe(4); // Thursday = 4
+        // Should be today or in the future
+        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+      });
+
+      it("should parse 'Friday' without prefix as next Friday (or today if Friday)", () => {
+        const result = parser.getParsedDate('Friday', weekStartPreference);
+        const today = moment();
+        expect(moment(result).day()).toBe(5); // Friday = 5
+        // Should be today or in the future
+        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+      });
     });
 
     describe('French', () => {

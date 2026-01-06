@@ -2,7 +2,9 @@ import { Chrono, ParsedResult, ParsingOption } from "chrono-node";
 import getChronos from "./chrono";
 import t from "./lang/helper";
 import { logger } from "./logger";
-import { TimeDetector } from "./time-detector";
+import { ErrorCodes } from "./errors";
+import { TimeDetector, TimeDetectorDependencies } from "./time-detector";
+import { LRUCache } from "./lru-cache";
 
 import { DayOfWeek } from "./settings";
 import {
@@ -16,20 +18,56 @@ import {
 // The moment package is bundled with Obsidian, but the Moment type is not exported from obsidian module
 type Moment = import("moment").Moment;
 
+/**
+ * Result object returned by date parsing methods.
+ * Contains the parsed date in multiple formats for convenience.
+ * 
+ * @example
+ * ```typescript
+ * const result = plugin.parseDate("tomorrow");
+ * console.log(result.formattedString); // "2025-01-06"
+ * console.log(result.date); // Date object
+ * console.log(result.moment.format("dddd")); // "Monday"
+ * ```
+ */
 export interface NLDResult {
+  /** Formatted date string according to the specified format */
   formattedString: string;
+  /** Native JavaScript Date object */
   date: Date;
+  /** Moment.js object for advanced date manipulation */
   moment: Moment;
 }
 
+/**
+ * Result object returned by date range parsing methods.
+ * Contains the start and end dates of a parsed range, plus a list of all dates in the range.
+ * 
+ * @example
+ * ```typescript
+ * const range = plugin.parseDateRange("from Monday to Friday");
+ * if (range) {
+ *   console.log(range.startDate); // Date object for Monday
+ *   console.log(range.endDate); // Date object for Friday
+ *   console.log(range.dateList?.length); // 5 (Monday through Friday)
+ * }
+ * ```
+ */
 export interface NLDRangeResult {
+  /** Formatted range string (e.g., "2025-01-06 to 2025-01-10") */
   formattedString: string;
+  /** Start date of the range as a native Date object */
   startDate: Date;
+  /** End date of the range as a native Date object */
   endDate: Date;
+  /** Start date as a Moment.js object */
   startMoment: Moment;
+  /** End date as a Moment.js object */
   endMoment: Moment;
+  /** Always true for range results */
   isRange: true;
-  dateList?: Moment[]; // List of all dates in the range
+  /** Optional list of all dates in the range as Moment objects */
+  dateList?: Moment[];
 }
 
 export default class NLDParser {
@@ -41,6 +79,7 @@ export default class NLDParser {
   regexRelativeCombined: RegExp; // For "in 2 weeks and 3 days"
   regexWeekday: RegExp;
   regexWeekdayWithTime: RegExp; // For "next Monday at 3pm"
+  regexWeekdayOnly: RegExp; // For "wednesday" (without prefix)
   regexDateRange: RegExp; // For "from Monday to Friday"
   
   // Keywords for all languages
@@ -48,9 +87,10 @@ export default class NLDParser {
   prefixKeywords: { this: Set<string>; next: Set<string>; last: Set<string> };
   timeUnitMap: Map<string, 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years'>;
   
-  // Cache for parsed dates
-  private cache: Map<string, Date>;
+  // Cache for parsed dates (LRU avec limite de 500 entrées)
+  private cache: LRUCache<string, Date>;
   private cacheDay: number; // Day of year for cache invalidation
+  private readonly MAX_CACHE_SIZE = 500;
   
   // Time detector
   private timeDetector: TimeDetector;
@@ -60,7 +100,7 @@ export default class NLDParser {
     this.chronos = getChronos(languages);
     this.initializeRegex();
     this.initializeKeywords();
-    this.cache = new Map<string, Date>();
+    this.cache = new LRUCache<string, Date>(this.MAX_CACHE_SIZE);
     this.cacheDay = this.getDayOfYear();
     
     // Initialize time detector
@@ -197,6 +237,12 @@ export default class NLDParser {
       'i'
     );
 
+    // Regex for simple weekday without prefix (e.g., "wednesday", "friday")
+    this.regexWeekdayOnly = new RegExp(
+      `^\\s*(${weekdayPattern})\\s*$`,
+      'i'
+    );
+
     // Regex for "from Monday to Friday" - captures two weekdays
     this.regexDateRange = new RegExp(
       `^\\s*(?:${fromPattern})\\s+(${weekdayPattern})\\s+(?:${toPattern})\\s+(${weekdayPattern})\\s*$`,
@@ -320,6 +366,28 @@ export default class NLDParser {
   }
 
   // --- MAIN ENGINE ---
+  /**
+   * Parses a natural language date string and returns a Date object.
+   * 
+   * Supports multiple languages and various date expressions:
+   * - Immediate dates: "today", "tomorrow", "yesterday", "now"
+   * - Relative dates: "in 2 days", "in 3 weeks", "in 1 month"
+   * - Combined durations: "in 2 weeks and 3 days"
+   * - Weekdays: "next Monday", "last Friday", "this Wednesday"
+   * - Weekdays with time: "next Monday at 3pm"
+   * - Periods: "next week", "next month", "next year"
+   * 
+   * @param selectedText - Natural language date string to parse (e.g., "tomorrow", "in 2 days", "next Monday")
+   * @param weekStartPreference - Day of week to consider as week start (affects "next week" calculations)
+   * @returns Parsed Date object, or current date if parsing fails
+   * 
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en', 'fr']);
+   * const date = parser.getParsedDate("tomorrow", "monday");
+   * console.log(date); // Date object for tomorrow
+   * ```
+   */
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
     // Vérifier si le jour a changé pour invalider le cache
     const currentDay = this.getDayOfYear();
@@ -335,8 +403,8 @@ export default class NLDParser {
     const cacheKey = this.generateCacheKey(cleanedText, weekStartPreference);
     
     // Vérifier le cache avant de parser
-    const cachedDate = this.cache.get(cacheKey);
-    if (cachedDate) {
+    if (this.cache.has(cacheKey)) {
+      const cachedDate = this.cache.get(cacheKey)!;
       // Créer une nouvelle instance de Date pour éviter les références partagées
       return new Date(cachedDate.getTime());
     }
@@ -374,9 +442,9 @@ export default class NLDParser {
     }
 
     // ============================================================
-    // LEVEL 1.5: PAST EXPRESSIONS (2 days ago)
+    // LEVEL 1.5: PAST EXPRESSIONS (2 days ago, il y a 3 min)
     // ============================================================
-    // Check for "ago" expressions (e.g., "2 days ago")
+    // Check for "ago" expressions in English (e.g., "2 days ago")
     const agoMatch = text.match(/^(\d+)\s+(\w+)\s+ago$/i);
     if (agoMatch) {
         const value = parseInt(agoMatch[1]);
@@ -398,15 +466,57 @@ export default class NLDParser {
         
         return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
     }
+    
+    // Check for past expressions in all languages (e.g., "il y a 3 minutes", "vor 2 Stunden", etc.)
+    for (const lang of this.languages) {
+        const minutesAgoPattern = t("minutesago", lang);
+        const hoursAgoPattern = t("hoursago", lang);
+        const daysAgoPattern = t("daysago", lang);
+        const weeksAgoPattern = t("weeksago", lang);
+        const monthsAgoPattern = t("monthsago", lang);
+        
+        // Helper function to convert pattern to regex
+        // Example: "il y a %{timeDelta} minutes" -> "il y a (\d+) minutes"
+        const patternToRegex = (pattern: string): RegExp | null => {
+            if (!pattern || pattern === "NOTFOUND") return null;
+            
+            // Escape special regex characters except %{timeDelta}
+            let regexStr = pattern
+                .replace(/%\{timeDelta\}/g, '(\\d+)')
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                .replace(/\s+/g, '\\s+');
+            
+            return new RegExp(`^${regexStr}$`, 'i');
+        };
+        
+        // Try to match each pattern
+        const patterns = [
+            { pattern: minutesAgoPattern, unit: 'minutes' as const },
+            { pattern: hoursAgoPattern, unit: 'hours' as const },
+            { pattern: daysAgoPattern, unit: 'days' as const },
+            { pattern: weeksAgoPattern, unit: 'weeks' as const },
+            { pattern: monthsAgoPattern, unit: 'months' as const },
+        ];
+        
+        for (const { pattern, unit } of patterns) {
+            const regex = patternToRegex(pattern);
+            if (regex) {
+                const match = cleanedText.match(regex);
+                if (match) {
+                    const value = parseInt(match[1]);
+                    return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
+                }
+            }
+        }
+    }
 
     // ============================================================
     // LEVEL 2: RELATIVE CALCULATION (in 2 minutes, in 1 year...)
     // ============================================================
     // Helper function to get unit type
     const getUnit = (unitStr: string): 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' => {
-        const unit = this.timeUnitMap.get(unitStr);
-        if (unit) {
-            return unit;
+        if (this.timeUnitMap.has(unitStr)) {
+            return this.timeUnitMap.get(unitStr)!;
         }
         // Fallback for common abbreviations
         if (unitStr.startsWith('h')) return 'hours';
@@ -420,11 +530,15 @@ export default class NLDParser {
     
     // First check combinations "in 2 weeks and 3 days" or multiple combinations
     // Try to parse multiple combinations like "in 1 year and 2 months and 3 weeks and 4 days"
+    const multiUnitPattern = /(\d+)\s+(\w+)(?:\s+and\s+(\d+)\s+(\w+))+/gi;
+    let multiMatch;
     let hasMultiUnits = false;
     let totalMoment = window.moment();
     
     // Check for multiple units pattern (3+ units)
     const testText = cleanedText;
+    const allMatches: Array<{value: number, unit: string}> = [];
+    let match;
     
     // Try to match all "X unit" patterns after "in"
     const inPatterns = Array.from(new Set(this.languages.map(l => t("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
@@ -578,6 +692,29 @@ export default class NLDParser {
         return this.cacheAndReturn(cacheKey, m.toDate());
     }
 
+    // Check for weekday without prefix (e.g., "wednesday", "friday")
+    // This should be interpreted as "next [day]" or "this [day]" if today
+    const weekOnlyMatch = cleanedText.match(this.regexWeekdayOnly);
+    if (weekOnlyMatch) {
+        const dayName = weekOnlyMatch[1].toLowerCase();
+        
+        const m = window.moment();
+        const todayIndex = m.day();
+        
+        // Convert day name to numeric index to avoid locale issues
+        const dayIndex = this.getDayOfWeekIndex(dayName);
+        
+        // Set to the target day
+        m.day(dayIndex);
+        
+        // If the day is in the past (before today), move to next week
+        if (m.isBefore(window.moment(), 'day')) {
+            m.add(1, 'week');
+        }
+        
+        return this.cacheAndReturn(cacheKey, m.toDate());
+    }
+
     // ============================================================
     // LEVEL 4: THE REST (Chrono-node Library + Fallback)
     // ============================================================
@@ -631,8 +768,30 @@ export default class NLDParser {
     return this.cacheAndReturn(cacheKey, chronoResult);
   }
 
-  // --- METHOD FOR PARSING DATE RANGES ---
+  /**
+   * Parses a natural language date range string and returns a range result.
+   * 
+   * Supports various range expressions:
+   * - Weekday ranges: "from Monday to Friday"
+   * - Week ranges: "next week" (returns all days of next week)
+   * - Works in all enabled languages with native translations
+   * 
+   * @param selectedText - Natural language date range string (e.g., "from Monday to Friday", "next week")
+   * @param weekStartPreference - Day of week to consider as week start
+   * @returns NLDRangeResult object with start/end dates and date list, or null if not a range
+   * 
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en', 'fr']);
+   * const range = parser.getParsedDateRange("from Monday to Friday", "monday");
+   * if (range) {
+   *   console.log(range.dateList?.length); // 5 (Monday through Friday)
+   * }
+   * ```
+   */
   getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null {
+    const text = selectedText.toLowerCase().trim();
+    
     // Check "from Monday to Friday"
     const rangeMatch = selectedText.match(this.regexDateRange);
     if (rangeMatch) {
@@ -792,7 +951,37 @@ export default class NLDParser {
   }
 
   // --- TIME DETECTION (FOR DISPLAY) ---
+  /**
+   * Checks if a text string contains a time component.
+   * 
+   * Detects various time expressions:
+   * - Explicit times: "at 3pm", "at 15:00", "à 15h"
+   * - Time in relative expressions: "in 2 hours", "dans 2 heures"
+   * - Works with all enabled languages
+   * 
+   * @param text - Text string to check for time component
+   * @returns true if a time component is detected, false otherwise
+   * 
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en', 'fr']);
+   * parser.hasTimeComponent("next Monday at 3pm"); // true
+   * parser.hasTimeComponent("tomorrow"); // false
+   * parser.hasTimeComponent("in 2 hours"); // true
+   * ```
+   */
   hasTimeComponent(text: string): boolean {
     return this.timeDetector.hasTimeComponent(text);
+  }
+
+  // --- CACHE STATISTICS (FOR MONITORING) ---
+  /**
+   * Retourne les statistiques du cache de parsing
+   */
+  getCacheStats(): { size: number; maxSize: number } {
+    return {
+      size: this.cache.size,
+      maxSize: this.cache.maxSizeLimit,
+    };
   }
 }
