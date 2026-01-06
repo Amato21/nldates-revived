@@ -34,6 +34,8 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
     * **Weekday with time:** `@next Monday at 3pm`, `@prochain lundi à 15h`
     * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
     * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
+    * **Past expressions:** `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden` (all languages!)
+    * **Smart formatting:** Short relative expressions for today show only time (e.g., `@in 15 min` → `14:30` instead of `[[2024-01-15]] 14:30`)
     * Works in all supported languages with native translations
 * **Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
     * **History-based suggestions:** The plugin learns your frequently used date patterns and prioritizes them in suggestions
@@ -69,9 +71,12 @@ Type `@` (default trigger) followed by a natural date.
 
 * `@today` → `[[2024-12-30]]`
 * `@tomorrow` → `[[2024-12-31]]`
-* `@in 20 minutes` → `[[2024-12-30]] 23:50`
-* `@in 2 weeks and 3 days` → `[[2025-01-22]]`
+* `@in 20 minutes` → `14:30` (smart formatting: only time when it's today!)
+* `@in 2 hours` → `16:30` (smart formatting for today)
+* `@in 2 weeks and 3 days` → `[[2025-01-22]]` (full date for future dates)
 * `@next Monday at 3pm` → `[[2025-01-06]] 15:00`
+* `@il y a 3 min` → `14:27` (past expressions supported!)
+* `@3 minutes ago` → `14:27` (works in all languages)
 * `@from Monday to Friday` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]]`
 * `@next week` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]], [[2025-01-11]], [[2025-01-12]]`
 
