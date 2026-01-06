@@ -6,9 +6,6 @@ const dict = {
   last: "前|去|先|昨", // "Mae/Kyo/Sen/Saku" (ex: Sen-shu = Semaine dernière)
   this: "今|本|当", // "Ima/Hon/To" (ex: Kon-shu = Cette semaine)
   in: "あと|ato", // "Ato" (Pour dire "Dans X minutes" -> "Ato X fun")
-  week: "週",
-  month: "月",
-  year: "年",
   sunday: "日曜日",
   monday: "月曜日",
   tuesday: "火曜日",
