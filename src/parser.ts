@@ -10,6 +10,8 @@ import { DayOfWeek } from "./settings";
 import {
   getLocaleWeekStart,
   getWeekNumber,
+  ORDINAL_NUMBER_PATTERN,
+  parseOrdinalNumberPattern,
 } from "./utils";
 
 
@@ -81,6 +83,9 @@ export default class NLDParser {
   regexWeekdayWithTime: RegExp; // For "next Monday at 3pm"
   regexWeekdayOnly: RegExp; // For "wednesday" (without prefix)
   regexDateRange: RegExp; // For "from Monday to Friday"
+  regexOrdinalOfMonth: RegExp; // For "the 15th of next month"
+  regexLastDayOfMonth: RegExp; // For "last day of month"
+  regexWeekdayOfMonth: RegExp; // For "first Monday of month"
   
   // Keywords for all languages
   immediateKeywords: Set<string>;
@@ -246,6 +251,62 @@ export default class NLDParser {
     // Regex for "from Monday to Friday" - captures two weekdays
     this.regexDateRange = new RegExp(
       `^\\s*(?:${fromPattern})\\s+(${weekdayPattern})\\s+(?:${toPattern})\\s+(${weekdayPattern})\\s*$`,
+      'i'
+    );
+
+    // Collect "of" and "first" words
+    const ofWords: string[] = [];
+    const firstWords: string[] = [];
+    for (const lang of this.languages) {
+      const ofWord = t("of", lang);
+      if (ofWord && ofWord !== "NOTFOUND") {
+        ofWords.push(...ofWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+      const firstWord = t("first", lang);
+      if (firstWord && firstWord !== "NOTFOUND") {
+        firstWords.push(...firstWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+    }
+    const ofPattern = [...new Set(ofWords.map(escapeRegex))].join('|');
+    const firstPattern = [...new Set(firstWords.map(escapeRegex))].join('|');
+
+    // Regex for "the 15th of next month" or "le 15 du mois prochain"
+    // Pattern: (optional "the"/"le"/"der") (ordinal number like "15th", "15ème", "15.") "of"/"du"/"des" (next/last/this) (month)
+    // Also handles French inversion: "le 15 du mois prochain" (month before prefix)
+    // Also handles German: "der 15. des nächsten Monats" (prefix between "of" and month)
+    // Using ORDINAL_NUMBER_PATTERN from utils.ts for ordinal matching
+    this.regexOrdinalOfMonth = new RegExp(
+      `^\\s*(?:the|le|der|das|el|il|o|de|het)?\\s*(${ORDINAL_NUMBER_PATTERN})\\s+(?:${ofPattern})\\s+(?:(${prefixPattern})\\s+)?(${timeUnitPattern})(?:\\s+(${prefixPattern}))?\\s*$`,
+      'i'
+    );
+
+    // Regex for "last day of month" or "dernier jour du mois"
+    // Collect "day" words from all languages
+    const dayWords: string[] = [];
+    for (const lang of this.languages) {
+      const dayWord = t("day", lang);
+      if (dayWord && dayWord !== "NOTFOUND") {
+        dayWords.push(...dayWord.split("|").map(w => w.trim()).filter(w => w));
+      }
+    }
+    const dayPattern = [...new Set(dayWords.map(escapeRegex))].join('|');
+    
+    // Make prefix optional - "last day of month" without prefix means "this month"
+    // "last" here is an adjective modifying "day", not a temporal prefix
+    // Also handle French inversion: "dernier jour du mois prochain" (month before prefix)
+    // Pattern: (optional prefix) "last" (day word) "of" (optional prefix) (month) (optional prefix after month)
+    // Reuse lastWords collected above (line 148-150)
+    const lastAdjectivePattern = [...new Set(lastWords.map(escapeRegex))].join('|');
+    
+    this.regexLastDayOfMonth = new RegExp(
+      `^\\s*(?:(${prefixPattern})\\s+)?(${lastAdjectivePattern})\\s+(${dayPattern})\\s+(?:${ofPattern})\\s+(?:(${prefixPattern})\\s+)?(${timeUnitPattern})(?:\\s+(${prefixPattern}))?\\s*$`,
+      'i'
+    );
+
+    // Regex for "first Monday of month" or "premier lundi du mois" or "last Monday of month"
+    // Also handle French inversion: "premier lundi du mois prochain" (month before prefix)
+    this.regexWeekdayOfMonth = new RegExp(
+      `^\\s*(${firstPattern}|${prefixPattern})\\s+(${weekdayPattern})\\s+(?:${ofPattern})\\s+(?:(${prefixPattern})\\s+)?(${timeUnitPattern})(?:\\s+(${prefixPattern}))?\\s*$`,
       'i'
     );
   }
@@ -715,6 +776,211 @@ export default class NLDParser {
         }
         
         return this.cacheAndReturn(cacheKey, m.toDate());
+    }
+
+    // ============================================================
+    // LEVEL 3.5: COMPLEX DATE EXPRESSIONS (the Xth of next month, last day of month, first weekday of month)
+    // ============================================================
+    
+    // Check "the 15th of next month" or "le 15 du mois prochain"
+    const ordinalOfMonthMatch = cleanedText.match(this.regexOrdinalOfMonth);
+    if (ordinalOfMonthMatch) {
+        const ordinalStr = ordinalOfMonthMatch[1].trim();
+        // Groups: [1]=ordinal, [2]=prefix before month (optional), [3]=month, [4]=prefix after month (optional, for French)
+        const prefixBefore = ordinalOfMonthMatch[2]?.toLowerCase() || '';
+        const periodStr = ordinalOfMonthMatch[3]?.toLowerCase() || '';
+        const prefixAfter = ordinalOfMonthMatch[4]?.toLowerCase() || '';
+        
+        // Use prefix after month if present (French inversion), otherwise prefix before
+        const prefix = prefixAfter || prefixBefore;
+        
+        // Parse ordinal number (e.g., "15th" -> 15, "first" -> 1)
+        const dayNumber = parseOrdinalNumberPattern(ordinalStr);
+        
+        // Determine which period (month/year) to target
+        let targetMoment = window.moment();
+        let isMonth = false;
+        let isYear = false;
+        
+        for (const lang of this.languages) {
+            const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+            if (monthVariants.includes(periodStr)) {
+                isMonth = true;
+                break;
+            }
+            const yearVariants = t('year', lang).toLowerCase().split('|').map(w => w.trim());
+            if (yearVariants.includes(periodStr)) {
+                isYear = true;
+                break;
+            }
+        }
+        
+        if (isMonth) {
+            if (prefix && this.prefixKeywords.next.has(prefix)) {
+                targetMoment.add(1, 'months').startOf('month');
+            } else if (prefix && this.prefixKeywords.last.has(prefix)) {
+                targetMoment.subtract(1, 'months').startOf('month');
+            } else if (prefix && this.prefixKeywords.this.has(prefix)) {
+                targetMoment.startOf('month');
+            } else {
+                // No prefix means "this month"
+                targetMoment.startOf('month');
+            }
+            
+            // Set the day of month (clamp to valid range)
+            const daysInMonth = targetMoment.daysInMonth();
+            const targetDay = Math.min(dayNumber, daysInMonth);
+            targetMoment.date(targetDay);
+        } else if (isYear) {
+            if (prefix && this.prefixKeywords.next.has(prefix)) {
+                targetMoment.add(1, 'years').startOf('year');
+            } else if (prefix && this.prefixKeywords.last.has(prefix)) {
+                targetMoment.subtract(1, 'years').startOf('year');
+            } else if (prefix && this.prefixKeywords.this.has(prefix)) {
+                targetMoment.startOf('year');
+            } else {
+                targetMoment.startOf('year');
+            }
+            
+            // For year, interpret as day of year (1-365/366)
+            const daysInYear = targetMoment.isLeapYear() ? 366 : 365;
+            const targetDayOfYear = Math.min(dayNumber, daysInYear);
+            targetMoment.dayOfYear(targetDayOfYear);
+        }
+        
+        return this.cacheAndReturn(cacheKey, targetMoment.toDate());
+    }
+    
+    // Check "last day of month" or "dernier jour du mois"
+    const lastDayOfMonthMatch = cleanedText.match(this.regexLastDayOfMonth);
+    if (lastDayOfMonthMatch) {
+        // Groups: [1]=prefix before "last" (optional), [2]="last", [3]=day, [4]=prefix before month (optional), [5]=month, [6]=prefix after month (optional, for French)
+        const prefixBefore = lastDayOfMonthMatch[1]?.toLowerCase() || '';
+        const periodStr = lastDayOfMonthMatch[5]?.toLowerCase() || '';
+        const prefixAfter = lastDayOfMonthMatch[6]?.toLowerCase() || '';
+        const prefixBeforeMonth = lastDayOfMonthMatch[4]?.toLowerCase() || '';
+        
+        // Use prefix after month if present (French inversion), otherwise prefix before month, otherwise prefix before "last"
+        const prefix = prefixAfter || prefixBeforeMonth || prefixBefore;
+        
+        let targetMoment = window.moment();
+        let isMonth = false;
+        
+        for (const lang of this.languages) {
+            const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+            if (monthVariants.includes(periodStr)) {
+                isMonth = true;
+                break;
+            }
+        }
+        
+        if (isMonth) {
+            if (prefix && this.prefixKeywords.next.has(prefix)) {
+                targetMoment.add(1, 'months').endOf('month');
+            } else if (prefix && this.prefixKeywords.last.has(prefix)) {
+                targetMoment.subtract(1, 'months').endOf('month');
+            } else if (prefix && this.prefixKeywords.this.has(prefix)) {
+                targetMoment.endOf('month');
+            } else {
+                // No prefix means "this month"
+                targetMoment.endOf('month');
+            }
+            
+            return this.cacheAndReturn(cacheKey, targetMoment.toDate());
+        }
+    }
+    
+    // Check "first Monday of month" or "premier lundi du mois" or "last Monday of month"
+    const weekdayOfMonthMatch = cleanedText.match(this.regexWeekdayOfMonth);
+    if (weekdayOfMonthMatch) {
+        // Groups: [1]=first/prefix, [2]=weekday, [3]=prefix before month (optional), [4]=month, [5]=prefix after month (optional, for French)
+        const prefixOrFirst = weekdayOfMonthMatch[1].toLowerCase();
+        const dayName = weekdayOfMonthMatch[2].toLowerCase();
+        const prefixBeforeMonth = weekdayOfMonthMatch[3]?.toLowerCase() || '';
+        const periodStr = weekdayOfMonthMatch[4]?.toLowerCase() || '';
+        const prefixAfter = weekdayOfMonthMatch[5]?.toLowerCase() || '';
+        
+        // Use prefix after month if present (French inversion), otherwise prefix before month, otherwise prefixOrFirst
+        const monthPrefix = prefixAfter || prefixBeforeMonth;
+        
+        const dayIndex = this.getDayOfWeekIndex(dayName);
+        let targetMoment = window.moment();
+        let isMonth = false;
+        
+        // Check if it's "first" or a prefix (next/last/this)
+        let isFirst = false;
+        for (const lang of this.languages) {
+            const firstWord = t("first", lang);
+            if (firstWord && firstWord !== "NOTFOUND") {
+                if (firstWord.split("|").some(f => f.trim().toLowerCase() === prefixOrFirst)) {
+                    isFirst = true;
+                    break;
+                }
+            }
+        }
+        
+        for (const lang of this.languages) {
+            const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+            if (monthVariants.includes(periodStr)) {
+                isMonth = true;
+                break;
+            }
+        }
+        
+        if (isMonth) {
+            const isLast = !isFirst && this.prefixKeywords.last.has(prefixOrFirst);
+            
+            if (isFirst) {
+                // First weekday of month
+                if (monthPrefix && this.prefixKeywords.next.has(monthPrefix)) {
+                    targetMoment.add(1, 'months').startOf('month');
+                } else if (monthPrefix && this.prefixKeywords.last.has(monthPrefix)) {
+                    targetMoment.subtract(1, 'months').startOf('month');
+                } else {
+                    targetMoment.startOf('month');
+                }
+                
+                // Find the first occurrence of the weekday in the target month
+                const firstDayOfMonth = targetMoment.clone().startOf('month');
+                const firstWeekdayIndex = firstDayOfMonth.day();
+                const daysToAdd = (dayIndex - firstWeekdayIndex + 7) % 7;
+                targetMoment = firstDayOfMonth.add(daysToAdd, 'days');
+            } else if (isLast) {
+                // Last weekday of month
+                if (monthPrefix && this.prefixKeywords.next.has(monthPrefix)) {
+                    targetMoment.add(1, 'months').endOf('month');
+                } else if (monthPrefix && this.prefixKeywords.last.has(monthPrefix)) {
+                    targetMoment.subtract(1, 'months').endOf('month');
+                } else if (monthPrefix && this.prefixKeywords.this.has(monthPrefix)) {
+                    targetMoment.endOf('month');
+                } else {
+                    targetMoment.endOf('month');
+                }
+                
+                // Find the last occurrence of the weekday by going to end of month and working backwards
+                const lastDayOfMonth = targetMoment.clone().endOf('month');
+                const lastWeekdayIndex = lastDayOfMonth.day();
+                const daysToSubtract = (lastWeekdayIndex - dayIndex + 7) % 7;
+                targetMoment = lastDayOfMonth.subtract(daysToSubtract, 'days');
+            } else {
+                // Prefix-based (next/this) - default to first
+                if (monthPrefix && this.prefixKeywords.next.has(monthPrefix)) {
+                    targetMoment.add(1, 'months').startOf('month');
+                } else if (monthPrefix && this.prefixKeywords.this.has(monthPrefix)) {
+                    targetMoment.startOf('month');
+                } else {
+                    targetMoment.startOf('month');
+                }
+                
+                // Find the first occurrence of the weekday in the target month
+                const firstDayOfMonth = targetMoment.clone().startOf('month');
+                const firstWeekdayIndex = firstDayOfMonth.day();
+                const daysToAdd = (dayIndex - firstWeekdayIndex + 7) % 7;
+                targetMoment = firstDayOfMonth.add(daysToAdd, 'days');
+            }
+            
+            return this.cacheAndReturn(cacheKey, targetMoment.toDate());
+        }
     }
 
     // ============================================================

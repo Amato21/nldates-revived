@@ -2,7 +2,7 @@ const dict = {
   today: "Heute",
   tomorrow: "Morgen",
   yesterday: "Gestern",
-  next: "nächster|nächste|nächstes",
+  next: "nächster|nächste|nächstes|nächsten",
   last: "letzter|letzte|letztes",
   this: "dieser|diese|dieses",
   in: "in",
@@ -33,12 +33,14 @@ const dict = {
   hour: "Stunde|Stunden|Std|h",
   day: "Tag|Tage|d|t",
   week: "Woche|Wochen|w",
-  month: "Monat|Monate|M|mo",
+  month: "Monat|Monate|Monats|M|mo",
   year: "Jahr|Jahre|j|y",
   and: "und",
   at: "um",
   from: "von|ab",
   to: "bis|bis zum",
+  of: "des|vom",
+  first: "erster|erste|erstes",
 } as const;
 
 export default dict;

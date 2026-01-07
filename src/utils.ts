@@ -267,7 +267,7 @@ const ORDINAL_WORD_DICTIONARY: { [word: string]: number } = {
 
 export const ORDINAL_NUMBER_PATTERN = `(?:${matchAnyPattern(
   ORDINAL_WORD_DICTIONARY
-)}|[0-9]{1,2}(?:st|nd|rd|th)?)`;
+)}|[0-9]{1,2}(?:st|nd|rd|th|ème|ème|er|e|er|e|\.)?)`;
 
 export function parseOrdinalNumberPattern(match: string): number {
   let num = match.toLowerCase();
@@ -275,7 +275,8 @@ export function parseOrdinalNumberPattern(match: string): number {
     return ORDINAL_WORD_DICTIONARY[num];
   }
 
-  num = num.replace(/(?:st|nd|rd|th)$/i, "");
+  // Remove ordinal suffixes: st, nd, rd, th, ème, er, e, and trailing dot
+  num = num.replace(/(?:st|nd|rd|th|ème|er|e|\.)$/i, "");
   return parseInt(num);
 }
 

@@ -829,5 +829,231 @@ describe('NLDParser', () => {
       }
     });
   });
+
+  // ==================== COMPLEX DATE EXPRESSIONS ====================
+  
+  describe('Complex date expressions (the Xth of next month, last day of month, first/last weekday of month)', () => {
+    describe('English', () => {
+      it("should parse 'the 15th of next month'", () => {
+        const result = parser.getParsedDate('the 15th of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(15);
+      });
+
+      it("should parse '15th of next month' (without 'the')", () => {
+        const result = parser.getParsedDate('15th of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(15);
+      });
+
+      it("should parse 'the 1st of last month'", () => {
+        const result = parser.getParsedDate('the 1st of last month', weekStartPreference);
+        const expected = moment().subtract(1, 'months').startOf('month').date(1);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(1);
+      });
+
+      it("should parse 'last day of month' (current month)", () => {
+        const result = parser.getParsedDate('last day of month', weekStartPreference);
+        const expected = moment().endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'last day of next month'", () => {
+        const result = parser.getParsedDate('last day of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'last day of last month'", () => {
+        const result = parser.getParsedDate('last day of last month', weekStartPreference);
+        const expected = moment().subtract(1, 'months').endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'first Monday of month' (current month)", () => {
+        const result = parser.getParsedDate('first Monday of month', weekStartPreference);
+        const expected = moment().startOf('month');
+        // Find first Monday of current month
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'first Monday of next month'", () => {
+        const result = parser.getParsedDate('first Monday of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month');
+        // Find first Monday of next month
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'last Monday of month' (current month)", () => {
+        const result = parser.getParsedDate('last Monday of month', weekStartPreference);
+        const expected = moment().endOf('month');
+        // Find last Monday of current month
+        while (expected.day() !== 1) {
+          expected.subtract(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'last Monday of next month'", () => {
+        const result = parser.getParsedDate('last Monday of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').endOf('month');
+        // Find last Monday of next month
+        while (expected.day() !== 1) {
+          expected.subtract(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'first Friday of month'", () => {
+        const result = parser.getParsedDate('first Friday of month', weekStartPreference);
+        const expected = moment().startOf('month');
+        // Find first Friday of current month
+        while (expected.day() !== 5) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(5); // Friday
+      });
+    });
+
+    describe('French', () => {
+      it("should parse 'le 15 du mois prochain'", () => {
+        const result = parser.getParsedDate('le 15 du mois prochain', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(15);
+      });
+
+      it("should parse 'le 15ème du mois prochain'", () => {
+        const result = parser.getParsedDate('le 15ème du mois prochain', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(15);
+      });
+
+      it("should parse 'dernier jour du mois' (current month)", () => {
+        const result = parser.getParsedDate('dernier jour du mois', weekStartPreference);
+        const expected = moment().endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'dernier jour du mois prochain'", () => {
+        const result = parser.getParsedDate('dernier jour du mois prochain', weekStartPreference);
+        const expected = moment().add(1, 'months').endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'premier lundi du mois' (current month)", () => {
+        const result = parser.getParsedDate('premier lundi du mois', weekStartPreference);
+        const expected = moment().startOf('month');
+        // Find first Monday of current month
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'premier lundi du mois prochain'", () => {
+        const result = parser.getParsedDate('premier lundi du mois prochain', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month');
+        // Find first Monday of next month
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'dernier lundi du mois' (current month)", () => {
+        const result = parser.getParsedDate('dernier lundi du mois', weekStartPreference);
+        const expected = moment().endOf('month');
+        // Find last Monday of current month
+        while (expected.day() !== 1) {
+          expected.subtract(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+    });
+
+    describe('German', () => {
+      it("should parse 'der 15. des nächsten Monats'", () => {
+        const result = parser.getParsedDate('der 15 des nächsten Monats', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(15);
+      });
+
+      it("should parse 'letzter Tag des Monats'", () => {
+        const result = parser.getParsedDate('letzter Tag des Monats', weekStartPreference);
+        const expected = moment().endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'erster Montag des Monats'", () => {
+        const result = parser.getParsedDate('erster Montag des Monats', weekStartPreference);
+        const expected = moment().startOf('month');
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(1);
+      });
+    });
+
+    describe('Spanish', () => {
+      it("should parse 'el 15 del próximo mes'", () => {
+        const result = parser.getParsedDate('el 15 del próximo mes', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(15);
+      });
+
+      it("should parse 'último día del mes'", () => {
+        const result = parser.getParsedDate('último día del mes', weekStartPreference);
+        const expected = moment().endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+    });
+
+    describe('Edge cases for complex expressions', () => {
+      it("should handle 'the 31st of next month' when next month has 30 days (should clamp to 30)", () => {
+        // Test with a month that has 30 days
+        const result = parser.getParsedDate('the 31st of next month', weekStartPreference);
+        const nextMonth = moment().add(1, 'months');
+        const daysInNextMonth = nextMonth.daysInMonth();
+        expect(moment(result).date()).toBeLessThanOrEqual(daysInNextMonth);
+        expect(moment(result).month()).toBe(nextMonth.month());
+      });
+
+      it("should handle 'the 1st of this month'", () => {
+        const result = parser.getParsedDate('the 1st of this month', weekStartPreference);
+        const expected = moment().startOf('month').date(1);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(1);
+      });
+
+      it("should parse ordinal words like 'first' in 'the first of next month'", () => {
+        const result = parser.getParsedDate('the first of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month').date(1);
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).date()).toBe(1);
+      });
+    });
+  });
 });
 

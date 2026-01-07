@@ -30,6 +30,14 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
     * Clear error messages for invalid formats
     * Automatic fallback to default formats on error
     * Protection against dangerous characters in formats
+* **Complex Date Expressions Support:**
+    * **Ordinal dates:** `@the 15th of next month`, `@le 15 du mois prochain`, `@der 15 des nächsten Monats`
+    * **Last day of month:** `@last day of month`, `@dernier jour du mois`, `@letzter Tag des Monats`
+    * **First/last weekday of month:** `@first Monday of month`, `@premier lundi du mois`, `@last Friday of next month`
+    * Works with all prefixes: `next`, `last`, `this` (and their translations in all languages)
+    * Fully multilingual support across all 8 supported languages
+    * Smart clamping: Automatically handles edge cases (e.g., 31st of a 30-day month)
+
 
 ### v0.9.0 - Advanced Multilingual Support 🚀
 * **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, and Italian**!
@@ -94,6 +102,15 @@ Type `@` (default trigger) followed by a natural date.
 * `@3 minutes ago` → `14:27` (works in all languages)
 * `@from Monday to Friday` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]]`
 * `@next week` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]], [[2025-01-11]], [[2025-01-12]]`
+* **Complex date expressions:**
+  * `@the 15th of next month` → `[[2025-02-15]]` (English)
+  * `@le 15 du mois prochain` → `[[2025-02-15]]` (French)
+  * `@last day of month` → Last day of current month
+  * `@dernier jour du mois prochain` → Last day of next month (French)
+  * `@first Monday of month` → First Monday of current month
+  * `@premier lundi du mois prochain` → First Monday of next month (French)
+  * `@last Friday of next month` → Last Friday of next month
+  * Works with all languages and all prefixes (`next`, `last`, `this` and their translations)
 
 Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`).
 

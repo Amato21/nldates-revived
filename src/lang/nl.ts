@@ -39,6 +39,8 @@ const dict = {
   at: "om",
   from: "van|vanaf",
   to: "tot|tot en met",
+  of: "van",
+  first: "eerste",
 } as const;
 
 export default dict;

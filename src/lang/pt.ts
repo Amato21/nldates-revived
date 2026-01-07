@@ -39,6 +39,8 @@ const dict = {
   at: "às|as|à|a",
   from: "de|desde",
   to: "até|ao|à",
+  of: "do|da|de",
+  first: "primeiro|primeira",
 } as const;
 
 export default dict;

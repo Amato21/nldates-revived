@@ -39,6 +39,8 @@ const dict = {
   at: "At",
   from: "From",
   to: "To|Until|Till",
+  of: "of",
+  first: "first",
 } as const;
 
 export default dict;
