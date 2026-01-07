@@ -655,19 +655,11 @@ export default class NLDParser {
         
         if (this.prefixKeywords.this.has(prefix)) {
             m.day(dayIndex);
-            // If the day is in the past (before today), move to next week
-            if (m.isBefore(window.moment(), 'day')) {
-                m.add(1, 'week');
-            }
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
-            // Pour "dernier lundi", on cherche d'abord le lundi de cette semaine
-            m.day(dayIndex);
-            // Si le jour est dans le futur (après aujourd'hui), on recule d'une semaine
-            if (m.isAfter(window.moment(), 'day')) {
-                m.subtract(1, 'week');
-            }
+            // Pour "last/dernier <jour>", on cible toujours la semaine précédente
+            m.day(dayIndex).subtract(1, 'week');
         }
         
         // Parse time with chrono-node
@@ -693,19 +685,11 @@ export default class NLDParser {
         
         if (this.prefixKeywords.this.has(prefix)) {
             m.day(dayIndex);
-            // If the day is in the past (before today), move to next week
-            if (m.isBefore(window.moment(), 'day')) {
-                m.add(1, 'week');
-            }
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
-            // Pour "dernier lundi", on cherche d'abord le lundi de cette semaine
-            m.day(dayIndex);
-            // Si le jour est dans le futur (après aujourd'hui), on recule d'une semaine
-            if (m.isAfter(window.moment(), 'day')) {
-                m.subtract(1, 'week');
-            }
+            // Pour "last/dernier <jour>", on cible toujours la semaine précédente
+            m.day(dayIndex).subtract(1, 'week');
         }
         return this.cacheAndReturn(cacheKey, m.toDate());
     }

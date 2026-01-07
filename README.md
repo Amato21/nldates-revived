@@ -84,6 +84,12 @@ Type `@` (default trigger) followed by a natural date.
 * `@in 2 hours` → `16:30` (smart formatting for today)
 * `@in 2 weeks and 3 days` → `[[2025-01-22]]` (full date for future dates)
 * `@next Monday at 3pm` → `[[2025-01-06]] 15:00`
+* **Weekday shortcuts:**
+  * `@Monday` → next Monday (or today if it's Monday)
+  * `@this Monday` → Monday of the current week (even if already elapsed)
+  * `@last Monday` → Monday of the previous week
+  * `@next Monday` → Monday of the next week
+  * Abbreviations also work: `@mon`, `@tue`, `@wed`, `@thu`, `@fri`, `@sat`, `@sun`
 * `@il y a 3 min` → `14:27` (past expressions supported!)
 * `@3 minutes ago` → `14:27` (works in all languages)
 * `@from Monday to Friday` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]]`

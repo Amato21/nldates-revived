@@ -368,44 +368,28 @@ describe('NLDParser', () => {
         expect(moment(result).isSameOrAfter(moment(), 'day')).toBe(true);
       });
 
-      it("should parse 'last Monday'", () => {
+      it("should parse 'last Monday' as Monday of the previous week", () => {
         const result = parser.getParsedDate('last Monday', weekStartPreference);
         expect(moment(result).day()).toBe(1); // 1 = Monday
-        // Should be in the past (or today if today is Monday)
-        const today = moment();
-        if (today.day() !== 1) {
-          // If not Monday, last Monday should be in the past
-          expect(moment(result).isSameOrBefore(today, 'day')).toBe(true);
-        } else {
-          // If today is Monday, last Monday should be today or last week
-          expect(moment(result).isSameOrBefore(today, 'day')).toBe(true);
-        }
+
+        const expected = moment().day(1).subtract(1, 'week');
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
       });
 
-      it("should parse 'last Monday' correctly - if today is Tuesday, should return yesterday's Monday", () => {
-        // This test verifies the fix: "dernier lundi" should return the most recent Monday in the past
-        const result = parser.getParsedDate('last Monday', weekStartPreference);
-        const today = moment();
-        const resultMoment = moment(result);
-        
-        expect(resultMoment.day()).toBe(1); // Must be a Monday
-        
-        // If today is Tuesday (day 2), last Monday should be yesterday
-        if (today.day() === 2) {
-          const yesterday = moment().subtract(1, 'days');
-          expect(resultMoment.isSame(yesterday, 'day')).toBe(true);
-        }
-        
-        // Last Monday should never be in the future
-        expect(resultMoment.isSameOrBefore(today, 'day')).toBe(true);
+      it("should parse 'this Monday' as Monday of the current week (even if elapsed)", () => {
+        const result = parser.getParsedDate('this Monday', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // 1 = Monday
+
+        const expected = moment().day(1);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
       });
 
       it("should parse 'this Friday'", () => {
         const result = parser.getParsedDate('this Friday', weekStartPreference);
-        const today = moment();
         expect(moment(result).day()).toBe(5); // 5 = Friday
-        // Should be today or in the future (not in the past)
-        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+
+        const expected = moment().day(5);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
       });
 
       it("should parse 'next Monday at 3pm'", () => {
@@ -452,20 +436,20 @@ describe('NLDParser', () => {
         expect(moment(result).day()).toBe(1); // Monday
       });
 
-      it("should parse 'ce Lundi' as next Monday (or today if Monday)", () => {
+      it("should parse 'ce Lundi' as Monday of the current week (even if elapsed)", () => {
         const result = parser.getParsedDate('ce Lundi', weekStartPreference);
-        const today = moment();
         expect(moment(result).day()).toBe(1); // Monday = 1
-        // Should be today or in the future (not in the past)
-        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+
+        const expected = moment().day(1);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
       });
 
-      it("should parse 'ce Vendredi' as next Friday (or today if Friday)", () => {
+      it("should parse 'ce Vendredi' as Friday of the current week (even if elapsed)", () => {
         const result = parser.getParsedDate('ce Vendredi', weekStartPreference);
-        const today = moment();
         expect(moment(result).day()).toBe(5); // Friday = 5
-        // Should be today or in the future (not in the past)
-        expect(moment(result).isSameOrAfter(today, 'day')).toBe(true);
+
+        const expected = moment().day(5);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
       });
 
       it("should parse 'prochain Lundi à 15h'", () => {
@@ -474,21 +458,14 @@ describe('NLDParser', () => {
         expect(moment(result).hour()).toBe(15);
       });
 
-      it("should parse 'dernier Lundi' correctly - should return the most recent Monday in the past", () => {
+      it("should parse 'dernier Lundi' as Monday of the previous week", () => {
         const result = parser.getParsedDate('dernier Lundi', weekStartPreference);
-        const today = moment();
         const resultMoment = moment(result);
         
         expect(resultMoment.day()).toBe(1); // Must be a Monday
-        
-        // Last Monday should never be in the future
-        expect(resultMoment.isSameOrBefore(today, 'day')).toBe(true);
-        
-        // If today is Tuesday, last Monday should be yesterday
-        if (today.day() === 2) {
-          const yesterday = moment().subtract(1, 'days');
-          expect(resultMoment.isSame(yesterday, 'day')).toBe(true);
-        }
+
+        const expected = moment().day(1).subtract(1, 'week');
+        expect(resultMoment.isSame(expected, 'day')).toBe(true);
       });
     });
 
