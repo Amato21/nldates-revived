@@ -58,6 +58,10 @@ export default class DateSuggest extends EditorSuggest<string> {
         if (suggestions)
           return suggestions;
 
+        suggestions = this.getWeekdaySuggestions(context.query, language);
+        if (suggestions)
+          return suggestions;
+
         return this.defaultSuggestions(context.query, language);
       }
     ));
@@ -292,6 +296,50 @@ export default class DateSuggest extends EditorSuggest<string> {
       ].filter(items => items.toLowerCase().startsWith(inputStr.toLowerCase()));
       return suggestions;
     }
+  }
+
+  private getWeekdaySuggestions(inputStr: string, lang: string): string[] {
+    // Le parser peut gérer les abréviations (thu, mon, sat, etc.), donc on doit les proposer aussi
+    const weekdays = [
+      { key: 'sunday', abbr: ['sun'] },
+      { key: 'monday', abbr: ['mon'] },
+      { key: 'tuesday', abbr: ['tue', 'tues'] },
+      { key: 'wednesday', abbr: ['wed'] },
+      { key: 'thursday', abbr: ['thu', 'thur', 'thurs'] },
+      { key: 'friday', abbr: ['fri'] },
+      { key: 'saturday', abbr: ['sat'] },
+    ];
+
+    const inputLower = inputStr.toLowerCase();
+    const suggestions: string[] = [];
+
+    for (const day of weekdays) {
+      const dayName = t(day.key, lang);
+      if (!dayName || dayName === "NOTFOUND") continue;
+
+      const firstVariant = dayName.split('|')[0].trim();
+      const dayNameLower = firstVariant.toLowerCase();
+
+      // Vérifier si le nom complet commence par l'input
+      if (dayNameLower.startsWith(inputLower)) {
+        const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
+        if (!suggestions.includes(capitalized)) {
+          suggestions.push(capitalized);
+        }
+      }
+
+      // Vérifier si une abréviation correspond
+      for (const abbr of day.abbr) {
+        if (abbr.startsWith(inputLower)) {
+          const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
+          if (!suggestions.includes(capitalized)) {
+            suggestions.push(capitalized);
+          }
+        }
+      }
+    }
+
+    return suggestions.length > 0 ? suggestions : undefined;
   }
 
   private defaultSuggestions(inputStr: string, lang: string): string[] {
