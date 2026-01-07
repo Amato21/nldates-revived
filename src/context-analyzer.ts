@@ -285,8 +285,8 @@ export default class ContextAnalyzer {
   /**
    * Analyse le contexte autour du curseur dans le document actuel (async, pour compatibilité)
    */
-  async analyzeContext(editor: Editor, cursorLine: number): Promise<ContextInfo> {
-    return this.analyzeContextSync(editor, cursorLine);
+  analyzeContext(editor: Editor, cursorLine: number): Promise<ContextInfo> {
+    return Promise.resolve(this.analyzeContextSync(editor, cursorLine));
   }
 
   /**

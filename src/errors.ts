@@ -3,14 +3,14 @@
  */
 export class NLDParseError extends Error {
   public readonly code: string;
-  public readonly context?: any;
+  public readonly context?: unknown;
   public readonly severity: 'debug' | 'warn' | 'error';
 
   constructor(
     message: string,
     code: string,
     severity: 'debug' | 'warn' | 'error' = 'error',
-    context?: any
+    context?: unknown
   ) {
     super(message);
     this.name = 'NLDParseError';

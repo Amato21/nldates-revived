@@ -6,7 +6,7 @@ export interface SelectionHistory {
 }
 
 const MAX_HISTORY_SIZE = 100; // Limite du nombre d'entrées dans l'historique
-const HISTORY_FILE = ".obsidian/plugins/nldates-revived/history.json";
+const HISTORY_FILE = "plugins/nldates-revived/history.json";
 const CLEANUP_INTERVAL = 300000; // Nettoyage périodique toutes les 5 minutes
 
 export default class HistoryManager {
@@ -72,7 +72,8 @@ export default class HistoryManager {
     }
 
     try {
-      const path = normalizePath(HISTORY_FILE);
+      const configDir = this.plugin.app.vault.configDir;
+      const path = normalizePath(`${configDir}/${HISTORY_FILE}`);
       const exists = await this.plugin.app.vault.adapter.exists(path);
       if (exists) {
         const data = await this.plugin.app.vault.adapter.read(path);
@@ -83,7 +84,7 @@ export default class HistoryManager {
           }
         }
       }
-    } catch (error) {
+    } catch {
       // Si le fichier n'existe pas, c'est normal (première utilisation)
       this.history = {};
     }
@@ -95,7 +96,8 @@ export default class HistoryManager {
    */
   async saveHistory(): Promise<void> {
     try {
-      const path = normalizePath(HISTORY_FILE);
+      const configDir = this.plugin.app.vault.configDir;
+      const path = normalizePath(`${configDir}/${HISTORY_FILE}`);
       const dir = path.substring(0, path.lastIndexOf("/"));
       
       // Créer le dossier si nécessaire

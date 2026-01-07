@@ -79,6 +79,7 @@ export default class NLDParser {
   regexRelativeCombined: RegExp; // For "in 2 weeks and 3 days"
   regexWeekday: RegExp;
   regexWeekdayWithTime: RegExp; // For "next Monday at 3pm"
+  regexWeekdayOnly: RegExp; // For "wednesday" (without prefix)
   regexDateRange: RegExp; // For "from Monday to Friday"
   
   // Keywords for all languages
@@ -233,6 +234,12 @@ export default class NLDParser {
     // Regex for "next Monday at 3pm" - captures day and time
     this.regexWeekdayWithTime = new RegExp(
       `^\\s*(${prefixPattern})\\s+(${weekdayPattern})\\s+(?:${atPattern})\\s+(.+)$`,
+      'i'
+    );
+
+    // Regex for simple weekday without prefix (e.g., "wednesday", "friday")
+    this.regexWeekdayOnly = new RegExp(
+      `^\\s*(${weekdayPattern})\\s*$`,
       'i'
     );
 
@@ -648,10 +655,19 @@ export default class NLDParser {
         
         if (this.prefixKeywords.this.has(prefix)) {
             m.day(dayIndex);
+            // If the day is in the past (before today), move to next week
+            if (m.isBefore(window.moment(), 'day')) {
+                m.add(1, 'week');
+            }
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
-            m.subtract(1, 'weeks').day(dayIndex);
+            // Pour "dernier lundi", on cherche d'abord le lundi de cette semaine
+            m.day(dayIndex);
+            // Si le jour est dans le futur (après aujourd'hui), on recule d'une semaine
+            if (m.isAfter(window.moment(), 'day')) {
+                m.subtract(1, 'week');
+            }
         }
         
         // Parse time with chrono-node
@@ -677,11 +693,43 @@ export default class NLDParser {
         
         if (this.prefixKeywords.this.has(prefix)) {
             m.day(dayIndex);
+            // If the day is in the past (before today), move to next week
+            if (m.isBefore(window.moment(), 'day')) {
+                m.add(1, 'week');
+            }
         } else if (this.prefixKeywords.next.has(prefix)) {
             m.add(1, 'weeks').day(dayIndex);
         } else if (this.prefixKeywords.last.has(prefix)) {
-            m.subtract(1, 'weeks').day(dayIndex);
+            // Pour "dernier lundi", on cherche d'abord le lundi de cette semaine
+            m.day(dayIndex);
+            // Si le jour est dans le futur (après aujourd'hui), on recule d'une semaine
+            if (m.isAfter(window.moment(), 'day')) {
+                m.subtract(1, 'week');
+            }
         }
+        return this.cacheAndReturn(cacheKey, m.toDate());
+    }
+
+    // Check for weekday without prefix (e.g., "wednesday", "friday")
+    // This should be interpreted as "next [day]" or "this [day]" if today
+    const weekOnlyMatch = cleanedText.match(this.regexWeekdayOnly);
+    if (weekOnlyMatch) {
+        const dayName = weekOnlyMatch[1].toLowerCase();
+        
+        const m = window.moment();
+        const todayIndex = m.day();
+        
+        // Convert day name to numeric index to avoid locale issues
+        const dayIndex = this.getDayOfWeekIndex(dayName);
+        
+        // Set to the target day
+        m.day(dayIndex);
+        
+        // If the day is in the past (before today), move to next week
+        if (m.isBefore(window.moment(), 'day')) {
+            m.add(1, 'week');
+        }
+        
         return this.cacheAndReturn(cacheKey, m.toDate());
     }
 

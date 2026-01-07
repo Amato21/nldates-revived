@@ -2,9 +2,6 @@
  * Module pour le formatage de dates
  */
 
-// Type alias for Moment from the moment library bundled with Obsidian
-type Moment = import("moment").Moment;
-
 /**
  * Classe pour formater des dates
  */
