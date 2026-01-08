@@ -259,6 +259,9 @@ export default class NaturalLanguageDates extends Plugin {
       'nl': 'dutch',
       'es': 'spanish',
       'it': 'italian',
+      'ru': 'russian',
+      'uk': 'ukrainian',
+      'zh.hant': 'chinese',
     };
     
     // Reset all flags
@@ -270,6 +273,9 @@ export default class NaturalLanguageDates extends Plugin {
     this.settings.dutch = false;
     this.settings.spanish = false;
     this.settings.italian = false;
+    this.settings.russian = false;
+    this.settings.ukrainian = false;
+    this.settings.chinese = false;
     
     // Enable flags corresponding to languages in array
     for (const lang of this.settings.languages) {

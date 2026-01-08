@@ -40,9 +40,9 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 
 
 ### v0.9.0 - Advanced Multilingual Support 🚀
-* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, and Italian**!
+* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, Italian, Russian, Ukrainian, and Chinese (Traditional)**!
     * Each language works **100%** with its own native words and units
-    * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch), `@en 2 minutos` (Spanish), `@tra 2 minuti` (Italian)
+    * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch), `@en 2 minutos` (Spanish), `@tra 2 minuti` (Italian), `@через 2 минуты` (Russian), `@через 2 хвилини` (Ukrainian), `@2分鐘後` (Chinese)
     * All time units (minutes, hours, days, weeks, months, years) are fully translated
     * All weekdays are recognized in all languages
     * Dynamic regex generation from translations - no hardcoded words!
@@ -217,7 +217,7 @@ The plugin uses a modular architecture with specialized components:
     * Uses dynamic regex patterns generated from translations (multi-language support)
     * Implements temporary caching (5 seconds) for performance
     * Automatically updates patterns when languages change
-    * Supports all enabled languages (French, English, Japanese, German, Spanish, Italian, Portuguese, Dutch)
+    * Supports all enabled languages (French, English, Japanese, German, Spanish, Italian, Portuguese, Dutch, Russian, Ukrainian, Chinese)
 
 Both components are optimized for performance: no vault-wide scanning, only analyzes the current document, and uses efficient caching strategies.
 

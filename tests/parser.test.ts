@@ -22,7 +22,7 @@ describe('NLDParser', () => {
     });
     
     // Reset parser with all languages
-    parser = new NLDParser(['en', 'fr', 'de', 'pt', 'nl', 'es', 'it', 'ja']);
+    parser = new NLDParser(['en', 'fr', 'de', 'pt', 'nl', 'es', 'it', 'ja', 'ru', 'uk', 'zh.hant']);
   });
 
   describe('Priority 1: Basic expressions (today, tomorrow, yesterday, now)', () => {
@@ -162,6 +162,84 @@ describe('NLDParser', () => {
         expectSameDate(result, tomorrow, 'day');
       });
     });
+
+    describe('Russian', () => {
+      it("should parse 'Сегодня'", () => {
+        const result = parser.getParsedDate('Сегодня', weekStartPreference);
+        const today = moment().startOf('day');
+        expectSameDate(result, today, 'day');
+      });
+
+      it("should parse 'Завтра'", () => {
+        const result = parser.getParsedDate('Завтра', weekStartPreference);
+        const tomorrow = moment().add(1, 'days').startOf('day');
+        expectSameDate(result, tomorrow, 'day');
+      });
+
+      it("should parse 'Вчера'", () => {
+        const result = parser.getParsedDate('Вчера', weekStartPreference);
+        const yesterday = moment().subtract(1, 'days').startOf('day');
+        expectSameDate(result, yesterday, 'day');
+      });
+
+      it("should parse 'сейчас'", () => {
+        const result = parser.getParsedDate('сейчас', weekStartPreference);
+        const now = new Date();
+        expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
+      });
+    });
+
+    describe('Ukrainian', () => {
+      it("should parse 'Сьогодні'", () => {
+        const result = parser.getParsedDate('Сьогодні', weekStartPreference);
+        const today = moment().startOf('day');
+        expectSameDate(result, today, 'day');
+      });
+
+      it("should parse 'Завтра'", () => {
+        const result = parser.getParsedDate('Завтра', weekStartPreference);
+        const tomorrow = moment().add(1, 'days').startOf('day');
+        expectSameDate(result, tomorrow, 'day');
+      });
+
+      it("should parse 'Вчора'", () => {
+        const result = parser.getParsedDate('Вчора', weekStartPreference);
+        const yesterday = moment().subtract(1, 'days').startOf('day');
+        expectSameDate(result, yesterday, 'day');
+      });
+
+      it("should parse 'зараз'", () => {
+        const result = parser.getParsedDate('зараз', weekStartPreference);
+        const now = new Date();
+        expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
+      });
+    });
+
+    describe('Chinese (Traditional)', () => {
+      it("should parse '今天'", () => {
+        const result = parser.getParsedDate('今天', weekStartPreference);
+        const today = moment().startOf('day');
+        expectSameDate(result, today, 'day');
+      });
+
+      it("should parse '明天'", () => {
+        const result = parser.getParsedDate('明天', weekStartPreference);
+        const tomorrow = moment().add(1, 'days').startOf('day');
+        expectSameDate(result, tomorrow, 'day');
+      });
+
+      it("should parse '昨天'", () => {
+        const result = parser.getParsedDate('昨天', weekStartPreference);
+        const yesterday = moment().subtract(1, 'days').startOf('day');
+        expectSameDate(result, yesterday, 'day');
+      });
+
+      it("should parse '現在'", () => {
+        const result = parser.getParsedDate('現在', weekStartPreference);
+        const now = new Date();
+        expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
+      });
+    });
   });
 
   describe('Priority 1: Simple relative expressions (in 2 days, in 2 weeks)', () => {
@@ -268,6 +346,78 @@ describe('NLDParser', () => {
         expectSameDate(result, expected, 'day');
       });
     });
+
+    describe('Russian', () => {
+      it("should parse 'через 2 дня'", () => {
+        const result = parser.getParsedDate('через 2 дня', weekStartPreference);
+        const expected = moment().add(2, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 2 недели'", () => {
+        const result = parser.getParsedDate('через 2 недели', weekStartPreference);
+        const expected = moment().add(2, 'weeks');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 3 месяца'", () => {
+        const result = parser.getParsedDate('через 3 месяца', weekStartPreference);
+        const expected = moment().add(3, 'months');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 30 минут'", () => {
+        const result = parser.getParsedDate('через 30 минут', weekStartPreference);
+        const expected = moment().add(30, 'minutes');
+        expectSameDate(result, expected, 'minute', 60);
+      });
+    });
+
+    describe('Ukrainian', () => {
+      it("should parse 'через 2 дні'", () => {
+        const result = parser.getParsedDate('через 2 дні', weekStartPreference);
+        const expected = moment().add(2, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 2 тижні'", () => {
+        const result = parser.getParsedDate('через 2 тижні', weekStartPreference);
+        const expected = moment().add(2, 'weeks');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 3 місяці'", () => {
+        const result = parser.getParsedDate('через 3 місяці', weekStartPreference);
+        const expected = moment().add(3, 'months');
+        expectSameDate(result, expected, 'day');
+      });
+    });
+
+    describe('Chinese (Traditional)', () => {
+      it("should parse '2天後'", () => {
+        const result = parser.getParsedDate('2天後', weekStartPreference);
+        const expected = moment().add(2, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse '2週後'", () => {
+        const result = parser.getParsedDate('2週後', weekStartPreference);
+        const expected = moment().add(2, 'weeks');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse '3個月後'", () => {
+        const result = parser.getParsedDate('3個月後', weekStartPreference);
+        const expected = moment().add(3, 'months');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse '30分鐘後'", () => {
+        const result = parser.getParsedDate('30分鐘後', weekStartPreference);
+        const expected = moment().add(30, 'minutes');
+        expectSameDate(result, expected, 'minute', 60);
+      });
+    });
   });
 
   describe('Priority 2: Combinations (in 2 weeks and 3 days)', () => {
@@ -340,6 +490,42 @@ describe('NLDParser', () => {
     describe('Italian', () => {
       it("should parse 'tra 2 settimane e 3 giorni'", () => {
         const result = parser.getParsedDate('tra 2 settimane e 3 giorni', weekStartPreference);
+        const expected = moment().add(2, 'weeks').add(3, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+    });
+
+    describe('Russian', () => {
+      it("should parse 'через 2 недели и 3 дня'", () => {
+        const result = parser.getParsedDate('через 2 недели и 3 дня', weekStartPreference);
+        const expected = moment().add(2, 'weeks').add(3, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 1 месяц и 5 дней'", () => {
+        const result = parser.getParsedDate('через 1 месяц и 5 дней', weekStartPreference);
+        const expected = moment().add(1, 'months').add(5, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+    });
+
+    describe('Ukrainian', () => {
+      it("should parse 'через 2 тижні і 3 дні'", () => {
+        const result = parser.getParsedDate('через 2 тижні і 3 дні', weekStartPreference);
+        const expected = moment().add(2, 'weeks').add(3, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'через 1 місяць і 5 днів'", () => {
+        const result = parser.getParsedDate('через 1 місяць і 5 днів', weekStartPreference);
+        const expected = moment().add(1, 'months').add(5, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+    });
+
+    describe('Chinese (Traditional)', () => {
+      it("should parse '2週和3天後'", () => {
+        const result = parser.getParsedDate('2週和3天後', weekStartPreference);
         const expected = moment().add(2, 'weeks').add(3, 'days');
         expectSameDate(result, expected, 'day');
       });
@@ -501,6 +687,68 @@ describe('NLDParser', () => {
         expect(moment(result).day()).toBe(1); // Monday
       });
     });
+
+    describe('Russian', () => {
+      it("should parse 'следующий Понедельник'", () => {
+        const result = parser.getParsedDate('следующий Понедельник', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'этот Понедельник' as Monday of the current week", () => {
+        const result = parser.getParsedDate('этот Понедельник', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+
+      it("should parse 'последний Понедельник' as Monday of the previous week", () => {
+        const result = parser.getParsedDate('последний Понедельник', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1).subtract(1, 'week');
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+
+      it("should parse 'следующий Понедельник в 15:00'", () => {
+        const result = parser.getParsedDate('следующий Понедельник в 15:00', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        expect(moment(result).hour()).toBe(15);
+      });
+    });
+
+    describe('Ukrainian', () => {
+      it("should parse 'наступний Понеділок'", () => {
+        const result = parser.getParsedDate('наступний Понеділок', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'цей Понеділок' as Monday of the current week", () => {
+        const result = parser.getParsedDate('цей Понеділок', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+
+      it("should parse 'останній Понеділок' as Monday of the previous week", () => {
+        const result = parser.getParsedDate('останній Понеділок', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1).subtract(1, 'week');
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+    });
+
+    describe('Chinese (Traditional)', () => {
+      it("should parse '下一個星期一'", () => {
+        const result = parser.getParsedDate('下一個星期一', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse '這個星期一' as Monday of the current week", () => {
+        const result = parser.getParsedDate('這個星期一', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+    });
   });
 
   describe('Date ranges (from Monday to Friday, next week)', () => {
@@ -582,6 +830,69 @@ describe('NLDParser', () => {
         const result = parser.getParsedDateRange('da Lunedì a Venerdì', weekStartPreference);
         expect(result).not.toBeNull();
         expect(result?.isRange).toBe(true);
+      });
+    });
+
+    describe('Russian', () => {
+      it("should parse 'с Понедельника до Пятницы' as range", () => {
+        const result = parser.getParsedDateRange('с Понедельника до Пятницы', weekStartPreference);
+        expect(result).not.toBeNull();
+        expect(result?.isRange).toBe(true);
+        if (result) {
+          expect(moment(result.startDate).day()).toBe(1); // Monday
+          expect(moment(result.endDate).day()).toBe(5); // Friday
+        }
+      });
+
+      it("should parse 'следующая неделя' as range", () => {
+        const result = parser.getParsedDateRange('следующая неделя', weekStartPreference);
+        expect(result).not.toBeNull();
+        expect(result?.isRange).toBe(true);
+        if (result && result.dateList) {
+          expect(result.dateList.length).toBe(7);
+        }
+      });
+    });
+
+    describe('Ukrainian', () => {
+      it("should parse 'з Понеділка до П'ятниці' as range", () => {
+        const result = parser.getParsedDateRange('з Понеділка до П\'ятниці', weekStartPreference);
+        expect(result).not.toBeNull();
+        expect(result?.isRange).toBe(true);
+        if (result) {
+          expect(moment(result.startDate).day()).toBe(1); // Monday
+          expect(moment(result.endDate).day()).toBe(5); // Friday
+        }
+      });
+
+      it("should parse 'наступний тиждень' as range", () => {
+        const result = parser.getParsedDateRange('наступний тиждень', weekStartPreference);
+        expect(result).not.toBeNull();
+        expect(result?.isRange).toBe(true);
+        if (result && result.dateList) {
+          expect(result.dateList.length).toBe(7);
+        }
+      });
+    });
+
+    describe('Chinese (Traditional)', () => {
+      it("should parse '從星期一到星期五' as range", () => {
+        const result = parser.getParsedDateRange('從星期一到星期五', weekStartPreference);
+        expect(result).not.toBeNull();
+        expect(result?.isRange).toBe(true);
+        if (result) {
+          expect(moment(result.startDate).day()).toBe(1); // Monday
+          expect(moment(result.endDate).day()).toBe(5); // Friday
+        }
+      });
+
+      it("should parse '下一個星期' as range", () => {
+        const result = parser.getParsedDateRange('下一個星期', weekStartPreference);
+        expect(result).not.toBeNull();
+        expect(result?.isRange).toBe(true);
+        if (result && result.dateList) {
+          expect(result.dateList.length).toBe(7);
+        }
       });
     });
   });
@@ -790,7 +1101,10 @@ describe('NLDParser', () => {
         pt: 'Amanhã',
         nl: 'Morgen',
         es: 'Mañana',
-        it: 'Domani'
+        it: 'Domani',
+        ru: 'Завтра',
+        uk: 'Завтра',
+        'zh.hant': '明天'
       };
 
       Object.entries(expressions).forEach(([lang, expr]) => {
