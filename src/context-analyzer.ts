@@ -4,26 +4,26 @@ import t from "./lang/helper";
 import { LRUCache } from "./lru-cache";
 import { logger } from "./logger";
 
-const CONTEXT_LINES = 10; // Number of lines to analyze before and after cursor
-const MAX_DATES_TO_EXTRACT = 10; // Maximum number of dates to extract from context
-const MAX_CACHE_SIZE = 200; // Context cache size limit
-const CACHE_TIMEOUT = 5000; // 5 seconds cache timeout
-const CLEANUP_INTERVAL = 30000; // Periodic cleanup every 30 seconds
+const CONTEXT_LINES = 10; // Nombre de lignes à analyser avant et après le curseur
+const MAX_DATES_TO_EXTRACT = 10; // Nombre maximum de dates à extraire du contexte
+const MAX_CACHE_SIZE = 200; // Limite de taille du cache de contexte
+const CACHE_TIMEOUT = 5000; // 5 secondes de cache
+const CLEANUP_INTERVAL = 30000; // Nettoyage périodique toutes les 30 secondes
 
 export interface ContextInfo {
-  datesInContext: string[]; // Dates found in context (detected natural formats)
-  title?: string; // Note title
-  tags: string[]; // Note tags
-  timestamp: number; // Creation timestamp for cleanup
+  datesInContext: string[]; // Dates trouvées dans le contexte (formats naturels détectés)
+  title?: string; // Titre de la note
+  tags: string[]; // Tags de la note
+  timestamp: number; // Timestamp de création pour le nettoyage
 }
 
 export default class ContextAnalyzer {
   private app: App;
   private plugin: NaturalLanguageDates;
-  private cache: LRUCache<string, ContextInfo>; // Temporary cache per file with size limit
-  private cleanupInterval: number | null = null; // Cleanup interval ID
+  private cache: LRUCache<string, ContextInfo>; // Cache temporaire par fichier avec limite de taille
+  private cleanupInterval: number | null = null; // ID de l'intervalle de nettoyage
   
-  // Regex patterns for date detection (dynamically generated)
+  // Patterns regex pour la détection de dates (générés dynamiquement)
   private datePatterns: RegExp[] = [];
 
   constructor(app: App, plugin: NaturalLanguageDates) {
@@ -35,17 +35,17 @@ export default class ContextAnalyzer {
   }
 
   /**
-   * Starts periodic cache cleanup
+   * Démarre le nettoyage périodique du cache
    */
   private startPeriodicCleanup(): void {
-    // Clean up every 30 seconds
+    // Nettoyer toutes les 30 secondes
     this.cleanupInterval = window.setInterval(() => {
       this.cleanupExpiredEntries();
     }, CLEANUP_INTERVAL);
   }
 
   /**
-   * Stops periodic cleanup (to be called on destruction)
+   * Arrête le nettoyage périodique (à appeler lors de la destruction)
    */
   stopPeriodicCleanup(): void {
     if (this.cleanupInterval !== null) {
@@ -55,36 +55,36 @@ export default class ContextAnalyzer {
   }
 
   /**
-   * Cleans up expired cache entries
+   * Nettoie les entrées expirées du cache
    */
   private cleanupExpiredEntries(): void {
     const now = Date.now();
     const keysToDelete: string[] = [];
 
-    // Iterate through all cache entries
+    // Parcourir toutes les entrées du cache
     for (const [key, value] of this.cache.entries()) {
       if (value.timestamp && (now - value.timestamp) > CACHE_TIMEOUT) {
         keysToDelete.push(key);
       }
     }
 
-    // Delete expired entries
+    // Supprimer les entrées expirées
     for (const key of keysToDelete) {
       this.cache.delete(key);
     }
 
     if (keysToDelete.length > 0) {
-      logger.debug(`Context cache cleanup: ${keysToDelete.length} entries removed`);
+      logger.debug(`Nettoyage du cache de contexte: ${keysToDelete.length} entrées supprimées`);
     }
   }
 
   /**
-   * Initializes regex patterns for date detection in all enabled languages
+   * Initialise les patterns regex pour la détection de dates dans toutes les langues activées
    */
   private initializeDatePatterns(): void {
     const languages = this.plugin.settings.languages;
     
-    // Collect all words from all enabled languages
+    // Collecter tous les mots de toutes les langues activées
     const weekdays: string[] = [];
     const todayWords: string[] = [];
     const tomorrowWords: string[] = [];
@@ -95,7 +95,7 @@ export default class ContextAnalyzer {
     const timeUnits: string[] = [];
 
     for (const lang of languages) {
-      // Weekdays
+      // Jours de la semaine
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       for (const day of days) {
         const dayWord = t(day, lang);
@@ -104,7 +104,7 @@ export default class ContextAnalyzer {
         }
       }
 
-      // Common temporal words
+      // Mots temporels courants
       const todayWord = t("today", lang);
       if (todayWord && todayWord !== "NOTFOUND") {
         todayWords.push(...todayWord.split("|").map(w => w.trim()).filter(w => w));
@@ -120,13 +120,13 @@ export default class ContextAnalyzer {
         yesterdayWords.push(...yesterdayWord.split("|").map(w => w.trim()).filter(w => w));
       }
 
-      // "in" for relative expressions
+      // "in" pour les expressions relatives
       const inWord = t("in", lang);
       if (inWord && inWord !== "NOTFOUND") {
         inWords.push(...inWord.split("|").map(w => w.trim()).filter(w => w));
       }
 
-      // "next" and "last"
+      // "next" et "last"
       const nextWord = t("next", lang);
       if (nextWord && nextWord !== "NOTFOUND") {
         nextWords.push(...nextWord.split("|").map(w => w.trim()).filter(w => w));
@@ -137,7 +137,7 @@ export default class ContextAnalyzer {
         lastWords.push(...lastWord.split("|").map(w => w.trim()).filter(w => w));
       }
 
-      // Time units
+      // Unités de temps
       const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
       for (const unitKey of timeUnitKeys) {
         const unitWord = t(unitKey, lang);
@@ -147,27 +147,27 @@ export default class ContextAnalyzer {
       }
     }
 
-    // Escape special characters for regex
+    // Échapper les caractères spéciaux pour les regex
     const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
-    // Create regex patterns
+    // Créer les patterns regex
     this.datePatterns = [];
 
-    // Pattern 1: Weekdays
+    // Pattern 1: Jours de la semaine
     if (weekdays.length > 0) {
       const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
-      // Use \b for word boundaries (works for most languages)
+      // Utiliser \b pour les limites de mots (fonctionne pour la plupart des langues)
       this.datePatterns.push(new RegExp(`\\b(${weekdayPattern})\\b`, 'gi'));
     }
 
-    // Pattern 2: Common temporal words (today, tomorrow, yesterday)
+    // Pattern 2: Mots temporels courants (today, tomorrow, yesterday)
     const timeWords = [...todayWords, ...tomorrowWords, ...yesterdayWords];
     if (timeWords.length > 0) {
       const timeWordPattern = [...new Set(timeWords.map(escapeRegex))].join('|');
       this.datePatterns.push(new RegExp(`\\b(${timeWordPattern})\\b`, 'gi'));
     }
 
-    // Pattern 3: Relative expressions "dans X jours/semaines/mois"
+    // Pattern 3: Expressions relatives "dans X jours/semaines/mois"
     if (inWords.length > 0 && timeUnits.length > 0) {
       const inPattern = [...new Set(inWords.map(escapeRegex))].join('|');
       const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
@@ -179,13 +179,13 @@ export default class ContextAnalyzer {
     if (prefixWords.length > 0) {
       const prefixPattern = [...new Set(prefixWords.map(escapeRegex))].join('|');
       
-      // For weekdays
+      // Pour les jours de la semaine
       if (weekdays.length > 0) {
         const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
         this.datePatterns.push(new RegExp(`\\b(${prefixPattern})\\s+(${weekdayPattern})\\b`, 'gi'));
       }
       
-      // For time units
+      // Pour les unités de temps
       if (timeUnits.length > 0) {
         const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
         this.datePatterns.push(new RegExp(`\\b(${prefixPattern})\\s+(${timeUnitPattern})\\b`, 'gi'));
@@ -194,15 +194,15 @@ export default class ContextAnalyzer {
   }
 
   /**
-   * Resets patterns (to be called when languages change)
+   * Réinitialise les patterns (à appeler quand les langues changent)
    */
   resetPatterns(): void {
     this.initializeDatePatterns();
-    this.clearCache(); // Clear cache because patterns have changed
+    this.clearCache(); // Vider le cache car les patterns ont changé
   }
 
   /**
-   * Cleans up cache on instance destruction
+   * Nettoie le cache lors de la destruction de l'instance
    */
   destroy(): void {
     this.stopPeriodicCleanup();
@@ -210,7 +210,7 @@ export default class ContextAnalyzer {
   }
 
   /**
-   * Analyzes context around cursor synchronously (uses cache)
+   * Analyse le contexte autour du curseur de manière synchrone (utilise le cache)
    */
   analyzeContextSync(editor: Editor, cursorLine: number): ContextInfo {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -223,16 +223,16 @@ export default class ContextAnalyzer {
       return { datesInContext: [], tags: [] };
     }
 
-    // Check cache (with timeout)
+    // Vérifier le cache (avec timeout)
     const cacheKey = `${file.path}-${cursorLine}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
-      // Check if entry is not expired
+      // Vérifier si l'entrée n'est pas expirée
       const now = Date.now();
       if (cached.timestamp && (now - cached.timestamp) <= CACHE_TIMEOUT) {
         return cached;
       } else {
-        // Expired entry, delete it
+        // Entrée expirée, la supprimer
         this.cache.delete(cacheKey);
       }
     }
@@ -244,14 +244,14 @@ export default class ContextAnalyzer {
     };
 
     try {
-      // Extract tags from metadata
+      // Extraire les tags depuis les métadonnées
       const metadata = this.app.metadataCache.getFileCache(file);
       if (metadata) {
         if (metadata.tags) {
           context.tags = metadata.tags.map(tag => tag.tag);
         }
 
-        // Extract title from frontmatter or first heading
+        // Extraire le titre depuis les frontmatter ou le premier titre
         if (metadata.frontmatter?.title) {
           context.title = metadata.frontmatter.title;
         } else if (metadata.headings && metadata.headings.length > 0) {
@@ -259,7 +259,7 @@ export default class ContextAnalyzer {
         }
       }
 
-      // Analyze context around cursor
+      // Analyser le contexte autour du curseur
       const content = editor.getValue();
       const lines = content.split("\n");
       
@@ -269,29 +269,29 @@ export default class ContextAnalyzer {
       const contextLines = lines.slice(startLine, endLine + 1);
       const contextText = contextLines.join("\n");
 
-      // Extract dates from context
+      // Extraire les dates du contexte
       context.datesInContext = this.extractDatesFromContext(contextText);
 
-      // Cache (LRU cache automatically manages size limit)
+      // Mettre en cache (le LRU cache gère automatiquement la limite de taille)
       this.cache.set(cacheKey, context);
 
     } catch (error) {
-      logger.error("Error analyzing context:", { error });
+      console.error("Erreur lors de l'analyse du contexte:", error);
     }
 
     return context;
   }
 
   /**
-   * Analyzes context around cursor in current document (async, for compatibility)
+   * Analyse le contexte autour du curseur dans le document actuel (async, pour compatibilité)
    */
   analyzeContext(editor: Editor, cursorLine: number): Promise<ContextInfo> {
     return Promise.resolve(this.analyzeContextSync(editor, cursorLine));
   }
 
   /**
-   * Normalizes an extracted date by capitalizing the first letter
-   * Example: "demain" -> "Demain", "lundi prochain" -> "Lundi prochain"
+   * Normalise une date extraite en capitalisant la première lettre
+   * Exemple: "demain" -> "Demain", "lundi prochain" -> "Lundi prochain"
    */
   private normalizeDate(dateStr: string): string {
     if (!dateStr || dateStr.length === 0) {
@@ -303,28 +303,28 @@ export default class ContextAnalyzer {
       return trimmed;
     }
     
-    // Capitalize first letter (handles Unicode characters)
+    // Capitaliser la première lettre (gère les caractères Unicode)
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
   }
 
   /**
-   * Extracts potential date expressions from text
-   * Uses dynamic multi-language patterns to detect natural dates
+   * Extrait les expressions de dates potentielles du texte
+   * Utilise des patterns dynamiques multi-langue pour détecter les dates naturelles
    */
   private extractDatesFromContext(text: string): string[] {
     const dates: string[] = [];
     const seen = new Set<string>();
 
-    // Use dynamically generated patterns for all enabled languages
+    // Utiliser les patterns dynamiques générés pour toutes les langues activées
     for (const pattern of this.datePatterns) {
       const matches = text.match(pattern);
       if (matches) {
         for (const match of matches) {
-          // For case-insensitive languages (like Japanese), toLowerCase() doesn't change anything
+          // Pour les langues sans casse (comme le japonais), toLowerCase() ne change rien
           const normalized = match.toLowerCase().trim();
           if (!seen.has(normalized) && dates.length < MAX_DATES_TO_EXTRACT) {
             seen.add(normalized);
-            // Normalize with first letter capitalized (or leave as is for Japanese)
+            // Normaliser avec la première lettre en majuscule (ou laisser tel quel pour le japonais)
             dates.push(this.normalizeDate(match.trim()));
           }
         }
@@ -335,14 +335,14 @@ export default class ContextAnalyzer {
   }
 
   /**
-   * Clears cache (can be called periodically)
+   * Nettoie le cache (peut être appelé périodiquement)
    */
   clearCache(): void {
     this.cache.clear();
   }
 
   /**
-   * Returns context cache statistics
+   * Retourne les statistiques du cache de contexte
    */
   getCacheStats(): { size: number; maxSize: number } {
     return {

@@ -43,9 +43,7 @@ export function getSelectedText(editor: Editor): string {
     return editor.getSelection();
   } else {
     const wordBoundaries = getWordBoundaries(editor);
-    // Select the word at cursor position to enable text replacement
-    // This is necessary for the date parsing commands to work correctly
-    editor.setSelection(wordBoundaries.from, wordBoundaries.to);
+    editor.setSelection(wordBoundaries.from, wordBoundaries.to); // TODO check if this needs to be updated/improved
     return editor.getSelection();
   }
 }
@@ -64,8 +62,8 @@ export function adjustCursor(
 }
 
 /**
- * Wrapper for compatibility with existing code
- * @deprecated Use DateFormatter.format() directly
+ * Wrapper pour compatibilité avec le code existant
+ * @deprecated Utiliser DateFormatter.format() directement
  */
 export function getFormattedDate(date: Date, format: string): string {
   return DateFormatter.format(date, format);
@@ -80,64 +78,64 @@ export function parseTruthy(flag: string): boolean {
 }
 
 /**
- * Validates a Moment.js format and returns a result with preview
- * @param format - The Moment.js format to validate
- * @returns An object containing valid (boolean), error (optional), preview (optional)
+ * Valide un format Moment.js et retourne un résultat avec prévisualisation
+ * @param format - Le format Moment.js à valider
+ * @returns Un objet contenant valid (booléen), error (optionnel), preview (optionnel)
  */
 export function validateMomentFormat(format: string): { valid: boolean; error?: string; preview?: string } {
   if (!format || typeof format !== 'string') {
-    return { valid: false, error: "Format cannot be empty" };
+    return { valid: false, error: "Le format ne peut pas être vide" };
   }
 
-  // Limit format length to prevent attacks
+  // Limiter la longueur du format pour éviter les attaques
   const MAX_FORMAT_LENGTH = 100;
   if (format.length > MAX_FORMAT_LENGTH) {
-    return { valid: false, error: `Format cannot exceed ${MAX_FORMAT_LENGTH} characters` };
+    return { valid: false, error: `Le format ne peut pas dépasser ${MAX_FORMAT_LENGTH} caractères` };
   }
 
   try {
     const testDate = window.moment();
     const formatted = testDate.format(format);
     
-    // Check that the format produces something valid
+    // Vérifier que le format produit quelque chose de valide
     if (!formatted || formatted === format) {
-      return { valid: false, error: "Invalid or unrecognized format" };
+      return { valid: false, error: "Format invalide ou non reconnu" };
     }
     
-    // Check that the format does not contain dangerous characters
-    // Moment.js uses special characters, but we want to avoid injections
-    // Valid Moment.js formats mainly contain letters, numbers and punctuation characters
+    // Vérifier que le format ne contient pas de caractères dangereux
+    // Moment.js utilise des caractères spéciaux, mais on veut éviter les injections
+    // Les formats Moment.js valides contiennent principalement des lettres, chiffres et caractères de ponctuation
     const dangerousPattern = /[<>\"'`]/;
     if (dangerousPattern.test(format)) {
-      return { valid: false, error: "Format contains unauthorized characters" };
+      return { valid: false, error: "Le format contient des caractères non autorisés" };
     }
     
     return { valid: true, preview: formatted };
   } catch (error) {
-    return { valid: false, error: error instanceof Error ? error.message : "Error during format validation" };
+    return { valid: false, error: error instanceof Error ? error.message : "Erreur lors de la validation du format" };
   }
 }
 
 /**
- * Sanitizes and validates user input to prevent injections
- * @param input - The input to sanitize
- * @param maxLength - Maximum allowed length (default: 200)
- * @returns The sanitized input or null if invalid
+ * Sanitize et valide une entrée utilisateur pour éviter les injections
+ * @param input - L'entrée à sanitizer
+ * @param maxLength - Longueur maximale autorisée (défaut: 200)
+ * @returns L'entrée sanitizée ou null si invalide
  */
 export function sanitizeInput(input: string | undefined | null, maxLength: number = 200): string | null {
   if (!input || typeof input !== 'string') {
     return null;
   }
 
-  // Limit length
+  // Limiter la longueur
   const trimmed = input.trim().substring(0, maxLength);
   
   if (trimmed.length === 0) {
     return null;
   }
 
-  // Validate characters - allow letters, numbers, spaces, dashes, accented characters
-  // and some special characters for natural language dates
+  // Valider les caractères - autoriser les lettres, chiffres, espaces, tirets, caractères accentués
+  // et quelques caractères spéciaux pour les dates en langage naturel
   const validPattern = /^[a-zA-Z0-9\s\-àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ.,:;!?()]+$/i;
   
   if (!validPattern.test(trimmed)) {
@@ -148,10 +146,10 @@ export function sanitizeInput(input: string | undefined | null, maxLength: numbe
 }
 
 /**
- * Validates a URI parameter to prevent injections
- * @param param - The parameter to validate
- * @param maxLength - Maximum allowed length (default: 100)
- * @returns The validated parameter or null if invalid
+ * Valide un paramètre URI pour éviter les injections
+ * @param param - Le paramètre à valider
+ * @param maxLength - Longueur maximale autorisée (défaut: 100)
+ * @returns Le paramètre validé ou null si invalide
  */
 export function validateUriParam(param: string | undefined | null, maxLength: number = 100): string | null {
   return sanitizeInput(param, maxLength);
@@ -283,20 +281,20 @@ export function parseOrdinalNumberPattern(match: string): number {
 }
 
 /**
- * Determines if a short relative time expression (minutes/hours) should omit the date
- * because it stays within the same day (today)
- * @param text - The time expression text (e.g., "dans 15 min", "in 2 hours")
- * @param languages - Supported languages to detect patterns
- * @returns true if it's a short relative expression that stays today
+ * Détermine si une expression temporelle relative courte (minutes/heures) devrait omettre la date
+ * car elle reste dans la même journée (aujourd'hui)
+ * @param text - Le texte de l'expression temporelle (ex: "dans 15 min", "in 2 hours")
+ * @param languages - Les langues supportées pour détecter les patterns
+ * @returns true si c'est une expression relative courte qui reste aujourd'hui
  */
 export function shouldOmitDateForShortRelative(text: string, languages: string[]): boolean {
   const lowerText = text.toLowerCase().trim();
   
-  // Patterns to detect short relative expressions (minutes/hours) in all languages
-  // We look for patterns like "dans X min", "in X hours", etc.
+  // Patterns pour détecter les expressions relatives courtes (minutes/heures) dans toutes les langues
+  // On cherche des patterns comme "dans X min", "in X hours", etc.
   const shortRelativePatterns: RegExp[] = [];
   
-  // For each language, create patterns for "dans/in/over/etc. X minutes/hours"
+  // Pour chaque langue, créer des patterns pour "dans/in/over/etc. X minutes/heures"
   for (const lang of languages) {
     try {
       const inWord = t("in", lang);
@@ -322,7 +320,7 @@ export function shouldOmitDateForShortRelative(text: string, languages: string[]
           const hourWords = hourWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
           for (const inW of inWords) {
             for (const hW of hourWords) {
-              // Pattern: "dans X heures" or "in X hours"
+              // Pattern: "dans X heures" ou "in X hours"
               const escapedIn = inW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
               const escapedHour = hW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
               const pattern = new RegExp(`^${escapedIn}\\s+\\d+\\s+${escapedHour}`, 'i');
@@ -332,50 +330,50 @@ export function shouldOmitDateForShortRelative(text: string, languages: string[]
         }
       }
     } catch (e) {
-      // Ignore translation errors
+      // Ignorer les erreurs de traduction
     }
   }
   
-  // Check if the text matches a short relative expression pattern
+  // Vérifier si le texte correspond à un pattern d'expression relative courte
   return shortRelativePatterns.some(pattern => pattern.test(lowerText));
 }
 
 /**
- * Gets the active editor in a flexible way, compatible with QuickAdd and other plugins
- * Tries multiple methods to find the active editor
- * @param workspace - Obsidian Workspace instance
- * @returns The active editor or null if none found
+ * Obtient l'éditeur actif de manière flexible, compatible avec QuickAdd et autres plugins
+ * Essaie plusieurs méthodes pour trouver l'éditeur actif
+ * @param workspace - L'instance Workspace d'Obsidian
+ * @returns L'éditeur actif ou null si aucun n'est trouvé
  */
 export function getActiveEditor(workspace: Workspace): Editor | null {
-  // Method 1: Use activeEditor if available (recent Obsidian)
+  // Méthode 1: Utiliser activeEditor si disponible (Obsidian récent)
   const workspaceWithActiveEditor = workspace as typeof workspace & { activeEditor?: { editor?: Editor } };
   if (workspaceWithActiveEditor.activeEditor?.editor) {
     return workspaceWithActiveEditor.activeEditor.editor;
   }
 
-  // Method 2: Use getActiveViewOfType(MarkdownView) (standard method)
+  // Méthode 2: Utiliser getActiveViewOfType(MarkdownView) (méthode standard)
   const activeView = workspace.getActiveViewOfType(MarkdownView);
   if (activeView?.editor) {
     return activeView.editor;
   }
 
-  // Method 3: Search all leaves to find an active editor
-  // Useful for QuickAdd and other plugins that create custom editors
+  // Méthode 3: Chercher dans tous les leafs pour trouver un éditeur actif
+  // Utile pour QuickAdd et autres plugins qui créent des éditeurs personnalisés
   const activeLeaf = workspace.activeLeaf;
   if (activeLeaf) {
     const view = activeLeaf.view;
-    // Check if the view has an editor
+    // Vérifier si la vue a un éditeur
     const viewWithEditor = view as typeof view & { editor?: Editor };
     if (viewWithEditor.editor) {
       return viewWithEditor.editor;
     }
   }
 
-  // Method 4: Iterate through all leaves to find an editor with focus
+  // Méthode 4: Parcourir tous les leafs pour trouver un éditeur avec focus
   for (const leaf of workspace.getLeavesOfType("markdown")) {
     const view = leaf.view;
     if (view instanceof MarkdownView && view.editor) {
-      // Check if this editor has focus
+      // Vérifier si cet éditeur a le focus
       const editorEl = (view.editor as Editor & { cm?: { hasFocus?: () => boolean } }).cm;
       if (editorEl?.hasFocus?.()) {
         return view.editor;
@@ -383,7 +381,7 @@ export function getActiveEditor(workspace: Workspace): Editor | null {
     }
   }
 
-  // Method 5: Last resort - take the first available editor
+  // Méthode 5: Dernier recours - prendre le premier éditeur disponible
   const firstLeaf = workspace.getLeavesOfType("markdown")[0];
   if (firstLeaf) {
     const view = firstLeaf.view;
