@@ -23,7 +23,7 @@ export default class NaturalLanguageDates extends Plugin {
   public historyManager: HistoryManager;
   public contextAnalyzer: ContextAnalyzer;
   private memoryMonitoringInterval: number | null = null;
-  private readonly MEMORY_MONITORING_INTERVAL = 600000; // Toutes les 10 minutes
+  private readonly MEMORY_MONITORING_INTERVAL = 600000; // Every 10 minutes
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -97,7 +97,7 @@ export default class NaturalLanguageDates extends Plugin {
     this.registerObsidianProtocolHandler("nldates", this.actionHandler.bind(this));
     this.registerEditorSuggest(new DateSuggest(this.app, this));
 
-    // Démarrer le monitoring de la mémoire
+    // Start memory monitoring
     this.startMemoryMonitoring();
   }
 
@@ -126,19 +126,17 @@ export default class NaturalLanguageDates extends Plugin {
         this.parser = new NLDParser(['en']);
         logger.info('Parser initialized with English fallback');
         
-        // Notifier l'utilisateur uniquement pour les erreurs critiques
-        const appWithNotifications = this.app as typeof this.app & { notifications: { create: (options: { msg: string; duration: number }) => void } };
-        if (appWithNotifications.notifications) {
-          appWithNotifications.notifications.create({
+        // Notify user only for critical errors
+        if (this.app.notifications) {
+          this.app.notifications.create({
             msg: 'Natural Language Dates: Failed to initialize with selected languages. Using English as fallback.',
             duration: 5000,
           });
         }
       } catch (fallbackError) {
         logger.error('Failed to initialize parser even with English fallback', { error: fallbackError });
-        const appWithNotifications = this.app as typeof this.app & { notifications: { create: (options: { msg: string; duration: number }) => void } };
-        if (appWithNotifications.notifications) {
-          appWithNotifications.notifications.create({
+        if (this.app.notifications) {
+          this.app.notifications.create({
             msg: 'Natural Language Dates: Critical error - parser initialization failed. Please restart Obsidian.',
             duration: 10000,
           });
@@ -153,10 +151,10 @@ export default class NaturalLanguageDates extends Plugin {
   }
 
   onunload(): void {
-    // Arrêter le monitoring de la mémoire
+    // Stop memory monitoring
     this.stopMemoryMonitoring();
     
-    // Nettoyer les ressources
+    // Clean up resources
     if (this.contextAnalyzer) {
       this.contextAnalyzer.destroy();
     }
@@ -166,20 +164,20 @@ export default class NaturalLanguageDates extends Plugin {
   }
 
   /**
-   * Démarre le monitoring périodique de l'utilisation mémoire
+   * Starts periodic monitoring of memory usage
    */
   private startMemoryMonitoring(): void {
-    // Logger les statistiques toutes les 10 minutes
+    // Log statistics every 10 minutes
     this.memoryMonitoringInterval = window.setInterval(() => {
       this.logMemoryUsage();
     }, this.MEMORY_MONITORING_INTERVAL);
     
-    // Logger immédiatement au démarrage
+    // Log immediately on startup
     this.logMemoryUsage();
   }
 
   /**
-   * Arrête le monitoring de la mémoire
+   * Stops memory monitoring
    */
   private stopMemoryMonitoring(): void {
     if (this.memoryMonitoringInterval !== null) {
@@ -189,7 +187,7 @@ export default class NaturalLanguageDates extends Plugin {
   }
 
   /**
-   * Log les statistiques d'utilisation mémoire des caches
+   * Logs memory usage statistics for caches
    */
   private logMemoryUsage(): void {
     try {
@@ -199,17 +197,17 @@ export default class NaturalLanguageDates extends Plugin {
         history?: { size: number; maxSize: number };
       } = {};
 
-      // Statistiques du cache de parsing
+      // Parsing cache statistics
       if (this.parser) {
         stats.parsingCache = this.parser.getCacheStats();
       }
 
-      // Statistiques du cache de contexte
+      // Context cache statistics
       if (this.contextAnalyzer) {
         stats.contextCache = this.contextAnalyzer.getCacheStats();
       }
 
-      // Statistiques de l'historique
+      // History statistics
       if (this.historyManager) {
         this.historyManager.getHistory().then(history => {
           stats.history = {
@@ -217,21 +215,21 @@ export default class NaturalLanguageDates extends Plugin {
             maxSize: 100, // MAX_HISTORY_SIZE
           };
           
-          logger.debug("Utilisation mémoire des caches", stats);
+          logger.debug("Cache memory usage", stats);
         }).catch(err => {
-          logger.warn("Impossible de récupérer les statistiques de l'historique", { error: err });
-          // Logger quand même les autres statistiques
+          logger.warn("Unable to retrieve history statistics", { error: err });
+          // Log other statistics anyway
           if (Object.keys(stats).length > 0) {
-            logger.debug("Utilisation mémoire des caches", stats);
+            logger.debug("Cache memory usage", stats);
           }
         });
       } else {
         if (Object.keys(stats).length > 0) {
-          logger.debug("Utilisation mémoire des caches", stats);
+          logger.debug("Cache memory usage", stats);
         }
       }
     } catch (error) {
-      logger.warn("Erreur lors du monitoring de la mémoire", { error });
+      logger.warn("Error during memory monitoring", { error });
     }
   }
 
@@ -315,19 +313,19 @@ export default class NaturalLanguageDates extends Plugin {
       this.resetParser();
     }
 
-    // Valider le format avant utilisation
+    // Validate format before use
     const formatValidation = validateMomentFormat(format);
     if (!formatValidation.valid) {
       logger.warn("Invalid format in parse()", { format, error: formatValidation.error });
-      // Utiliser le format par défaut en cas d'erreur
+      // Use default format on error
       format = DEFAULT_SETTINGS.format;
     }
 
-    // Valider et sanitizer l'entrée utilisateur
+    // Validate and sanitize user input
     const sanitizedInput = validateUriParam(dateString, 200);
     if (!sanitizedInput) {
       logger.warn("Invalid input in parse()", { dateString });
-      // Retourner une date invalide plutôt que de planter
+      // Return invalid date rather than crashing
       const invalidDate = new Date(NaN);
       return {
         formattedString: "Invalid date",
@@ -369,7 +367,7 @@ export default class NaturalLanguageDates extends Plugin {
    * ```
    */
   parseDate(dateString: string): NLDResult {
-    // Valider et sanitizer l'entrée utilisateur
+    // Validate and sanitize user input
     const sanitizedInput = validateUriParam(dateString, 200);
     if (!sanitizedInput) {
       logger.warn("Invalid input in parseDate()", { dateString });
@@ -381,11 +379,11 @@ export default class NaturalLanguageDates extends Plugin {
       };
     }
 
-    // Valider le format de date
+    // Validate date format
     const dateFormatValidation = validateMomentFormat(this.settings.format);
     if (!dateFormatValidation.valid) {
       logger.warn("Invalid date format in settings", { format: this.settings.format, error: dateFormatValidation.error });
-      // Utiliser le format par défaut
+      // Use default format
       this.settings.format = DEFAULT_SETTINGS.format;
     }
 
@@ -397,11 +395,11 @@ export default class NaturalLanguageDates extends Plugin {
     if (hasTime) {
       const timeFormat = this.settings.timeFormat || "HH:mm";
       
-      // Valider le format de temps
+      // Validate time format
       const timeFormatValidation = validateMomentFormat(timeFormat);
       if (!timeFormatValidation.valid) {
         logger.warn("Invalid time format in settings", { format: timeFormat, error: timeFormatValidation.error });
-        // Utiliser le format par défaut
+        // Use default format
         formatToUse = `${this.settings.format} ${DEFAULT_SETTINGS.timeFormat}`;
       } else {
         // TIP: Here we format "Date TIME."
@@ -449,7 +447,7 @@ export default class NaturalLanguageDates extends Plugin {
       this.resetParser();
     }
 
-    // Valider et sanitizer l'entrée utilisateur
+    // Validate and sanitize user input
     const sanitizedInput = validateUriParam(dateString, 200);
     if (!sanitizedInput) {
       logger.warn("Invalid input in parseDateRange()", { dateString });
@@ -479,7 +477,7 @@ export default class NaturalLanguageDates extends Plugin {
    * ```
    */
   parseTime(dateString: string): NLDResult {
-    // Valider et sanitizer l'entrée utilisateur
+    // Validate and sanitize user input
     const sanitizedInput = validateUriParam(dateString, 200);
     if (!sanitizedInput) {
       logger.warn("Invalid input in parseTime()", { dateString });
@@ -491,11 +489,11 @@ export default class NaturalLanguageDates extends Plugin {
       };
     }
 
-    // Valider le format de temps
+    // Validate time format
     const timeFormatValidation = validateMomentFormat(this.settings.timeFormat);
     if (!timeFormatValidation.valid) {
       logger.warn("Invalid time format in settings", { format: this.settings.timeFormat, error: timeFormatValidation.error });
-      // Utiliser le format par défaut
+      // Use default format
       return this.parse(sanitizedInput, DEFAULT_SETTINGS.timeFormat);
     }
 
@@ -529,7 +527,7 @@ export default class NaturalLanguageDates extends Plugin {
   async actionHandler(params: ObsidianProtocolData): Promise<void> {
     const { workspace } = this.app;
 
-    // Valider et sanitizer les paramètres URI pour éviter les injections
+    // Validate and sanitize URI parameters to prevent injections
     const day = validateUriParam(params.day, 100);
     if (!day) {
       logger.warn("Invalid day parameter in URI", { day: params.day });

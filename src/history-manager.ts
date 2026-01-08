@@ -2,12 +2,12 @@ import { Plugin, normalizePath } from "obsidian";
 import { logger } from "./logger";
 
 export interface SelectionHistory {
-  [suggestion: string]: number; // Nombre de fois que cette suggestion a été sélectionnée
+  [suggestion: string]: number; // Number of times this suggestion has been selected
 }
 
-const MAX_HISTORY_SIZE = 100; // Limite du nombre d'entrées dans l'historique
+const MAX_HISTORY_SIZE = 100; // Maximum number of entries in history
 const HISTORY_FILE = "plugins/nldates-revived/history.json";
-const CLEANUP_INTERVAL = 300000; // Nettoyage périodique toutes les 5 minutes
+const CLEANUP_INTERVAL = 300000; // Periodic cleanup every 5 minutes
 
 export default class HistoryManager {
   private plugin: Plugin;
@@ -15,7 +15,7 @@ export default class HistoryManager {
   private historyLoaded: boolean = false;
   private cachedTopSuggestions: string[] = [];
   private cacheValid: boolean = false;
-  private cleanupInterval: number | null = null; // ID de l'intervalle de nettoyage
+  private cleanupInterval: number | null = null; // Cleanup interval ID
 
   constructor(plugin: Plugin) {
     this.plugin = plugin;
@@ -23,17 +23,17 @@ export default class HistoryManager {
   }
 
   /**
-   * Démarre le nettoyage périodique de l'historique
+   * Starts periodic cleanup of history
    */
   private startPeriodicCleanup(): void {
-    // Nettoyer toutes les 5 minutes
+    // Clean up every 5 minutes
     this.cleanupInterval = window.setInterval(() => {
       this.performPeriodicCleanup();
     }, CLEANUP_INTERVAL);
   }
 
   /**
-   * Arrête le nettoyage périodique (à appeler lors de la destruction)
+   * Stops periodic cleanup (to be called on destruction)
    */
   stopPeriodicCleanup(): void {
     if (this.cleanupInterval !== null) {
@@ -43,8 +43,8 @@ export default class HistoryManager {
   }
 
   /**
-   * Effectue un nettoyage périodique de l'historique
-   * Réduit la taille si nécessaire et nettoie les entrées peu utilisées
+   * Performs periodic cleanup of history
+   * Reduces size if necessary and cleans up rarely used entries
    */
   private performPeriodicCleanup(): void {
     if (!this.historyLoaded) {
@@ -53,18 +53,18 @@ export default class HistoryManager {
 
     const currentSize = Object.keys(this.history).length;
     
-    // Si l'historique dépasse la limite, le réduire
+    // If history exceeds the limit, reduce it
     if (currentSize > MAX_HISTORY_SIZE) {
       this.trimHistory();
-      logger.debug(`Nettoyage périodique de l'historique: réduit de ${currentSize} à ${Object.keys(this.history).length} entrées`);
+      logger.debug(`Periodic history cleanup: reduced from ${currentSize} to ${Object.keys(this.history).length} entries`);
     }
 
-    // Mettre à jour le cache des suggestions
+    // Update suggestion cache
     this.updateCache();
   }
 
   /**
-   * Charge l'historique depuis le stockage
+   * Loads history from storage
    */
   async loadHistory(): Promise<void> {
     if (this.historyLoaded) {
@@ -85,14 +85,14 @@ export default class HistoryManager {
         }
       }
     } catch {
-      // Si le fichier n'existe pas, c'est normal (première utilisation)
+      // If the file doesn't exist, that's normal (first use)
       this.history = {};
     }
     this.historyLoaded = true;
   }
 
   /**
-   * Enregistre l'historique dans le stockage
+   * Saves history to storage
    */
   async saveHistory(): Promise<void> {
     try {
@@ -100,7 +100,7 @@ export default class HistoryManager {
       const path = normalizePath(`${configDir}/${HISTORY_FILE}`);
       const dir = path.substring(0, path.lastIndexOf("/"));
       
-      // Créer le dossier si nécessaire
+      // Create directory if necessary
       const dirExists = await this.plugin.app.vault.adapter.exists(dir);
       if (!dirExists) {
         await this.plugin.app.vault.adapter.mkdir(dir);
@@ -108,13 +108,13 @@ export default class HistoryManager {
       
       await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.history, null, 2));
     } catch (error) {
-      console.error("Erreur lors de la sauvegarde de l'historique:", error);
+      logger.error("Error saving history:", { error });
     }
   }
 
   /**
-   * Normalise une suggestion en capitalisant la première lettre
-   * Exemple: "demain" -> "Demain", "lundi prochain" -> "Lundi prochain"
+   * Normalizes a suggestion by capitalizing the first letter
+   * Example: "demain" -> "Demain", "lundi prochain" -> "Lundi prochain"
    */
   private normalizeSuggestion(suggestion: string): string {
     if (!suggestion || suggestion.length === 0) {
@@ -126,57 +126,57 @@ export default class HistoryManager {
       return trimmed;
     }
     
-    // Capitaliser la première lettre (gère les caractères Unicode)
+    // Capitalize first letter (handles Unicode characters)
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
   }
 
   /**
-   * Enregistre une sélection dans l'historique
+   * Records a selection in history
    */
   async recordSelection(suggestion: string): Promise<void> {
     await this.loadHistory();
 
-    // Normaliser la suggestion (en minuscules pour la clé, évite les doublons)
+    // Normalize suggestion (lowercase for key, avoids duplicates)
     const normalized = suggestion.toLowerCase().trim();
 
     if (!normalized) {
       return;
     }
 
-    // Incrémenter le compteur (utiliser la clé en minuscules)
+    // Increment counter (use lowercase key)
     this.history[normalized] = (this.history[normalized] || 0) + 1;
 
-    // Limiter la taille de l'historique si nécessaire
+    // Limit history size if necessary
     if (Object.keys(this.history).length > MAX_HISTORY_SIZE) {
       this.trimHistory();
     }
 
-    // Mettre à jour le cache
+    // Update cache
     this.updateCache();
 
-    // Sauvegarder (de manière asynchrone, ne pas bloquer)
+    // Save (asynchronously, don't block)
     this.saveHistory().catch(err => {
-      console.error("Erreur lors de la sauvegarde de l'historique:", err);
+      logger.error("Error saving history:", { error: err });
     });
   }
 
   /**
-   * Réduit la taille de l'historique en gardant les entrées les plus fréquentes
+   * Reduces history size by keeping the most frequent entries
    */
   private trimHistory(): void {
     const entries = Object.entries(this.history);
     
-    // Trier par fréquence (décroissant)
+    // Sort by frequency (descending)
     entries.sort((a, b) => b[1] - a[1]);
     
-    // Garder uniquement les MAX_HISTORY_SIZE entrées les plus fréquentes
+    // Keep only the MAX_HISTORY_SIZE most frequent entries
     const trimmed = entries.slice(0, MAX_HISTORY_SIZE);
     
     this.history = Object.fromEntries(trimmed);
   }
 
   /**
-   * Charge l'historique et met à jour le cache (à appeler au démarrage)
+   * Loads history and updates cache (to be called on startup)
    */
   async initialize(): Promise<void> {
     await this.loadHistory();
@@ -184,15 +184,15 @@ export default class HistoryManager {
   }
 
   /**
-   * Met à jour le cache des suggestions les plus fréquentes
+   * Updates cache of most frequent suggestions
    */
   private updateCache(): void {
     const entries = Object.entries(this.history);
     
-    // Trier par fréquence (décroissant)
+    // Sort by frequency (descending)
     entries.sort((a, b) => b[1] - a[1]);
     
-    // Mettre en cache les top suggestions avec la première lettre capitalisée
+    // Cache top suggestions with first letter capitalized
     this.cachedTopSuggestions = entries.slice(0, 50).map(([suggestion]) => 
       this.normalizeSuggestion(suggestion)
     );
@@ -200,21 +200,21 @@ export default class HistoryManager {
   }
 
   /**
-   * Récupère les suggestions les plus fréquentes de manière synchrone (utilise le cache)
-   * @param limit Nombre maximum de suggestions à retourner
+   * Gets most frequent suggestions synchronously (uses cache)
+   * @param limit Maximum number of suggestions to return
    */
   getTopSuggestionsSync(limit: number = 10): string[] {
     if (!this.cacheValid) {
-      // Si le cache n'est pas valide, retourner un tableau vide
-      // Le cache sera mis à jour lors de l'initialisation
+      // If cache is not valid, return empty array
+      // Cache will be updated during initialization
       return [];
     }
     return this.cachedTopSuggestions.slice(0, limit);
   }
 
   /**
-   * Récupère les suggestions les plus fréquentes, triées par fréquence (async, met à jour le cache)
-   * @param limit Nombre maximum de suggestions à retourner
+   * Gets most frequent suggestions, sorted by frequency (async, updates cache)
+   * @param limit Maximum number of suggestions to return
    */
   async getTopSuggestions(limit: number = 10): Promise<string[]> {
     await this.loadHistory();
@@ -223,7 +223,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Réinitialise l'historique
+   * Resets history
    */
   async clearHistory(): Promise<void> {
     this.history = {};
@@ -233,14 +233,14 @@ export default class HistoryManager {
   }
 
   /**
-   * Nettoie les ressources lors de la destruction de l'instance
+   * Cleans up resources on instance destruction
    */
   destroy(): void {
     this.stopPeriodicCleanup();
   }
 
   /**
-   * Récupère l'historique complet (pour debug)
+   * Gets complete history (for debug)
    */
   async getHistory(): Promise<SelectionHistory> {
     await this.loadHistory();

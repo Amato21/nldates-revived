@@ -11,6 +11,7 @@ import {
 import type NaturalLanguageDates from "../main";
 import t from "../lang/helper";
 import { generateMarkdownLink, shouldOmitDateForShortRelative, getActiveEditor } from "../utils";
+import { logger } from "../logger";
 
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
@@ -43,7 +44,7 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   getDateSuggestions(context: EditorSuggestContext): string[] {
-    // Récupérer les suggestions standard
+    // Get standard suggestions
     const standardSuggestions = this.unique(this.plugin.settings.languages.flatMap(
       language => {
         let suggestions = this.getTimeSuggestions(context.query, language);
@@ -66,15 +67,15 @@ export default class DateSuggest extends EditorSuggest<string> {
       }
     ));
 
-    // Si les suggestions intelligentes sont désactivées, retourner les suggestions standard
+    // If smart suggestions are disabled, return standard suggestions
     if (!this.plugin.settings.enableSmartSuggestions) {
       return standardSuggestions;
     }
 
-    // Récupérer les suggestions intelligentes (historique + contexte)
+    // Get smart suggestions (history + context)
     const smartSuggestions = this.getSmartSuggestions(context, standardSuggestions);
 
-    // Fusionner : suggestions intelligentes en priorité, puis suggestions standard
+    // Merge: smart suggestions first, then standard suggestions
     const merged = [...smartSuggestions];
     for (const suggestion of standardSuggestions) {
       if (!merged.includes(suggestion)) {
@@ -86,28 +87,28 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   /**
-   * Récupère les suggestions intelligentes basées sur l'historique et le contexte
+   * Gets smart suggestions based on history and context
    */
   private getSmartSuggestions(context: EditorSuggestContext, standardSuggestions: string[]): string[] {
     const smartSuggestions: string[] = [];
     const query = context.query.toLowerCase();
 
-    // Suggestions basées sur l'historique
+    // History-based suggestions
     if (this.plugin.settings.enableHistorySuggestions && this.plugin.historyManager) {
       try {
         const historySuggestions = this.plugin.historyManager.getTopSuggestionsSync(15);
         for (const suggestion of historySuggestions) {
-          // Vérifier que la suggestion correspond à la requête
+          // Check that the suggestion matches the query
           if (suggestion.toLowerCase().startsWith(query) && !smartSuggestions.includes(suggestion)) {
             smartSuggestions.push(suggestion);
           }
         }
       } catch {
-        // Ignorer les erreurs silencieusement
+        // Ignore errors silently
       }
     }
 
-    // Suggestions basées sur le contexte
+    // Context-based suggestions
     if (this.plugin.settings.enableContextSuggestions && this.plugin.contextAnalyzer && context.editor) {
       try {
         const contextInfo = this.plugin.contextAnalyzer.analyzeContextSync(
@@ -115,14 +116,14 @@ export default class DateSuggest extends EditorSuggest<string> {
           context.start.line
         );
         
-        // Ajouter les dates trouvées dans le contexte
+        // Add dates found in context
         for (const dateStr of contextInfo.datesInContext) {
           if (dateStr.toLowerCase().startsWith(query) && !smartSuggestions.includes(dateStr)) {
             smartSuggestions.push(dateStr);
           }
         }
       } catch {
-        // Ignorer les erreurs silencieusement
+        // Ignore errors silently
       }
     }
 
@@ -148,7 +149,7 @@ export default class DateSuggest extends EditorSuggest<string> {
     const match = inputStr.match(regexp)
     if (match) {
       const reference = match[1]
-      // Prendre seulement la première variante (avant le |) pour les suggestions
+      // Take only the first variant (before |) for suggestions
       const getFirstVariant = (val: string) => val.split('|')[0];
       return [
         t("week", lang),
@@ -164,7 +165,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       ]
         .map(val => {
           const firstVariant = getFirstVariant(val);
-          // Capitaliser la première lettre pour un meilleur affichage
+          // Capitalize first letter for better display
           return firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
         })
         .map(val => `${reference} ${val}`)
@@ -173,19 +174,19 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   private getRelativeSuggestions(inputStr: string, lang: string): string[] {
-    // Vérifier d'abord les expressions combinées comme "in 1 month and" ou "dans 1 mois et"
-    // Permettre la saisie progressive : "in 1 month and", "in 1 month and 3", "in 3 month and", etc.
-    const andPattern = t("and", lang).split('|')[0]; // Prendre la première variante
-    // Regex plus flexible qui permet la saisie après "and"
+    // First check combined expressions like "in 1 month and" or "dans 1 mois et"
+    // Allow progressive typing: "in 1 month and", "in 1 month and 3", "in 3 month and", etc.
+    const andPattern = t("and", lang).split('|')[0]; // Take first variant
+    // More flexible regex that allows typing after "and"
     const combinedRegex = new RegExp(`^(${t("in", lang)} )?([+-]?\\d+)\\s+(${t("minute", lang)}|${t("hour", lang)}|${t("day", lang)}|${t("week", lang)}|${t("month", lang)}|${t("year", lang)})\\s+(${andPattern})(\\s+.*)?$`, "i");
     const combinedMatch = inputStr.match(combinedRegex);
     if (combinedMatch) {
       const afterAnd = combinedMatch[5] ? combinedMatch[5].trim() : '';
       
-      // Extraire la partie avant "and" pour reconstruire correctement
+      // Extract the part before "and" to rebuild correctly
       const beforeAnd = inputStr.substring(0, inputStr.indexOf(combinedMatch[4]) + combinedMatch[4].length).trimEnd();
       
-      // Si on a déjà commencé à taper après "and", extraire le nombre s'il y en a un
+      // If we've already started typing after "and", extract the number if there is one
       let suggestedNumber = "1";
       let afterAndWithoutNumber = afterAnd;
       if (afterAnd) {
@@ -205,26 +206,26 @@ export default class DateSuggest extends EditorSuggest<string> {
       ]
         .map(s => {
           const unitPart = s.replace(/^dans |^in /i, '');
-          // unitPart est comme "3 days" ou "5 minutes"
+          // unitPart is like "3 days" or "5 minutes"
           if (afterAnd) {
-            // Si on a déjà commencé à taper, compléter intelligemment
-            // unitPart commence par le nombre (ex: "3 days")
+            // If we've already started typing, complete intelligently
+            // unitPart starts with the number (e.g., "3 days")
             const unitWords = unitPart.split(' ');
             if (unitWords.length > 1 && unitWords[0] === suggestedNumber) {
-              // Le nombre correspond, on peut suggérer le reste (ex: "days")
+              // Number matches, we can suggest the rest (e.g., "days")
               const remaining = unitPart.substring(suggestedNumber.length).trim();
               if (afterAndWithoutNumber) {
-                // Si on a tapé quelque chose après le nombre, vérifier si ça correspond
+                // If we typed something after the number, check if it matches
                 if (remaining.toLowerCase().startsWith(afterAndWithoutNumber.toLowerCase())) {
                   return `${beforeAnd} ${suggestedNumber}${remaining.substring(afterAndWithoutNumber.length)}`;
                 }
                 return null;
               } else {
-                // On a juste tapé le nombre, suggérer le reste
+                // We just typed the number, suggest the rest
                 return `${beforeAnd} ${unitPart}`;
               }
             }
-            // Si l'unité complète commence par ce qu'on a tapé (sans le nombre)
+            // If the complete unit starts with what we typed (without the number)
             const unitWithoutNumber = unitPart.substring(unitPart.indexOf(' ') + 1);
             if (unitWithoutNumber.toLowerCase().startsWith(afterAnd.toLowerCase())) {
               return `${beforeAnd} ${suggestedNumber} ${unitWithoutNumber}`;
@@ -238,19 +239,19 @@ export default class DateSuggest extends EditorSuggest<string> {
       return suggestions.length > 0 ? suggestions : undefined;
     }
 
-    // Vérifier les plages de dates partielles comme "de lundi à" ou "from monday to"
-    // Permettre la saisie progressive : "de lundi a", "de lundi a v", "de lundi a ve", etc.
+    // Check partial date ranges like "de lundi à" or "from monday to"
+    // Allow progressive typing: "de lundi a", "de lundi a v", "de lundi a ve", etc.
     const fromPattern = t("from", lang).split('|')[0];
     const toPattern = t("to", lang).split('|')[0];
-    // Regex plus flexible qui permet la saisie progressive après "à" ou "a"
+    // More flexible regex that allows progressive typing after "à" or "a"
     const rangePartialRegex = new RegExp(`^(${fromPattern}|de|du)\\s+(${t("sunday", lang)}|${t("monday", lang)}|${t("tuesday", lang)}|${t("wednesday", lang)}|${t("thursday", lang)}|${t("friday", lang)}|${t("saturday", lang)})\\s+(${toPattern}|à|a)(\\s+.*)?$`, "i");
     const rangePartialMatch = inputStr.match(rangePartialRegex);
     if (rangePartialMatch) {
       const afterTo = rangePartialMatch[4] ? rangePartialMatch[4].trim() : '';
-      // Extraire la partie avant "à" ou "a" pour reconstruire correctement
+      // Extract the part before "à" or "a" to rebuild correctly
       const beforeTo = inputStr.substring(0, inputStr.indexOf(rangePartialMatch[3]) + rangePartialMatch[3].length).trimEnd();
       
-      // Générer des suggestions pour les jours de fin possibles
+      // Generate suggestions for possible end days
       const allDays = [
         t("sunday", lang),
         t("monday", lang),
@@ -263,9 +264,9 @@ export default class DateSuggest extends EditorSuggest<string> {
       const suggestions = allDays
         .map(day => {
           if (afterTo) {
-            // Si on a déjà commencé à taper, filtrer les jours qui commencent par ce texte
+            // If we've already started typing, filter days that start with this text
             if (day.toLowerCase().startsWith(afterTo.toLowerCase())) {
-              // Remplacer "afterTo" par le jour complet
+              // Replace "afterTo" with the complete day
               return `${beforeTo} ${day}`;
             }
             return null;
@@ -277,7 +278,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       return suggestions.length > 0 ? suggestions : undefined;
     }
 
-    // Pattern standard pour les dates relatives simples
+    // Standard pattern for simple relative dates
     const regexp = new RegExp(`^(${t("in", lang)} )?([+-]?\\d+)`, "i")
     const relativeDate = inputStr.match(regexp);
     if (relativeDate) {
@@ -299,7 +300,7 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   private getWeekdaySuggestions(inputStr: string, lang: string): string[] {
-    // Le parser peut gérer les abréviations (thu, mon, sat, etc.), donc on doit les proposer aussi
+    // The parser can handle abbreviations (thu, mon, sat, etc.), so we must offer them too
     const weekdays = [
       { key: 'sunday', abbr: ['sun'] },
       { key: 'monday', abbr: ['mon'] },
@@ -320,7 +321,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       const firstVariant = dayName.split('|')[0].trim();
       const dayNameLower = firstVariant.toLowerCase();
 
-      // Vérifier si le nom complet commence par l'input
+      // Check if the full name starts with the input
       if (dayNameLower.startsWith(inputLower)) {
         const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
         if (!suggestions.includes(capitalized)) {
@@ -328,7 +329,7 @@ export default class DateSuggest extends EditorSuggest<string> {
         }
       }
 
-      // Vérifier si une abréviation correspond
+      // Check if an abbreviation matches
       for (const abbr of day.abbr) {
         if (abbr.startsWith(inputLower)) {
           const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
@@ -355,7 +356,7 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   selectSuggestion(suggestion: string, event: KeyboardEvent | MouseEvent): void {
-    // Utiliser l'éditeur du contexte si disponible, sinon chercher l'éditeur actif
+    // Use context editor if available, otherwise find active editor
     let editor: Editor | null = null;
     if (this.context?.editor) {
       editor = this.context.editor;
@@ -374,13 +375,13 @@ export default class DateSuggest extends EditorSuggest<string> {
     // We check if the input contains a time component using the parser logic.
     let hasTime = this.plugin.hasTimeComponent(suggestion);
 
-    // --- CORRECTION MULTILANGUE ---
-    // Si le parser n'a pas détecté l'heure (souvent le cas en anglais pour "in 2 minutes"),
-    // on force la détection si on voit des mots clés explicites (min, hour, etc).
-    // IMPORTANT: Ne pas matcher "m" dans "month" - vérifier que c'est bien un mot de temps
+    // --- MULTILANGUAGE CORRECTION ---
+    // If the parser didn't detect time (often the case in English for "in 2 minutes"),
+    // force detection if we see explicit keywords (min, hour, etc).
+    // IMPORTANT: Don't match "m" in "month" - verify it's a time word
     if (!hasTime) {
-      // Regex pour détecter un chiffre suivi de min/hour/heure/h (mais pas "m" seul qui pourrait être "month")
-      // On vérifie que "m" est suivi de "in", "ins", ou est en fin de mot, et pas "onth" (month)
+      // Regex to detect a number followed by min/hour/heure/h (but not "m" alone which could be "month")
+      // We check that "m" is followed by "in", "ins", or is at end of word, and not "onth" (month)
       const explicitTimeRegex = /\d+\s*(min|mins|minute|minutes|h|hour|hours|heure|heures|sec|second|seconds)(?![a-z])/i;
       if (suggestion.match(explicitTimeRegex)) {
         hasTime = true;
@@ -393,12 +394,12 @@ export default class DateSuggest extends EditorSuggest<string> {
       dateStr = this.plugin.parseTime(timePart).formattedString;
       makeIntoLink = false;
     } else {
-      // Vérifier d'abord si c'est une plage de dates
+      // First check if it's a date range
       const dateRange = this.plugin.parseDateRange(suggestion);
       
       if (dateRange) {
-        // C'est une plage de dates
-        // Si on a une liste de dates, générer une liste de liens au lieu d'une plage
+        // It's a date range
+        // If we have a date list, generate a list of links instead of a range
         if (dateRange.dateList && dateRange.dateList.length > 0) {
           const dateLinks = dateRange.dateList.map(moment => {
             const formatted = moment.format(this.plugin.settings.format);
@@ -408,13 +409,13 @@ export default class DateSuggest extends EditorSuggest<string> {
           });
           dateStr = dateLinks.join(', ');
         } else {
-          // Fallback vers l'ancien comportement (plage)
+          // Fallback to old behavior (range)
           const startFormatted = dateRange.startMoment.format(this.plugin.settings.format);
           const endFormatted = dateRange.endMoment.format(this.plugin.settings.format);
           
-          // Obtenir la traduction de "to" selon la langue principale
+          // Get translation of "to" according to primary language
           const primaryLang = this.plugin.settings.languages[0] || 'en';
-          const toTranslation = t("to", primaryLang).split('|')[0]; // Prendre la première variante
+          const toTranslation = t("to", primaryLang).split('|')[0]; // Take first variant
           
           if (makeIntoLink) {
             dateStr = generateMarkdownLink(
@@ -429,11 +430,11 @@ export default class DateSuggest extends EditorSuggest<string> {
             dateStr = `${startFormatted} ${toTranslation} ${endFormatted}`;
           }
         }
-        makeIntoLink = false; // Déjà géré ci-dessus
+        makeIntoLink = false; // Already handled above
       } else {
         const parsedResult = this.plugin.parseDate(suggestion);
 
-        // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
+        // --- OPTIMIZATION: Omit date for short relative expressions today ---
         const isToday = parsedResult.moment.isSame(window.moment(), 'day');
         const isRelativeShortTerm = shouldOmitDateForShortRelative(suggestion, this.plugin.settings.languages);
         const shouldOmitDate = this.plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
@@ -443,10 +444,10 @@ export default class DateSuggest extends EditorSuggest<string> {
         // Expected result: [[YYYY-MM-DD]] HH:mm
         if (hasTime && makeIntoLink) {
           if (shouldOmitDate) {
-            // CAS OPTIMISÉ : Juste l'heure pour "dans X min/heures" aujourd'hui
+            // OPTIMIZED CASE: Just the time for "dans X min/heures" today
             const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
             dateStr = timePart;
-            makeIntoLink = false; // Pas de lien nécessaire
+            makeIntoLink = false; // No link needed
           } else {
             // 1. Format the date part
             const datePart = parsedResult.moment.format(this.plugin.settings.format);
@@ -465,7 +466,7 @@ export default class DateSuggest extends EditorSuggest<string> {
             makeIntoLink = false;
           }
         } else if (hasTime && !makeIntoLink) {
-          // Même logique si pas de lien mais avec heure
+          // Same logic if no link but with time
           if (shouldOmitDate) {
             const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
             dateStr = timePart;
@@ -491,18 +492,18 @@ export default class DateSuggest extends EditorSuggest<string> {
     }
 
     if (!this.context) {
-      console.error('DateSuggest: context is undefined');
+      logger.error('DateSuggest: context is undefined');
       return;
     }
     
     editor.replaceRange(dateStr, this.context.start, this.context.end);
 
-    // Enregistrer la sélection dans l'historique (de manière asynchrone)
+    // Record selection in history (asynchronously)
     if (this.plugin.settings.enableSmartSuggestions && 
         this.plugin.settings.enableHistorySuggestions && 
         this.plugin.historyManager) {
       this.plugin.historyManager.recordSelection(suggestion).catch(err => {
-        // Ignorer les erreurs silencieusement
+        // Ignore errors silently
       });
     }
   }
