@@ -16,24 +16,52 @@ const notFoundDefault = "NOTFOUND" as const;
 
 type Translator = (key: string, defaultValue: string, variables?: Record<string, string>) => string;
 
-export default function t(key: string, lang: string, variables?: Record<string, string>): string {
-  const languages = {
-    en: i18n.create({ values: en }),
-    ja: i18n.create({ values: ja }),
-    fr: i18n.create({ values: fr }),
-    pt: i18n.create({ values: pt }),
-    de: i18n.create({ values: de }),
-    nl: i18n.create({ values: nl }),
-    es: i18n.create({ values: es }),
-    it: i18n.create({ values: it }),
-    ru: i18n.create({ values: ru }),
-    uk: i18n.create({ values: uk }),
-    'zh.hant': i18n.create({ values: zh }),
-  } as Record<string, Translator>;
+// Cache des traducteurs pour éviter de les recréer à chaque appel
+// Performance optimization: translators are created once and reused
+const translatorCache: Record<string, Translator> = {};
 
-  const langTranslator = languages[lang];
-  const translation = langTranslator ? langTranslator(key, notFoundDefault, variables) : notFoundDefault;
+// Map des modules de langue pour faciliter l'accès
+const languageModules: Record<string, typeof en> = {
+  en,
+  ja,
+  fr,
+  pt,
+  de,
+  nl,
+  es,
+  it,
+  ru,
+  uk,
+  'zh.hant': zh,
+};
+
+/**
+ * Obtient un traducteur pour une langue donnée (avec cache)
+ * Gets a translator for a given language (cached)
+ */
+function getTranslator(lang: string): Translator {
+  if (!translatorCache[lang]) {
+    const languageModule = languageModules[lang];
+    if (languageModule) {
+      translatorCache[lang] = i18n.create({ values: languageModule });
+    } else {
+      // Fallback vers l'anglais si la langue n'est pas trouvée
+      if (!translatorCache['en']) {
+        translatorCache['en'] = i18n.create({ values: en });
+      }
+      return translatorCache['en'];
+    }
+  }
+  return translatorCache[lang];
+}
+
+export default function t(key: string, lang: string, variables?: Record<string, string>): string {
+  const langTranslator = getTranslator(lang);
+  const translation = langTranslator(key, notFoundDefault, variables);
   
-  const enTranslator = languages["en"];
-  return translation === notFoundDefault ? (enTranslator ? enTranslator(key, notFoundDefault, variables) : key) : translation;
+  if (translation === notFoundDefault) {
+    const enTranslator = getTranslator("en");
+    return enTranslator(key, notFoundDefault, variables);
+  }
+  return translation;
 }

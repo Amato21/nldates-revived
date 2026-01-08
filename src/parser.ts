@@ -97,12 +97,17 @@ export default class NLDParser {
   private cacheDay: number; // Day of year for cache invalidation
   private readonly MAX_CACHE_SIZE = 500;
   
+  // Cache for translations to avoid repeated calls to t()
+  // Performance optimization: frequently used translations are cached
+  private translationCache: Map<string, string>;
+  
   // Time detector
   private timeDetector: TimeDetector;
 
   constructor(languages: string[]) {
     this.languages = languages;
     this.chronos = getChronos(languages);
+    this.translationCache = new Map<string, string>();
     this.initializeRegex();
     this.initializeKeywords();
     this.cache = new LRUCache<string, Date>(this.MAX_CACHE_SIZE);
@@ -120,6 +125,20 @@ export default class NLDParser {
     });
   }
 
+  /**
+   * Gets a translation with caching for performance
+   * @param key Translation key
+   * @param lang Language code
+   * @returns Translated string
+   */
+  private getTranslation(key: string, lang: string): string {
+    const cacheKey = `${lang}:${key}`;
+    if (!this.translationCache.has(cacheKey)) {
+      this.translationCache.set(cacheKey, t(key, lang));
+    }
+    return this.translationCache.get(cacheKey)!;
+  }
+
   // Initializes dynamic regex from translations
   private initializeRegex(): void {
     // Collect all "in" words for all languages
@@ -134,23 +153,23 @@ export default class NLDParser {
 
     for (const lang of this.languages) {
       // Collect "in"
-      const inWord = t("in", lang);
+      const inWord = this.getTranslation("in", lang);
       if (inWord && inWord !== "NOTFOUND") {
         inWords.push(...inWord.split("|").map(w => w.trim()).filter(w => w));
       }
       
       // Collect "next", "last", "this"
-      const nextWord = t("next", lang);
+      const nextWord = this.getTranslation("next", lang);
       if (nextWord && nextWord !== "NOTFOUND") {
         nextWords.push(...nextWord.split("|").map(w => w.trim()).filter(w => w));
       }
       
-      const lastWord = t("last", lang);
+      const lastWord = this.getTranslation("last", lang);
       if (lastWord && lastWord !== "NOTFOUND") {
         lastWords.push(...lastWord.split("|").map(w => w.trim()).filter(w => w));
       }
       
-      const thisWord = t("this", lang);
+      const thisWord = this.getTranslation("this", lang);
       if (thisWord && thisWord !== "NOTFOUND") {
         thisWords.push(...thisWord.split("|").map(w => w.trim()).filter(w => w));
       }
@@ -158,7 +177,7 @@ export default class NLDParser {
       // Collect weekdays
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
       for (const day of days) {
-        const dayWord = t(day, lang);
+        const dayWord = this.getTranslation(day, lang);
         if (dayWord && dayWord !== "NOTFOUND") {
           weekdays.push(dayWord.toLowerCase());
         }
@@ -172,7 +191,7 @@ export default class NLDParser {
       // Collect time units
       const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
       for (const unitKey of timeUnitKeys) {
-        const unitWord = t(unitKey, lang);
+        const unitWord = this.getTranslation(unitKey, lang);
         if (unitWord && unitWord !== "NOTFOUND") {
           timeUnits.push(...unitWord.split("|").map(w => w.trim()).filter(w => w));
         }
@@ -186,22 +205,22 @@ export default class NLDParser {
     const toWords: string[] = [];
     
     for (const lang of this.languages) {
-      const andWord = t("and", lang);
+      const andWord = this.getTranslation("and", lang);
       if (andWord && andWord !== "NOTFOUND") {
         andWords.push(...andWord.split("|").map(w => w.trim()).filter(w => w));
       }
       
-      const atWord = t("at", lang);
+      const atWord = this.getTranslation("at", lang);
       if (atWord && atWord !== "NOTFOUND") {
         atWords.push(...atWord.split("|").map(w => w.trim()).filter(w => w));
       }
       
-      const fromWord = t("from", lang);
+      const fromWord = this.getTranslation("from", lang);
       if (fromWord && fromWord !== "NOTFOUND") {
         fromWords.push(...fromWord.split("|").map(w => w.trim()).filter(w => w));
       }
       
-      const toWord = t("to", lang);
+      const toWord = this.getTranslation("to", lang);
       if (toWord && toWord !== "NOTFOUND") {
         toWords.push(...toWord.split("|").map(w => w.trim()).filter(w => w));
       }
@@ -258,11 +277,11 @@ export default class NLDParser {
     const ofWords: string[] = [];
     const firstWords: string[] = [];
     for (const lang of this.languages) {
-      const ofWord = t("of", lang);
+      const ofWord = this.getTranslation("of", lang);
       if (ofWord && ofWord !== "NOTFOUND") {
         ofWords.push(...ofWord.split("|").map(w => w.trim()).filter(w => w));
       }
-      const firstWord = t("first", lang);
+      const firstWord = this.getTranslation("first", lang);
       if (firstWord && firstWord !== "NOTFOUND") {
         firstWords.push(...firstWord.split("|").map(w => w.trim()).filter(w => w));
       }
@@ -284,7 +303,7 @@ export default class NLDParser {
     // Collect "day" words from all languages
     const dayWords: string[] = [];
     for (const lang of this.languages) {
-      const dayWord = t("day", lang);
+      const dayWord = this.getTranslation("day", lang);
       if (dayWord && dayWord !== "NOTFOUND") {
         dayWords.push(...dayWord.split("|").map(w => w.trim()).filter(w => w));
       }
@@ -324,24 +343,24 @@ export default class NLDParser {
     for (const lang of this.languages) {
       // Immediate keywords
       ['now', 'today', 'tomorrow', 'yesterday'].forEach(key => {
-        const word = t(key, lang);
+        const word = this.getTranslation(key, lang);
         if (word && word !== "NOTFOUND") {
           this.immediateKeywords.add(word.toLowerCase());
         }
       });
 
       // Prefixes
-      const nextWord = t("next", lang);
+      const nextWord = this.getTranslation("next", lang);
       if (nextWord && nextWord !== "NOTFOUND") {
         nextWord.split("|").forEach(w => this.prefixKeywords.next.add(w.trim().toLowerCase()));
       }
       
-      const lastWord = t("last", lang);
+      const lastWord = this.getTranslation("last", lang);
       if (lastWord && lastWord !== "NOTFOUND") {
         lastWord.split("|").forEach(w => this.prefixKeywords.last.add(w.trim().toLowerCase()));
       }
       
-      const thisWord = t("this", lang);
+      const thisWord = this.getTranslation("this", lang);
       if (thisWord && thisWord !== "NOTFOUND") {
         thisWord.split("|").forEach(w => this.prefixKeywords.this.add(w.trim().toLowerCase()));
       }
@@ -357,7 +376,7 @@ export default class NLDParser {
       ];
       
       for (const mapping of unitMappings) {
-        const unitWord = t(mapping.key, lang);
+        const unitWord = this.getTranslation(mapping.key, lang);
         if (unitWord && unitWord !== "NOTFOUND") {
           unitWord.split("|").forEach(w => {
             const trimmed = w.trim().toLowerCase();
@@ -392,7 +411,7 @@ export default class NLDParser {
     const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     for (let i = 0; i < dayKeys.length; i++) {
       for (const lang of this.languages) {
-        const dayWord = t(dayKeys[i], lang);
+        const dayWord = this.getTranslation(dayKeys[i], lang);
         if (dayWord && dayWord !== "NOTFOUND") {
           dayMap[dayWord.toLowerCase()] = i;
         }
@@ -478,25 +497,25 @@ export default class NLDParser {
     if (this.immediateKeywords.has(text)) {
         // Check "now" in all languages
         for (const lang of this.languages) {
-            if (t('now', lang).toLowerCase() === text) {
+            if (this.getTranslation('now', lang).toLowerCase() === text) {
                 return this.cacheAndReturn(cacheKey, new Date());
             }
         }
         // Check "today" in all languages
         for (const lang of this.languages) {
-            if (t('today', lang).toLowerCase() === text) {
+            if (this.getTranslation('today', lang).toLowerCase() === text) {
                 return this.cacheAndReturn(cacheKey, new Date());
             }
         }
         // Check "tomorrow" in all languages
         for (const lang of this.languages) {
-            if (t('tomorrow', lang).toLowerCase() === text) {
+            if (this.getTranslation('tomorrow', lang).toLowerCase() === text) {
                 return this.cacheAndReturn(cacheKey, window.moment().add(1, 'days').toDate());
             }
         }
         // Check "yesterday" in all languages
         for (const lang of this.languages) {
-            if (t('yesterday', lang).toLowerCase() === text) {
+            if (this.getTranslation('yesterday', lang).toLowerCase() === text) {
                 return this.cacheAndReturn(cacheKey, window.moment().subtract(1, 'days').toDate());
             }
         }
@@ -530,11 +549,11 @@ export default class NLDParser {
     
     // Check for past expressions in all languages (e.g., "il y a 3 minutes", "vor 2 Stunden", etc.)
     for (const lang of this.languages) {
-        const minutesAgoPattern = t("minutesago", lang);
-        const hoursAgoPattern = t("hoursago", lang);
-        const daysAgoPattern = t("daysago", lang);
-        const weeksAgoPattern = t("weeksago", lang);
-        const monthsAgoPattern = t("monthsago", lang);
+        const minutesAgoPattern = this.getTranslation("minutesago", lang);
+        const hoursAgoPattern = this.getTranslation("hoursago", lang);
+        const daysAgoPattern = this.getTranslation("daysago", lang);
+        const weeksAgoPattern = this.getTranslation("weeksago", lang);
+        const monthsAgoPattern = this.getTranslation("monthsago", lang);
         
         // Helper function to convert pattern to regex
         // Example: "il y a %{timeDelta} minutes" -> "il y a (\d+) minutes"
@@ -602,8 +621,8 @@ export default class NLDParser {
     let match;
     
     // Try to match all "X unit" patterns after "in"
-    const inPatterns = Array.from(new Set(this.languages.map(l => t("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
-    const andPatterns = Array.from(new Set(this.languages.map(l => t("and", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
+    const inPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
+    const andPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("and", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
     
     const inRegex = new RegExp(`^(${inPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s+`, 'i');
     const andRegex = new RegExp(`\\s+(${andPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s+`, 'gi');
@@ -803,12 +822,12 @@ export default class NLDParser {
         let isYear = false;
         
         for (const lang of this.languages) {
-            const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+            const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
             if (monthVariants.includes(periodStr)) {
                 isMonth = true;
                 break;
             }
-            const yearVariants = t('year', lang).toLowerCase().split('|').map(w => w.trim());
+            const yearVariants = this.getTranslation('year', lang).toLowerCase().split('|').map(w => w.trim());
             if (yearVariants.includes(periodStr)) {
                 isYear = true;
                 break;
@@ -867,7 +886,7 @@ export default class NLDParser {
         let isMonth = false;
         
         for (const lang of this.languages) {
-            const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+            const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
             if (monthVariants.includes(periodStr)) {
                 isMonth = true;
                 break;
@@ -910,7 +929,7 @@ export default class NLDParser {
         // Check if it's "first" or a prefix (next/last/this)
         let isFirst = false;
         for (const lang of this.languages) {
-            const firstWord = t("first", lang);
+            const firstWord = this.getTranslation("first", lang);
             if (firstWord && firstWord !== "NOTFOUND") {
                 if (firstWord.split("|").some(f => f.trim().toLowerCase() === prefixOrFirst)) {
                     isFirst = true;
@@ -920,7 +939,7 @@ export default class NLDParser {
         }
         
         for (const lang of this.languages) {
-            const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+            const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
             if (monthVariants.includes(periodStr)) {
                 isMonth = true;
                 break;
@@ -997,7 +1016,7 @@ export default class NLDParser {
         // Check if it's "week" - if yes, let getParsedDateRange handle it
         let isNextWeek = false;
         for (const lang of this.languages) {
-            const weekVariants = t('week', lang).toLowerCase().split('|').map(w => w.trim());
+            const weekVariants = this.getTranslation('week', lang).toLowerCase().split('|').map(w => w.trim());
             if (weekVariants.includes(period)) {
                 isNextWeek = true;
                 break;
@@ -1007,12 +1026,12 @@ export default class NLDParser {
         if (!isNextWeek) {
             // Check if it's "month" or "year" in all languages
             for (const lang of this.languages) {
-                const monthVariants = t('month', lang).toLowerCase().split('|').map(w => w.trim());
+                const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
                 if (monthVariants.includes(period)) {
                     // Next month -> 1st of next month
                     return this.cacheAndReturn(cacheKey, window.moment().add(1, 'months').startOf('month').toDate());
                 }
-                const yearVariants = t('year', lang).toLowerCase().split('|').map(w => w.trim());
+                const yearVariants = this.getTranslation('year', lang).toLowerCase().split('|').map(w => w.trim());
                 if (yearVariants.includes(period)) {
                     // Next year -> January 1st of next year
                     return this.cacheAndReturn(cacheKey, window.moment().add(1, 'years').startOf('year').toDate());
@@ -1119,7 +1138,7 @@ export default class NLDParser {
     if (!nextWeekMatch) {
       // Try reverse pattern "week next" for languages like French
       for (const lang of this.languages) {
-        const weekVariants = t('week', lang).toLowerCase().split('|').map(w => w.trim());
+        const weekVariants = this.getTranslation('week', lang).toLowerCase().split('|').map(w => w.trim());
         const weekPattern = weekVariants.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
         nextWeekMatch = selectedText.match(new RegExp(`(${weekPattern})\\s+(${nextPattern})`, 'i'));
         if (nextWeekMatch) {
@@ -1131,7 +1150,7 @@ export default class NLDParser {
     if (nextWeekMatch) {
       const period = nextWeekMatch[periodIndex].toLowerCase();
       for (const lang of this.languages) {
-        const weekVariants = t('week', lang).toLowerCase().split('|').map(w => w.trim());
+        const weekVariants = this.getTranslation('week', lang).toLowerCase().split('|').map(w => w.trim());
         if (weekVariants.includes(period)) {
           // Next week -> return from Monday to Sunday of next week
           const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
