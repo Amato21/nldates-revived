@@ -276,7 +276,7 @@ export default class ContextAnalyzer {
       this.cache.set(cacheKey, context);
 
     } catch (error) {
-      console.error("Erreur lors de l'analyse du contexte:", error);
+      logger.error("Error analyzing context:", { error });
     }
 
     return context;

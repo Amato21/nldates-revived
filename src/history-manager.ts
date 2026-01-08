@@ -108,7 +108,7 @@ export default class HistoryManager {
       
       await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.history, null, 2));
     } catch (error) {
-      console.error("Erreur lors de la sauvegarde de l'historique:", error);
+      logger.error("Error saving history:", { error });
     }
   }
 
@@ -154,9 +154,9 @@ export default class HistoryManager {
     // Mettre à jour le cache
     this.updateCache();
 
-    // Sauvegarder (de manière asynchrone, ne pas bloquer)
+    // Save (asynchronously, don't block)
     this.saveHistory().catch(err => {
-      console.error("Erreur lors de la sauvegarde de l'historique:", err);
+      logger.error("Error saving history:", { error: err });
     });
   }
 

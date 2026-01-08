@@ -43,7 +43,9 @@ export function getSelectedText(editor: Editor): string {
     return editor.getSelection();
   } else {
     const wordBoundaries = getWordBoundaries(editor);
-    editor.setSelection(wordBoundaries.from, wordBoundaries.to); // TODO check if this needs to be updated/improved
+    // Select the word at cursor position to enable text replacement
+    // This is necessary for the date parsing commands to work correctly
+    editor.setSelection(wordBoundaries.from, wordBoundaries.to);
     return editor.getSelection();
   }
 }
