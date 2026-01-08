@@ -14,6 +14,8 @@ import zh from './zh';
 
 const notFoundDefault = "NOTFOUND" as const;
 
+type Translator = (key: string, defaultValue: string, variables?: Record<string, string>) => string;
+
 export default function t(key: string, lang: string, variables?: Record<string, string>): string {
   const languages = {
     en: i18n.create({ values: en }),
@@ -27,12 +29,11 @@ export default function t(key: string, lang: string, variables?: Record<string, 
     ru: i18n.create({ values: ru }),
     uk: i18n.create({ values: uk }),
     'zh.hant': i18n.create({ values: zh }),
-  };
+  } as Record<string, Translator>;
 
-  // Access languages dynamically
-  const langTranslator = (languages as unknown as Record<string, (key: string, defaultValue: string, variables?: Record<string, string>) => string>)[lang];
+  const langTranslator = languages[lang];
   const translation = langTranslator ? langTranslator(key, notFoundDefault, variables) : notFoundDefault;
   
-  const enTranslator = (languages as unknown as Record<string, (key: string, variables?: Record<string, string>) => string>)["en"];
-  return translation === notFoundDefault ? (enTranslator ? enTranslator(key, variables) : key) : translation;
+  const enTranslator = languages["en"];
+  return translation === notFoundDefault ? (enTranslator ? enTranslator(key, notFoundDefault, variables) : key) : translation;
 }
