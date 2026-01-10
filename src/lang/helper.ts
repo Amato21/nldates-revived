@@ -8,6 +8,7 @@ import de from './de';
 import nl from './nl';
 import es from './es';
 import it from './it';
+import ru from './ru';
 
 const notFoundDefault = "NOTFOUND" as const;
 
@@ -21,6 +22,7 @@ export default function t(key: string, lang: string, variables?: Record<string, 
     nl: i18n.create({ values: nl }),
     es: i18n.create({ values: es }),
     it: i18n.create({ values: it }),
+    ru: i18n.create({ values: ru }),
   };
 
   // Access languages dynamically
