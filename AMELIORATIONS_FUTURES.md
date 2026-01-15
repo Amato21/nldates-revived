@@ -1220,6 +1220,32 @@ Ce document liste les améliorations potentielles identifiées après une analys
 - Raccourci pour sélectionner la première suggestion
 - Raccourci pour fermer les suggestions
 
+### 58. **Support des formats de date courts et longs** ❌ À FAIRE
+**Demande utilisateur :**
+> "Is it possible to have short and long date formats? Like sometimes I want the fully spelled out date like "Tuesday January 13, 2025" and sometimes I want the shorter date format"
+
+**Problème actuel :**
+- Un seul format de date configuré dans les settings
+- Pas de moyen de choisir entre format court et format long selon le contexte
+- Format fixe pour toutes les utilisations
+
+**Amélioration :**
+- Ajouter un format de date "long" (ex: "dddd MMMM D, YYYY" → "Tuesday January 13, 2025")
+- Ajouter un format de date "short" (ex: "YYYY-MM-DD" → "2025-01-13")
+- Option dans les settings pour choisir le format par défaut
+- Possibilité de basculer entre format court/long via commande ou raccourci
+- Support multi-langues pour les formats longs (noms de jours/mois localisés)
+- Format conditionnel selon le contexte (ex: format long pour dates futures importantes, format court pour dates proches)
+
+**Implémentation suggérée :**
+- Ajouter `dateFormatLong` et `dateFormatShort` dans les settings
+- Commande pour basculer entre formats (ou choix dans le modal de suggestions)
+- Utiliser moment.js avec locale pour les formats longs localisés
+- Exemples de formats longs par langue :
+  - Anglais : "dddd MMMM D, YYYY" → "Tuesday January 13, 2025"
+  - Français : "dddd D MMMM YYYY" → "mardi 13 janvier 2025"
+  - Allemand : "dddd, D. MMMM YYYY" → "Dienstag, 13. Januar 2025"
+
 
 
 
