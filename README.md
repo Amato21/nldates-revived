@@ -223,6 +223,12 @@ Both components are optimized for performance: no vault-wide scanning, only anal
 
 ---
 
+## Development Troubleshooting
+
+If `npm install` fails with an `ENOTEMPTY` rename error, remove `node_modules/` and retry. If you see `403 Forbidden` while fetching packages, confirm that your registry access is allowed by your network or security policy before retrying. This helps avoid stalled installs when running the project locally. Keep any local install logs out of version control.
+
+---
+
 ## Maintenance & Community
 
 This project is **open source** (MIT License). The primary goal is to provide a working, reliable tool for the Obsidian community.
