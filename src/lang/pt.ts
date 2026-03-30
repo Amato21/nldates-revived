@@ -7,6 +7,7 @@ const dict = {
   this: "este|esta",
   in: "em|daqui a|daqui",
   ago: "há",
+  // "atrás|atras" intentionally includes unaccented form for mobile/quick typing
   agosuffix: "atrás|atras",
   sunday: "Domingo",
   monday: "Segunda-feira",

@@ -452,13 +452,18 @@ export default class NLDParser {
                 .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
                 .join('|');
             const suffixPattern = escapedSuffix.includes('|') ? `(?:${escapedSuffix})` : escapedSuffix;
-            const agoRegex = new RegExp(`^(\\d+)\\s+(\\w+)\\s+${suffixPattern}$`, 'i');
+            
+            // Constrain unit matching to known time units from timeUnitMap
+            const unitPattern = Array.from(this.timeUnitMap.keys())
+                .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('|');
+            const agoRegex = new RegExp(`^(\\d+)\\s+(${unitPattern})\\s+${suffixPattern}$`, 'i');
             
             const agoMatch = text.match(agoRegex);
             if (agoMatch) {
                 const value = parseInt(agoMatch[1]);
                 const unitStr = agoMatch[2].toLowerCase();
-                const unit = this.timeUnitMap.get(unitStr) || 'days';
+                const unit = this.timeUnitMap.get(unitStr)!;
                 
                 return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
             }
