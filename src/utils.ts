@@ -136,11 +136,14 @@ export function sanitizeInput(input: string | undefined | null, maxLength: numbe
     return null;
   }
 
-  // Valider les caractères - autoriser les lettres, chiffres, espaces, tirets, caractères accentués
-  // et quelques caractères spéciaux pour les dates en langage naturel
-  const validPattern = /^[a-zA-Z0-9\s\-àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞŸ.,:;!?()]+$/i;
-  
-  if (!validPattern.test(trimmed)) {
+  // Rejeter les caractères de contrôle et les caractères sans usage légitime dans une
+  // expression de date en langage naturel (ex: "<", ">", "`"). On n'utilise pas de whitelist
+  // de scripts car les dates en langage naturel utilisent des lettres de toutes les langues
+  // supportées (latin, cyrillique, japonais, chinois...), ainsi que l'apostrophe
+  // (ex: "Aujourd'hui" en français, "П'ятниці" en ukrainien).
+  const invalidCharsPattern = /[<>`\u0000-\u001F\u007F-\u009F]/;
+
+  if (invalidCharsPattern.test(trimmed)) {
     return null;
   }
 
