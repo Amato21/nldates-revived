@@ -85,6 +85,10 @@ export default class NLDParser {
   regexOrdinalOfMonth: RegExp; // For "the 15th of next month"
   regexLastDayOfMonth: RegExp; // For "last day of month"
   regexWeekdayOfMonth: RegExp; // For "first Monday of month"
+  // For suffix languages that put the quantifier/unit before the "later" marker
+  // instead of an "in" prefix (e.g. Chinese "2天後" = "2 days" + "後" = "later").
+  regexRelativeSuffix: RegExp | null;
+  regexRelativeCombinedSuffix: RegExp | null; // For "2週和3天後" (2 weeks and 3 days later)
   
   // Keywords for all languages
   immediateKeywords: Set<string>;
@@ -138,6 +142,22 @@ export default class NLDParser {
     return this.translationCache.get(cacheKey)!;
   }
 
+  /**
+   * Builds a regex alternation ("a|b|c") from a list of words, escaping regex
+   * special characters and de-duplicating them.
+   *
+   * Longest words are tried first: otherwise a shorter word that is a prefix of a
+   * longer one (e.g. French "prochain" vs "prochaine") can match first and leave
+   * the remaining letters to be mis-captured by whatever comes next in the pattern.
+   */
+  private buildAlternation(words: string[]): string {
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return [...new Set(words)]
+      .sort((a, b) => b.length - a.length)
+      .map(escapeRegex)
+      .join('|');
+  }
+
   // Initializes dynamic regex from translations
   private initializeRegex(): void {
     // Collect all "in" words for all languages
@@ -178,7 +198,7 @@ export default class NLDParser {
       for (const day of days) {
         const dayWord = this.getTranslation(day, lang);
         if (dayWord && dayWord !== "NOTFOUND") {
-          weekdays.push(dayWord.toLowerCase());
+          weekdays.push(...dayWord.split("|").map(w => w.trim().toLowerCase()).filter(w => w));
         }
       }
       
@@ -225,16 +245,14 @@ export default class NLDParser {
       }
     }
 
-    // Create regex with special character escaping
-    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const inPattern = [...new Set(inWords.map(escapeRegex))].join('|');
-    const prefixPattern = [...new Set([...thisWords, ...nextWords, ...lastWords].map(escapeRegex))].join('|');
-    const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
-    const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
-    const andPattern = [...new Set(andWords.map(escapeRegex))].join('|');
-    const atPattern = [...new Set(atWords.map(escapeRegex))].join('|');
-    const fromPattern = [...new Set(fromWords.map(escapeRegex))].join('|');
-    const toPattern = [...new Set(toWords.map(escapeRegex))].join('|');
+    const inPattern = this.buildAlternation(inWords);
+    const prefixPattern = this.buildAlternation([...thisWords, ...nextWords, ...lastWords]);
+    const weekdayPattern = this.buildAlternation(weekdays);
+    const timeUnitPattern = this.buildAlternation(timeUnits);
+    const andPattern = this.buildAlternation(andWords);
+    const atPattern = this.buildAlternation(atWords);
+    const fromPattern = this.buildAlternation(fromWords);
+    const toPattern = this.buildAlternation(toWords);
 
     // Simple regex for "in 2 minutes"
     this.regexRelative = new RegExp(
@@ -249,14 +267,16 @@ export default class NLDParser {
     );
 
     // Simple regex for "next Monday"
+    // Uses \s* (not \s+) between prefix and weekday so languages without spaces
+    // between words (e.g. Chinese "下一個星期一") still match.
     this.regexWeekday = new RegExp(
-      `^\\s*(${prefixPattern})\\s+(${weekdayPattern})\\s*$`,
+      `^\\s*(${prefixPattern})\\s*(${weekdayPattern})\\s*$`,
       'i'
     );
 
     // Regex for "next Monday at 3pm" - captures day and time
     this.regexWeekdayWithTime = new RegExp(
-      `^\\s*(${prefixPattern})\\s+(${weekdayPattern})\\s+(?:${atPattern})\\s+(.+)$`,
+      `^\\s*(${prefixPattern})\\s*(${weekdayPattern})\\s+(?:${atPattern})\\s+(.+)$`,
       'i'
     );
 
@@ -268,7 +288,7 @@ export default class NLDParser {
 
     // Regex for "from Monday to Friday" - captures two weekdays
     this.regexDateRange = new RegExp(
-      `^\\s*(?:${fromPattern})\\s+(${weekdayPattern})\\s+(?:${toPattern})\\s+(${weekdayPattern})\\s*$`,
+      `^\\s*(?:${fromPattern})\\s*(${weekdayPattern})\\s*(?:${toPattern})\\s*(${weekdayPattern})\\s*$`,
       'i'
     );
 
@@ -285,8 +305,8 @@ export default class NLDParser {
         firstWords.push(...firstWord.split("|").map(w => w.trim()).filter(w => w));
       }
     }
-    const ofPattern = [...new Set(ofWords.map(escapeRegex))].join('|');
-    const firstPattern = [...new Set(firstWords.map(escapeRegex))].join('|');
+    const ofPattern = this.buildAlternation(ofWords);
+    const firstPattern = this.buildAlternation(firstWords);
 
     // Regex for "the 15th of next month" or "le 15 du mois prochain"
     // Pattern: (optional "the"/"le"/"der") (ordinal number like "15th", "15ème", "15.") "of"/"du"/"des" (next/last/this) (month)
@@ -307,14 +327,14 @@ export default class NLDParser {
         dayWords.push(...dayWord.split("|").map(w => w.trim()).filter(w => w));
       }
     }
-    const dayPattern = [...new Set(dayWords.map(escapeRegex))].join('|');
-    
+    const dayPattern = this.buildAlternation(dayWords);
+
     // Make prefix optional - "last day of month" without prefix means "this month"
     // "last" here is an adjective modifying "day", not a temporal prefix
     // Also handle French inversion: "dernier jour du mois prochain" (month before prefix)
     // Pattern: (optional prefix) "last" (day word) "of" (optional prefix) (month) (optional prefix after month)
     // Reuse lastWords collected above (line 148-150)
-    const lastAdjectivePattern = [...new Set(lastWords.map(escapeRegex))].join('|');
+    const lastAdjectivePattern = this.buildAlternation(lastWords);
     
     this.regexLastDayOfMonth = new RegExp(
       `^\\s*(?:(${prefixPattern})\\s+)?(${lastAdjectivePattern})\\s+(${dayPattern})\\s+(?:${ofPattern})\\s+(?:(${prefixPattern})\\s+)?(${timeUnitPattern})(?:\\s+(${prefixPattern}))?\\s*$`,
@@ -327,6 +347,41 @@ export default class NLDParser {
       `^\\s*(${firstPattern}|${prefixPattern})\\s+(${weekdayPattern})\\s+(?:${ofPattern})\\s+(?:(${prefixPattern})\\s+)?(${timeUnitPattern})(?:\\s+(${prefixPattern}))?\\s*$`,
       'i'
     );
+
+    // Suffix-style languages (e.g. Chinese "2天後", Japanese "2日後") put the
+    // "later" marker after the number and unit instead of using an "in" prefix.
+    // Derive each language's marker directly from its "indays" template (e.g.
+    // "%{timeDelta}天後" -> marker "後") rather than hardcoding it, so this works
+    // for any language authored the same way.
+    const suffixMarkers = new Set<string>();
+    for (const lang of this.languages) {
+      const template = this.getTranslation('indays', lang);
+      if (!template || template === 'NOTFOUND' || template.indexOf('%{timeDelta}') !== 0) {
+        continue;
+      }
+      const remainder = template.slice('%{timeDelta}'.length);
+      const dayWord = this.getTranslation('day', lang);
+      if (!dayWord || dayWord === 'NOTFOUND') continue;
+      const unitUsed = dayWord.split('|').map(w => w.trim()).filter(w => w).find(v => remainder.startsWith(v));
+      if (!unitUsed) continue;
+      const marker = remainder.slice(unitUsed.length).trim();
+      if (marker) suffixMarkers.add(marker);
+    }
+
+    if (suffixMarkers.size > 0) {
+      const suffixPattern = this.buildAlternation(Array.from(suffixMarkers));
+      this.regexRelativeSuffix = new RegExp(
+        `^\\s*(\\d+)\\s*(${timeUnitPattern})\\s*(?:${suffixPattern})\\s*$`,
+        'i'
+      );
+      this.regexRelativeCombinedSuffix = new RegExp(
+        `^\\s*(\\d+)\\s*(${timeUnitPattern})\\s*(?:${andPattern})\\s*(\\d+)\\s*(${timeUnitPattern})\\s*(?:${suffixPattern})\\s*$`,
+        'i'
+      );
+    } else {
+      this.regexRelativeSuffix = null;
+      this.regexRelativeCombinedSuffix = null;
+    }
   }
 
   // Initializes keywords for fast detection
@@ -412,7 +467,9 @@ export default class NLDParser {
       for (const lang of this.languages) {
         const dayWord = this.getTranslation(dayKeys[i], lang);
         if (dayWord && dayWord !== "NOTFOUND") {
-          dayMap[dayWord.toLowerCase()] = i;
+          for (const variant of dayWord.split("|").map(w => w.trim().toLowerCase()).filter(w => w)) {
+            dayMap[variant] = i;
+          }
         }
       }
     }
@@ -618,9 +675,9 @@ export default class NLDParser {
     // Try to match all "X unit" patterns after "in"
     const inPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
     const andPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("and", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
-    
-    const inRegex = new RegExp(`^(${inPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s+`, 'i');
-    const andRegex = new RegExp(`\\s+(${andPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s+`, 'gi');
+
+    const inRegex = new RegExp(`^(${this.buildAlternation(inPatterns)})\\s+`, 'i');
+    const andRegex = new RegExp(`\\s+(${this.buildAlternation(andPatterns)})\\s+`, 'gi');
     
     if (testText.match(inRegex)) {
         const withoutIn = testText.replace(inRegex, '');
@@ -658,7 +715,22 @@ export default class NLDParser {
         const resultDate = window.moment().add(value1, unit1).add(value2, unit2).toDate();
         return this.cacheAndReturn(cacheKey, resultDate);
     }
-    
+
+    // Suffix-style combinations, e.g. Chinese "2週和3天後" (2 weeks and 3 days later)
+    const relCombinedSuffixMatch = this.regexRelativeCombinedSuffix ? cleanedText.match(this.regexRelativeCombinedSuffix) : null;
+    if (relCombinedSuffixMatch) {
+        const value1 = parseInt(relCombinedSuffixMatch[1]);
+        const unitStr1 = relCombinedSuffixMatch[2].toLowerCase().trim();
+        const value2 = parseInt(relCombinedSuffixMatch[3]);
+        const unitStr2 = relCombinedSuffixMatch[4].toLowerCase().trim();
+
+        const unit1 = getUnit(unitStr1);
+        const unit2 = getUnit(unitStr2);
+
+        const resultDate = window.moment().add(value1, unit1).add(value2, unit2).toDate();
+        return this.cacheAndReturn(cacheKey, resultDate);
+    }
+
     // Then check simple expressions "in 2 minutes"
     const relMatch = cleanedText.match(this.regexRelative);
     if (relMatch) {
@@ -681,6 +753,15 @@ export default class NLDParser {
         }
 
         // MomentJS handles year transitions perfectly
+        return this.cacheAndReturn(cacheKey, window.moment().add(value, unit).toDate());
+    }
+
+    // Suffix-style simple expressions, e.g. Chinese "2天後" (2 days later)
+    const relSuffixMatch = this.regexRelativeSuffix ? cleanedText.match(this.regexRelativeSuffix) : null;
+    if (relSuffixMatch) {
+        const value = parseInt(relSuffixMatch[1]);
+        const unitStr = relSuffixMatch[2].toLowerCase().trim();
+        const unit = getUnit(unitStr);
         return this.cacheAndReturn(cacheKey, window.moment().add(value, unit).toDate());
     }
 
@@ -1002,8 +1083,24 @@ export default class NLDParser {
     // -- Handling "Next Month" / "Next Year" generic cases (not handled by Regex) --
     // Note: "Next Week" is now handled by getParsedDateRange to generate a date list
     // Check this BEFORE calling chrono-node to ensure correct behavior
-    const nextPattern = Array.from(this.prefixKeywords.next).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    const nextDateMatch = cleanedText.match(new RegExp(`(${nextPattern})\\s+([\\w]+)`, 'i'));
+    // Uses \s* (not \s+) so this also matches languages without spaces between
+    // words (e.g. Chinese "下一個星期"). The period is matched against the known
+    // week/month/year words directly (not a generic \S+/\w+ capture): otherwise a
+    // shorter word that is a prefix of a longer one (e.g. French "prochain" vs
+    // "prochaine") can match first and leave the remaining letters to be
+    // mis-captured as the period.
+    const nextPattern = this.buildAlternation(Array.from(this.prefixKeywords.next));
+    const periodWordsAll: string[] = [];
+    for (const lang of this.languages) {
+      for (const key of ['week', 'month', 'year']) {
+        const word = this.getTranslation(key, lang);
+        if (word && word !== 'NOTFOUND') {
+          periodWordsAll.push(...word.split('|').map(w => w.trim()).filter(w => w));
+        }
+      }
+    }
+    const periodPatternAll = this.buildAlternation(periodWordsAll);
+    const nextDateMatch = cleanedText.match(new RegExp(`(${nextPattern})\\s*(${periodPatternAll})`, 'i'));
 
     if (nextDateMatch) {
         const period = nextDateMatch[2].toLowerCase();
@@ -1123,20 +1220,28 @@ export default class NLDParser {
     }
     
     // Check "next week" as range (both "next week" and "week next" for languages like French)
-    const nextPattern = Array.from(this.prefixKeywords.next).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    // Uses \s* (not \s+) so this also matches languages without spaces between
+    // words (e.g. Chinese "下一個星期"). The period is matched against the known
+    // "week" words directly (not a generic \S+/\w+ capture): otherwise a shorter
+    // word that is a prefix of a longer one (e.g. French "prochain" vs "prochaine")
+    // can match first and leave the remaining letters to be mis-captured as the period.
+    const nextPattern = this.buildAlternation(Array.from(this.prefixKeywords.next));
+    const weekWordsAll: string[] = [];
+    for (const lang of this.languages) {
+      const weekWord = this.getTranslation('week', lang);
+      if (weekWord && weekWord !== 'NOTFOUND') {
+        weekWordsAll.push(...weekWord.split('|').map(w => w.trim()).filter(w => w));
+      }
+    }
+    const weekPatternAll = this.buildAlternation(weekWordsAll);
     // First try "next week" pattern
-    let nextWeekMatch = selectedText.match(new RegExp(`(${nextPattern})\\s+([\\w]+)`, 'i'));
+    let nextWeekMatch = selectedText.match(new RegExp(`(${nextPattern})\\s*(${weekPatternAll})`, 'i'));
     let periodIndex = 2; // Index of period in match array
     if (!nextWeekMatch) {
       // Try reverse pattern "week next" for languages like French
-      for (const lang of this.languages) {
-        const weekVariants = this.getTranslation('week', lang).toLowerCase().split('|').map(w => w.trim());
-        const weekPattern = weekVariants.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-        nextWeekMatch = selectedText.match(new RegExp(`(${weekPattern})\\s+(${nextPattern})`, 'i'));
-        if (nextWeekMatch) {
-          periodIndex = 1; // Period is now at index 1
-          break;
-        }
+      nextWeekMatch = selectedText.match(new RegExp(`(${weekPatternAll})\\s*(${nextPattern})`, 'i'));
+      if (nextWeekMatch) {
+        periodIndex = 1; // Period is now at index 1
       }
     }
     if (nextWeekMatch) {
