@@ -1,7 +1,7 @@
-import { App, MarkdownView, Modal, Setting } from "obsidian";
+import { App, Modal, Setting } from "obsidian";
 import { generateMarkdownLink, getLocaleWeekStart, validateMomentFormat, getActiveEditor } from "../utils";
 import type NaturalLanguageDates from "../main";
-import { DayOfWeek, DEFAULT_SETTINGS } from "../settings";
+import { DEFAULT_SETTINGS } from "../settings";
 import t from "../lang/helper";
 
 type Moment = import("moment").Moment;
@@ -352,7 +352,7 @@ export default class DatePickerModal extends Modal {
     const endOfMonth = this.currentMonth.clone().endOf("month");
     
     // Calculer le début de la semaine selon les préférences
-    let startDate = startOfMonth.clone();
+    const startDate = startOfMonth.clone();
     const dayOfWeek = startDate.day();
     const diff = dayOfWeek - weekStartIndex;
     if (diff < 0) {
@@ -362,7 +362,7 @@ export default class DatePickerModal extends Modal {
     }
     
     // Calculer la fin de la semaine
-    let endDate = endOfMonth.clone();
+    const endDate = endOfMonth.clone();
     const endDayOfWeek = endDate.day();
     const endDiff = (6 + weekStartIndex - endDayOfWeek) % 7;
     if (endDiff > 0) {
@@ -370,7 +370,7 @@ export default class DatePickerModal extends Modal {
     }
 
     const today = window.moment();
-    let currentDate = startDate.clone();
+    const currentDate = startDate.clone();
 
     while (currentDate.isSameOrBefore(endDate, "day")) {
       // Capturer la date actuelle dans une variable locale pour éviter les problèmes de closure

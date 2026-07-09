@@ -11,7 +11,7 @@ export class LRUCache<K, V> {
    * 
    * @param maxSize - Maximum number of items to store in the cache (default: 500)
    */
-  constructor(maxSize: number = 500) {
+  constructor(maxSize = 500) {
     if (maxSize <= 0) {
       throw new Error("LRU Cache maxSize must be greater than 0");
     }

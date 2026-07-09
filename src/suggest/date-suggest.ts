@@ -5,7 +5,6 @@ import {
   EditorSuggest,
   EditorSuggestContext,
   EditorSuggestTriggerInfo,
-  MarkdownView,
   TFile,
 } from "obsidian";
 import type NaturalLanguageDates from "../main";
@@ -93,7 +92,7 @@ export default class DateSuggest extends EditorSuggest<string> {
   /**
    * Récupère les suggestions intelligentes basées sur l'historique et le contexte
    */
-  private getSmartSuggestions(context: EditorSuggestContext, standardSuggestions: string[]): string[] {
+  private getSmartSuggestions(context: EditorSuggestContext, _standardSuggestions: string[]): string[] {
     const smartSuggestions: string[] = [];
     const query = context.query.toLowerCase();
 
@@ -506,7 +505,7 @@ export default class DateSuggest extends EditorSuggest<string> {
     if (this.plugin.settings.enableSmartSuggestions && 
         this.plugin.settings.enableHistorySuggestions && 
         this.plugin.historyManager) {
-      this.plugin.historyManager.recordSelection(suggestion).catch(err => {
+      this.plugin.historyManager.recordSelection(suggestion).catch(_err => {
         // Ignorer les erreurs silencieusement
       });
     }

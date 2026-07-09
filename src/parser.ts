@@ -2,8 +2,7 @@ import { Chrono, ParsedResult, ParsingOption } from "chrono-node";
 import getChronos from "./chrono";
 import t from "./lang/helper";
 import { logger } from "./logger";
-import { ErrorCodes } from "./errors";
-import { TimeDetector, TimeDetectorDependencies } from "./time-detector";
+import { TimeDetector } from "./time-detector";
 import { LRUCache } from "./lru-cache";
 
 import { DayOfWeek } from "./settings";
@@ -561,7 +560,7 @@ export default class NLDParser {
             if (!pattern || pattern === "NOTFOUND") return null;
             
             // Escape special regex characters except %{timeDelta}
-            let regexStr = pattern
+            const regexStr = pattern
                 .replace(/%\{timeDelta\}/g, '(\\d+)')
                 .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
                 .replace(/\s+/g, '\\s+');
@@ -610,16 +609,12 @@ export default class NLDParser {
     
     // First check combinations "in 2 weeks and 3 days" or multiple combinations
     // Try to parse multiple combinations like "in 1 year and 2 months and 3 weeks and 4 days"
-    const multiUnitPattern = /(\d+)\s+(\w+)(?:\s+and\s+(\d+)\s+(\w+))+/gi;
-    let multiMatch;
     let hasMultiUnits = false;
-    let totalMoment = window.moment();
-    
+    const totalMoment = window.moment();
+
     // Check for multiple units pattern (3+ units)
     const testText = cleanedText;
-    const allMatches: Array<{value: number, unit: string}> = [];
-    let match;
-    
+
     // Try to match all "X unit" patterns after "in"
     const inPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
     const andPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("and", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
@@ -703,13 +698,13 @@ export default class NLDParser {
         const endDayIndex = this.getDayOfWeekIndex(endDayName);
         
         // Find next start day
-        let startMoment = window.moment().day(startDayIndex);
+        const startMoment = window.moment().day(startDayIndex);
         if (startMoment.isBefore(m, 'day')) {
             startMoment.add(1, 'week');
         }
         
         // Find next end day (can be in same week or next)
-        let endMoment = window.moment().day(endDayIndex);
+        const endMoment = window.moment().day(endDayIndex);
         if (endMoment.isBefore(startMoment, 'day')) {
             endMoment.add(1, 'week');
         }
@@ -781,8 +776,7 @@ export default class NLDParser {
         const dayName = weekOnlyMatch[1].toLowerCase();
         
         const m = window.moment();
-        const todayIndex = m.day();
-        
+
         // Convert day name to numeric index to avoid locale issues
         const dayIndex = this.getDayOfWeekIndex(dayName);
         
@@ -817,7 +811,7 @@ export default class NLDParser {
         const dayNumber = parseOrdinalNumberPattern(ordinalStr);
         
         // Determine which period (month/year) to target
-        let targetMoment = window.moment();
+        const targetMoment = window.moment();
         let isMonth = false;
         let isYear = false;
         
@@ -882,7 +876,7 @@ export default class NLDParser {
         // Use prefix after month if present (French inversion), otherwise prefix before month, otherwise prefix before "last"
         const prefix = prefixAfter || prefixBeforeMonth || prefixBefore;
         
-        let targetMoment = window.moment();
+        const targetMoment = window.moment();
         let isMonth = false;
         
         for (const lang of this.languages) {
@@ -1077,8 +1071,6 @@ export default class NLDParser {
    * ```
    */
   getParsedDateRange(selectedText: string, weekStartPreference: DayOfWeek): NLDRangeResult | null {
-    const text = selectedText.toLowerCase().trim();
-    
     // Check "from Monday to Friday"
     const rangeMatch = selectedText.match(this.regexDateRange);
     if (rangeMatch) {
@@ -1090,7 +1082,7 @@ export default class NLDParser {
       const endDayIndex = this.getDayOfWeekIndex(endDayName);
       
       // Find next start day
-      let startMoment = window.moment().day(startDayIndex);
+      const startMoment = window.moment().day(startDayIndex);
       if (startMoment.isBefore(m, 'day')) {
         startMoment.add(1, 'week');
       }
@@ -1112,7 +1104,7 @@ export default class NLDParser {
       
       // Generate list of all dates in range
       const dateList: Moment[] = [];
-      let currentMoment = startMoment.clone();
+      const currentMoment = startMoment.clone();
       while (currentMoment.isSameOrBefore(endMoment, 'day')) {
         dateList.push(currentMoment.clone());
         currentMoment.add(1, 'day');
@@ -1165,7 +1157,7 @@ export default class NLDParser {
           
           // Generate list of all dates in range
           const dateList: Moment[] = [];
-          let currentMoment = startMoment.clone();
+          const currentMoment = startMoment.clone();
           while (currentMoment.isSameOrBefore(endMoment, 'day')) {
             dateList.push(currentMoment.clone());
             currentMoment.add(1, 'day');
