@@ -233,13 +233,29 @@ export default class NLDParser {
       'i'
     );
 
-    // Suffix-style languages (e.g. Chinese "2天後", Japanese "2日後") put the
-    // "later" marker after the number and unit instead of using an "in" prefix.
-    // Derive each language's marker directly from its "indays" template (e.g.
-    // "%{timeDelta}天後" -> marker "後") rather than hardcoding it, so this works
-    // for any language authored the same way.
+    // Suffix-style languages (e.g. Chinese "2天後"/"2天后", Japanese "2日後") put
+    // the "later" marker after the number and unit instead of using an "in"
+    // prefix. Each language can list its marker(s) explicitly under the
+    // "later" key (e.g. Chinese "後|后" for both scripts); this key is never
+    // used for display/interpolation, only for this matching, so it's safe to
+    // list multiple script variants with "|" the same way weekday/prefix words
+    // do. The "indays" template itself must stay a single form since it's
+    // also used verbatim in autosuggest labels, and templates with
+    // %{timeDelta} don't get split on "|" like plain word lists do.
+    //
+    // Languages that don't define "later" fall back to inferring the marker
+    // from their "indays" template (e.g. "%{timeDelta}天後" -> marker "後"),
+    // so this still works for any language authored without the extra key.
     const suffixMarkers = new Set<string>();
     for (const lang of this.languages) {
+      const laterWord = this.tc.translate('later', lang);
+      if (laterWord && laterWord !== 'NOTFOUND') {
+        for (const marker of laterWord.split('|').map(w => w.trim()).filter(w => w)) {
+          suffixMarkers.add(marker);
+        }
+        continue;
+      }
+
       const template = this.tc.translate('indays', lang);
       if (!template || template === 'NOTFOUND' || template.indexOf('%{timeDelta}') !== 0) {
         continue;
