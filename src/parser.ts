@@ -444,50 +444,71 @@ export default class NLDParser {
     // ============================================================
     // LEVEL 1.5: PAST EXPRESSIONS (2 days ago, il y a 3 min)
     // ============================================================
-    // Check for "ago" expressions in English (e.g., "2 days ago")
-    const agoMatch = text.match(/^(\d+)\s+(\w+)\s+ago$/i);
-    if (agoMatch) {
-        const value = parseInt(agoMatch[1]);
-        const unitStr = agoMatch[2].toLowerCase().trim();
-        
-        let unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'days';
-        
-        if (this.timeUnitMap.has(unitStr)) {
-            unit = this.timeUnitMap.get(unitStr)!;
-        } else {
-            // Fallback for common abbreviations
-            if (unitStr.startsWith('h')) unit = 'hours';
-            else if (unitStr.startsWith('d') || unitStr.startsWith('j')) unit = 'days';
-            else if (unitStr.startsWith('w') || unitStr.startsWith('s')) unit = 'weeks';
-            else if (unitStr === 'm' || unitStr.startsWith('min')) unit = 'minutes';
-            else if (unitStr.startsWith('mo') || unitStr === 'M' || unitStr.startsWith('mois')) unit = 'months';
-            else if (unitStr.startsWith('y') || unitStr.startsWith('a')) unit = 'years';
+    // Check for "ago" suffix expressions (e.g., "2 days ago", "3 dias atrás")
+    for (const lang of this.languages) {
+        const agoSuffix = t("agosuffix", lang);
+        if (agoSuffix && agoSuffix !== "NOTFOUND") {
+            const escapedSuffix = agoSuffix.split('|')
+                .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('|');
+            const suffixPattern = escapedSuffix.includes('|') ? `(?:${escapedSuffix})` : escapedSuffix;
+            
+            // Constrain unit matching to known time units from timeUnitMap
+            const unitPattern = Array.from(this.timeUnitMap.keys())
+                .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .join('|');
+            const agoRegex = new RegExp(`^(\\d+)\\s+(${unitPattern})\\s+${suffixPattern}$`, 'i');
+            
+            const agoMatch = text.match(agoRegex);
+            if (agoMatch) {
+                const value = parseInt(agoMatch[1]);
+                const unitStr = agoMatch[2].toLowerCase();
+                const unit = this.timeUnitMap.get(unitStr)!;
+                
+                return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
+            }
         }
-        
-        return this.cacheAndReturn(cacheKey, window.moment().subtract(value, unit).toDate());
     }
     
     // Check for past expressions in all languages (e.g., "il y a 3 minutes", "vor 2 Stunden", etc.)
     for (const lang of this.languages) {
-        const minutesAgoPattern = t("minutesago", lang);
-        const hoursAgoPattern = t("hoursago", lang);
-        const daysAgoPattern = t("daysago", lang);
-        const weeksAgoPattern = t("weeksago", lang);
-        const monthsAgoPattern = t("monthsago", lang);
+        const agoPatterns = [
+            { key: "minutesago", unit: 'minutes' as const },
+            { key: "hoursago", unit: 'hours' as const },
+            { key: "daysago", unit: 'days' as const },
+            { key: "weeksago", unit: 'weeks' as const },
+            { key: "monthsago", unit: 'months' as const },
+        ];
         
-        // Helper function to convert pattern to regex
-        // Example: "il y a %{timeDelta} minutes" -> "il y a (\d+) minutes"
-        const patternToRegex = (pattern: string): RegExp | null => {
-            if (!pattern || pattern === "NOTFOUND") return null;
-            
-            // Escape special regex characters except %{timeDelta}
-            let regexStr = pattern
-                .replace(/%\{timeDelta\}/g, '(\\d+)')
-                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                .replace(/\s+/g, '\\s+');
-            
-            return new RegExp(`^${regexStr}$`, 'i');
+        // Unit regex mappings for singular/plural support
+        const unitRegexMap: Record<string, string> = {
+            minutes: 'minutos?',
+            hours: 'horas?',
+            days: 'dias?',
+            weeks: 'semanas?',
+            months: 'm[êe]s(?:es)?',
+            years: 'anos?',
         };
+        
+        for (const { key, unit } of agoPatterns) {
+            const pattern = t(key, lang);
+            if (!pattern || pattern === "NOTFOUND") continue;
+            
+            const parts = pattern.split(/%\{timeDelta\}/g);
+            if (parts.length < 2) continue;
+            
+            const prefix = parts[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const unitRegex = unitRegexMap[unit];
+            
+            if (!unitRegex) continue;
+            
+            const regex = new RegExp(`^${prefix}(\\d+)\\s+${unitRegex}$`, 'i');
+            const match = cleanedText.match(regex);
+            
+            if (match) {
+                return this.cacheAndReturn(cacheKey, window.moment().subtract(parseInt(match[1]), unit).toDate());
+            }
+        }
         
         // Try to match each pattern
         const patterns = [
@@ -499,7 +520,7 @@ export default class NLDParser {
         ];
         
         for (const { pattern, unit } of patterns) {
-            const regex = patternToRegex(pattern);
+            const regex = patternToRegex(pattern, unit);
             if (regex) {
                 const match = cleanedText.match(regex);
                 if (match) {

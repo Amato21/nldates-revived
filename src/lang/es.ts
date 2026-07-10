@@ -6,6 +6,8 @@ const dict = {
   last: "último|última|pasado|pasada",
   this: "este|esta",
   in: "en|dentro de",
+  ago: "hace",
+  agosuffix: "atrás",
   sunday: "Domingo",
   monday: "Lunes",
   tuesday: "Martes",
