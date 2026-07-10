@@ -982,6 +982,47 @@ describe('NLDParser', () => {
     });
   });
 
+  describe('Past expressions ("X ago") across languages', () => {
+    // patternToRegex() (parser.ts) builds a regex from each language's
+    // "daysago"/"hoursago"/etc. template. A bug there (escaping "%{timeDelta}"
+    // after inserting its own "(\d+)" placeholder, and escaping "|" between
+    // grammatical variants into a literal pipe) meant it silently never
+    // matched anything, for any language. This wasn't caught before because
+    // English "X days ago" is separately handled by a hardcoded fallback
+    // regex, and chrono-node's own locale support quietly caught French/
+    // German/Russian as a fallback -- except for Chinese, which has no
+    // chrono-node support at all, so "3天前" ("3 days ago") silently resolved
+    // to today instead of 3 days in the past. These tests exercise the
+    // dedicated per-language pattern directly (not just cases a fallback
+    // could paper over), including Russian's three grammatical forms
+    // (день/дня/дней) which depend on the "|" alternation working correctly.
+    it("should parse English 'ago' expressions", () => {
+      const result = parser.getParsedDate('3 days ago', weekStartPreference);
+      expectSameDate(result, moment().subtract(3, 'days'), 'day');
+    });
+
+    it("should parse French 'il y a' expressions", () => {
+      const result = parser.getParsedDate('il y a 3 jours', weekStartPreference);
+      expectSameDate(result, moment().subtract(3, 'days'), 'day');
+    });
+
+    it("should parse German 'vor' expressions", () => {
+      const result = parser.getParsedDate('vor 2 Stunden', weekStartPreference);
+      expectSameDate(result, moment().subtract(2, 'hours'), 'minute', 60);
+    });
+
+    it("should parse Russian 'назад' expressions across all three grammatical forms", () => {
+      expectSameDate(parser.getParsedDate('1 день назад', weekStartPreference), moment().subtract(1, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('3 дня назад', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('5 дней назад', weekStartPreference), moment().subtract(5, 'days'), 'day');
+    });
+
+    it("should parse Chinese '前' suffix expressions, which have no chrono-node fallback", () => {
+      expectSameDate(parser.getParsedDate('3天前', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('30分鐘前', weekStartPreference), moment().subtract(30, 'minutes'), 'minute', 2);
+    });
+  });
+
   describe('Edge cases and error handling', () => {
     it("should return today for an empty string", () => {
       const result = parser.getParsedDate('', weekStartPreference);
