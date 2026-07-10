@@ -591,6 +591,13 @@ describe('NLDParser', () => {
         expect(moment(result).minute()).toBe(30);
       });
 
+      it("should parse 'last Monday at 3pm' (weekday-with-time, 'last' prefix)", () => {
+        const result = parser.getParsedDate('last Monday at 3pm', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        expect(moment(result).hour()).toBe(15);
+        expect(moment(result).isBefore(moment(), 'day')).toBe(true);
+      });
+
       it("should parse 'Wednesday' without prefix as next Wednesday (or today if Wednesday)", () => {
         const result = parser.getParsedDate('Wednesday', weekStartPreference);
         const today = moment();
@@ -1132,6 +1139,18 @@ describe('NLDParser', () => {
     });
   });
 
+  describe('getParsedResult (raw chrono-node results, used by callers needing match metadata)', () => {
+    it("should return chrono ParsedResult[] for a date chrono-node can parse", () => {
+      const results = parser.getParsedResult('March 15th 2027');
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it("should return an empty array for empty input", () => {
+      const results = parser.getParsedResult('');
+      expect(results).toEqual([]);
+    });
+  });
+
   // ==================== ADDITIONAL EDGE CASES ====================
   
   describe('Additional edge cases', () => {
@@ -1324,6 +1343,30 @@ describe('NLDParser', () => {
         expect(moment(result).date()).toBe(1);
       });
 
+      // regexOrdinalOfMonth also matches "year" words, not just months (the
+      // "isYear" branch in getParsedDate() interprets the ordinal as a day of
+      // year). This path had no test coverage at all before. Note the day
+      // number is capped at 2 digits by ORDINAL_NUMBER_PATTERN (built for
+      // days-of-month 1-31), so day-of-year values above 99 can't be reached
+      // this way -- a real, separate limitation, not exercised here.
+      it("should parse 'the 50th of next year' as day 50 of next year", () => {
+        const result = parser.getParsedDate('the 50th of next year', weekStartPreference);
+        expect(moment(result).year()).toBe(moment().add(1, 'years').year());
+        expect(moment(result).dayOfYear()).toBe(50);
+      });
+
+      it("should parse 'the 50th of last year' as day 50 of last year", () => {
+        const result = parser.getParsedDate('the 50th of last year', weekStartPreference);
+        expect(moment(result).year()).toBe(moment().subtract(1, 'years').year());
+        expect(moment(result).dayOfYear()).toBe(50);
+      });
+
+      it("should parse 'the 50th of this year' as day 50 of this year", () => {
+        const result = parser.getParsedDate('the 50th of this year', weekStartPreference);
+        expect(moment(result).year()).toBe(moment().year());
+        expect(moment(result).dayOfYear()).toBe(50);
+      });
+
       it("should parse 'last day of month' (current month)", () => {
         const result = parser.getParsedDate('last day of month', weekStartPreference);
         const expected = moment().endOf('month');
@@ -1339,6 +1382,12 @@ describe('NLDParser', () => {
       it("should parse 'last day of last month'", () => {
         const result = parser.getParsedDate('last day of last month', weekStartPreference);
         const expected = moment().subtract(1, 'months').endOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'last day of this month' (explicit 'this' prefix)", () => {
+        const result = parser.getParsedDate('last day of this month', weekStartPreference);
+        const expected = moment().endOf('month');
         expectSameDate(result, expected, 'day');
       });
 
@@ -1384,6 +1433,16 @@ describe('NLDParser', () => {
         }
         expectSameDate(result, expected, 'day');
         expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse 'last Friday of last month'", () => {
+        const result = parser.getParsedDate('last Friday of last month', weekStartPreference);
+        const expected = moment().subtract(1, 'months').endOf('month');
+        while (expected.day() !== 5) {
+          expected.subtract(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(5); // Friday
       });
 
       it("should parse 'first Friday of month'", () => {
