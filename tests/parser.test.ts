@@ -1108,6 +1108,28 @@ describe('NLDParser', () => {
       const tomorrow = moment().add(1, 'days').startOf('day');
       expectSameDate(result, tomorrow, 'day');
     });
+
+    // These specifically exercise the chrono-node fallback (Level 4) with only
+    // English enabled. In the main describe block's 11-language parser, other
+    // languages' chrono-node instances silently masked a real bug: chrono-node
+    // 2.x removed createCasualConfiguration from its "en" locale module in
+    // favor of pre-built casual/GB/strict Chrono instances, so getChronos()
+    // could never actually build a working chrono for English -- every
+    // expression not covered by the custom regex path (explicit times,
+    // written-out dates like "March 15th") silently fell back to today/now
+    // with no error, for any user who only enabled English.
+    it("should apply the time component from chrono-node for 'next Monday at 3pm'", () => {
+      const singleLangParser = new NLDParser(['en']);
+      const result = singleLangParser.getParsedDate('next Monday at 3pm', weekStartPreference);
+      expect(moment(result).hour()).toBe(15);
+    });
+
+    it("should parse an explicit written-out date via chrono-node, not silently return today", () => {
+      const singleLangParser = new NLDParser(['en']);
+      const result = singleLangParser.getParsedDate('March 15th 2027', weekStartPreference);
+      expect(moment(result).month()).toBe(2); // March
+      expect(moment(result).year()).toBe(2027);
+    });
   });
 
   // ==================== ADDITIONAL EDGE CASES ====================
