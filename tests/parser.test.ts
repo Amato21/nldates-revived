@@ -897,6 +897,70 @@ describe('NLDParser', () => {
     });
   });
 
+  describe('Chinese: Simplified script and short forms', () => {
+    // A native speaker pointed out that everyday Chinese input rarely matches
+    // the formal Traditional forms used in the tests above: people write in
+    // Simplified script (这/周/从/后 instead of 這/週/從/後), and use short
+    // prefixes ("下星期一"/"下周一") far more often than the fully spelled-out
+    // "下一個星期一". These tests lock in that both scripts and both the short
+    // and formal prefix forms resolve to the same date.
+    it("should parse simplified '这周一' and traditional '這周一' as the same date as '這個星期一'", () => {
+      const formal = parser.getParsedDate('這個星期一', weekStartPreference);
+      const simplified = parser.getParsedDate('这周一', weekStartPreference);
+      const mixedScript = parser.getParsedDate('這周一', weekStartPreference);
+      expectSameDate(simplified, moment(formal), 'day');
+      expectSameDate(mixedScript, moment(formal), 'day');
+    });
+
+    it("should parse short prefix '下星期一' and '下周一' the same as '下一個星期一'", () => {
+      const formal = parser.getParsedDate('下一個星期一', weekStartPreference);
+      const shortTraditional = parser.getParsedDate('下星期一', weekStartPreference);
+      const shortSimplified = parser.getParsedDate('下周一', weekStartPreference);
+      expectSameDate(shortTraditional, moment(formal), 'day');
+      expectSameDate(shortSimplified, moment(formal), 'day');
+    });
+
+    it("should parse '上週一' and '上周一' as last Monday", () => {
+      const lastMonday = moment().day(1).subtract(1, 'week');
+      expectSameDate(parser.getParsedDate('上週一', weekStartPreference), lastMonday, 'day');
+      expectSameDate(parser.getParsedDate('上周一', weekStartPreference), lastMonday, 'day');
+    });
+
+    it("should parse a bare weekday '週一' / '周一' the same as '星期一'", () => {
+      const formal = parser.getParsedDate('星期一', weekStartPreference);
+      expectSameDate(parser.getParsedDate('週一', weekStartPreference), moment(formal), 'day');
+      expectSameDate(parser.getParsedDate('周一', weekStartPreference), moment(formal), 'day');
+    });
+
+    it("should parse simplified relative expressions '2天后', '2周后', '3个月后', '30分钟后'", () => {
+      expectSameDate(parser.getParsedDate('2天后', weekStartPreference), moment().add(2, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('2周后', weekStartPreference), moment().add(2, 'weeks'), 'day');
+      expectSameDate(parser.getParsedDate('3个月后', weekStartPreference), moment().add(3, 'months'), 'day');
+      expectSameDate(parser.getParsedDate('30分钟后', weekStartPreference), moment().add(30, 'minutes'), 'minute', 60);
+    });
+
+    it("should parse the '个星期' counter form '2个星期后' the same as '2週後'", () => {
+      const traditional = parser.getParsedDate('2週後', weekStartPreference);
+      const counterForm = parser.getParsedDate('2个星期后', weekStartPreference);
+      expectSameDate(counterForm, moment(traditional), 'day');
+    });
+
+    it("should parse simplified '现在' as now", () => {
+      const result = parser.getParsedDate('现在', weekStartPreference);
+      expect(Math.abs(result.getTime() - Date.now())).toBeLessThan(1000);
+    });
+
+    it("should parse a simplified range '从周一到周五' as Monday to Friday", () => {
+      const result = parser.getParsedDateRange('从周一到周五', weekStartPreference);
+      expect(result).not.toBeNull();
+      expect(result?.isRange).toBe(true);
+      if (result) {
+        expect(moment(result.startDate).day()).toBe(1); // Monday
+        expect(moment(result.endDate).day()).toBe(5); // Friday
+      }
+    });
+  });
+
   describe('Edge cases and error handling', () => {
     it("should return today for an empty string", () => {
       const result = parser.getParsedDate('', weekStartPreference);
