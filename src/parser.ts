@@ -1,9 +1,9 @@
 import { Chrono, ParsedResult, ParsingOption } from "chrono-node";
 import getChronos from "./chrono";
-import t from "./lang/helper";
 import { logger } from "./logger";
 import { TimeDetector } from "./time-detector";
 import { LRUCache } from "./lru-cache";
+import { TranslationCollector } from "./translation-collector";
 
 import { DayOfWeek } from "./settings";
 import {
@@ -100,17 +100,17 @@ export default class NLDParser {
   private cacheDay: number; // Day of year for cache invalidation
   private readonly MAX_CACHE_SIZE = 500;
   
-  // Cache for translations to avoid repeated calls to t()
-  // Performance optimization: frequently used translations are cached
-  private translationCache: Map<string, string>;
-  
+  // Collects/caches translations across all active languages and builds
+  // regex alternations from them (see translation-collector.ts)
+  private tc: TranslationCollector;
+
   // Time detector
   private timeDetector: TimeDetector;
 
   constructor(languages: string[]) {
     this.languages = languages;
     this.chronos = getChronos(languages);
-    this.translationCache = new Map<string, string>();
+    this.tc = new TranslationCollector(languages);
     this.initializeRegex();
     this.initializeKeywords();
     this.cache = new LRUCache<string, Date>(this.MAX_CACHE_SIZE);
@@ -128,131 +128,37 @@ export default class NLDParser {
     });
   }
 
-  /**
-   * Gets a translation with caching for performance
-   * @param key Translation key
-   * @param lang Language code
-   * @returns Translated string
-   */
-  private getTranslation(key: string, lang: string): string {
-    const cacheKey = `${lang}:${key}`;
-    if (!this.translationCache.has(cacheKey)) {
-      this.translationCache.set(cacheKey, t(key, lang));
-    }
-    return this.translationCache.get(cacheKey)!;
-  }
-
-  /**
-   * Builds a regex alternation ("a|b|c") from a list of words, escaping regex
-   * special characters and de-duplicating them.
-   *
-   * Longest words are tried first: otherwise a shorter word that is a prefix of a
-   * longer one (e.g. French "prochain" vs "prochaine") can match first and leave
-   * the remaining letters to be mis-captured by whatever comes next in the pattern.
-   */
-  private buildAlternation(words: string[]): string {
-    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return [...new Set(words)]
-      .sort((a, b) => b.length - a.length)
-      .map(escapeRegex)
-      .join('|');
-  }
-
   // Initializes dynamic regex from translations
   private initializeRegex(): void {
-    // Collect all "in" words for all languages
-    const inWords: string[] = [];
-    const nextWords: string[] = [];
-    const lastWords: string[] = [];
-    const thisWords: string[] = [];
-    const weekdays: string[] = [];
-    
-    // Collect time units from all languages
-    const timeUnits: string[] = [];
+    const inWords = this.tc.collectWords("in");
+    const nextWords = this.tc.collectWords("next");
+    const lastWords = this.tc.collectWords("last");
+    const thisWords = this.tc.collectWords("this");
+    const andWords = this.tc.collectWords("and");
+    const atWords = this.tc.collectWords("at");
+    const fromWords = this.tc.collectWords("from");
+    const toWords = this.tc.collectWords("to");
 
-    for (const lang of this.languages) {
-      // Collect "in"
-      const inWord = this.getTranslation("in", lang);
-      if (inWord && inWord !== "NOTFOUND") {
-        inWords.push(...inWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      // Collect "next", "last", "this"
-      const nextWord = this.getTranslation("next", lang);
-      if (nextWord && nextWord !== "NOTFOUND") {
-        nextWords.push(...nextWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      const lastWord = this.getTranslation("last", lang);
-      if (lastWord && lastWord !== "NOTFOUND") {
-        lastWords.push(...lastWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      const thisWord = this.getTranslation("this", lang);
-      if (thisWord && thisWord !== "NOTFOUND") {
-        thisWords.push(...thisWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      // Collect weekdays
-      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      for (const day of days) {
-        const dayWord = this.getTranslation(day, lang);
-        if (dayWord && dayWord !== "NOTFOUND") {
-          weekdays.push(...dayWord.split("|").map(w => w.trim().toLowerCase()).filter(w => w));
-        }
-      }
-      
-      // Ajouter les abréviations communes (pour l'anglais principalement)
-      if (lang === 'en') {
-        weekdays.push('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun');
-      }
-      
-      // Collect time units
-      const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
-      for (const unitKey of timeUnitKeys) {
-        const unitWord = this.getTranslation(unitKey, lang);
-        if (unitWord && unitWord !== "NOTFOUND") {
-          timeUnits.push(...unitWord.split("|").map(w => w.trim()).filter(w => w));
-        }
-      }
+    // Collect weekdays (lowercased) across all languages, plus the common
+    // English abbreviations (mon/tue/...) which aren't part of the dictionary.
+    const weekdayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const weekdays = weekdayKeys.flatMap(key => this.tc.collectWords(key, { lowercase: true }));
+    if (this.languages.includes('en')) {
+      weekdays.push('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun');
     }
 
-    // Collecter les mots "and", "at", "from" et "to" pour toutes les langues
-    const andWords: string[] = [];
-    const atWords: string[] = [];
-    const fromWords: string[] = [];
-    const toWords: string[] = [];
-    
-    for (const lang of this.languages) {
-      const andWord = this.getTranslation("and", lang);
-      if (andWord && andWord !== "NOTFOUND") {
-        andWords.push(...andWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      const atWord = this.getTranslation("at", lang);
-      if (atWord && atWord !== "NOTFOUND") {
-        atWords.push(...atWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      const fromWord = this.getTranslation("from", lang);
-      if (fromWord && fromWord !== "NOTFOUND") {
-        fromWords.push(...fromWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      
-      const toWord = this.getTranslation("to", lang);
-      if (toWord && toWord !== "NOTFOUND") {
-        toWords.push(...toWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-    }
+    // Collect time units (minute/hour/day/week/month/year) across all languages
+    const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
+    const timeUnits = timeUnitKeys.flatMap(key => this.tc.collectWords(key));
 
-    const inPattern = this.buildAlternation(inWords);
-    const prefixPattern = this.buildAlternation([...thisWords, ...nextWords, ...lastWords]);
-    const weekdayPattern = this.buildAlternation(weekdays);
-    const timeUnitPattern = this.buildAlternation(timeUnits);
-    const andPattern = this.buildAlternation(andWords);
-    const atPattern = this.buildAlternation(atWords);
-    const fromPattern = this.buildAlternation(fromWords);
-    const toPattern = this.buildAlternation(toWords);
+    const inPattern = this.tc.buildAlternation(inWords);
+    const prefixPattern = this.tc.buildAlternation([...thisWords, ...nextWords, ...lastWords]);
+    const weekdayPattern = this.tc.buildAlternation(weekdays);
+    const timeUnitPattern = this.tc.buildAlternation(timeUnits);
+    const andPattern = this.tc.buildAlternation(andWords);
+    const atPattern = this.tc.buildAlternation(atWords);
+    const fromPattern = this.tc.buildAlternation(fromWords);
+    const toPattern = this.tc.buildAlternation(toWords);
 
     // Simple regex for "in 2 minutes"
     this.regexRelative = new RegExp(
@@ -292,21 +198,8 @@ export default class NLDParser {
       'i'
     );
 
-    // Collect "of" and "first" words
-    const ofWords: string[] = [];
-    const firstWords: string[] = [];
-    for (const lang of this.languages) {
-      const ofWord = this.getTranslation("of", lang);
-      if (ofWord && ofWord !== "NOTFOUND") {
-        ofWords.push(...ofWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-      const firstWord = this.getTranslation("first", lang);
-      if (firstWord && firstWord !== "NOTFOUND") {
-        firstWords.push(...firstWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-    }
-    const ofPattern = this.buildAlternation(ofWords);
-    const firstPattern = this.buildAlternation(firstWords);
+    const ofPattern = this.tc.buildAlternationFor("of");
+    const firstPattern = this.tc.buildAlternationFor("first");
 
     // Regex for "the 15th of next month" or "le 15 du mois prochain"
     // Pattern: (optional "the"/"le"/"der") (ordinal number like "15th", "15ème", "15.") "of"/"du"/"des" (next/last/this) (month)
@@ -319,22 +212,14 @@ export default class NLDParser {
     );
 
     // Regex for "last day of month" or "dernier jour du mois"
-    // Collect "day" words from all languages
-    const dayWords: string[] = [];
-    for (const lang of this.languages) {
-      const dayWord = this.getTranslation("day", lang);
-      if (dayWord && dayWord !== "NOTFOUND") {
-        dayWords.push(...dayWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-    }
-    const dayPattern = this.buildAlternation(dayWords);
+    const dayPattern = this.tc.buildAlternationFor("day");
 
     // Make prefix optional - "last day of month" without prefix means "this month"
     // "last" here is an adjective modifying "day", not a temporal prefix
     // Also handle French inversion: "dernier jour du mois prochain" (month before prefix)
     // Pattern: (optional prefix) "last" (day word) "of" (optional prefix) (month) (optional prefix after month)
     // Reuse lastWords collected above (line 148-150)
-    const lastAdjectivePattern = this.buildAlternation(lastWords);
+    const lastAdjectivePattern = this.tc.buildAlternation(lastWords);
     
     this.regexLastDayOfMonth = new RegExp(
       `^\\s*(?:(${prefixPattern})\\s+)?(${lastAdjectivePattern})\\s+(${dayPattern})\\s+(?:${ofPattern})\\s+(?:(${prefixPattern})\\s+)?(${timeUnitPattern})(?:\\s+(${prefixPattern}))?\\s*$`,
@@ -355,12 +240,12 @@ export default class NLDParser {
     // for any language authored the same way.
     const suffixMarkers = new Set<string>();
     for (const lang of this.languages) {
-      const template = this.getTranslation('indays', lang);
+      const template = this.tc.translate('indays', lang);
       if (!template || template === 'NOTFOUND' || template.indexOf('%{timeDelta}') !== 0) {
         continue;
       }
       const remainder = template.slice('%{timeDelta}'.length);
-      const dayWord = this.getTranslation('day', lang);
+      const dayWord = this.tc.translate('day', lang);
       if (!dayWord || dayWord === 'NOTFOUND') continue;
       const unitUsed = dayWord.split('|').map(w => w.trim()).filter(w => w).find(v => remainder.startsWith(v));
       if (!unitUsed) continue;
@@ -369,7 +254,7 @@ export default class NLDParser {
     }
 
     if (suffixMarkers.size > 0) {
-      const suffixPattern = this.buildAlternation(Array.from(suffixMarkers));
+      const suffixPattern = this.tc.buildAlternation(Array.from(suffixMarkers));
       this.regexRelativeSuffix = new RegExp(
         `^\\s*(\\d+)\\s*(${timeUnitPattern})\\s*(?:${suffixPattern})\\s*$`,
         'i'
@@ -386,59 +271,28 @@ export default class NLDParser {
 
   // Initializes keywords for fast detection
   private initializeKeywords(): void {
-    this.immediateKeywords = new Set();
+    this.immediateKeywords = new Set(
+      ['now', 'today', 'tomorrow', 'yesterday'].flatMap(key => this.tc.collectWords(key, { lowercase: true }))
+    );
     this.prefixKeywords = {
-      this: new Set(),
-      next: new Set(),
-      last: new Set(),
+      this: new Set(this.tc.collectWords("this", { lowercase: true })),
+      next: new Set(this.tc.collectWords("next", { lowercase: true })),
+      last: new Set(this.tc.collectWords("last", { lowercase: true })),
     };
+
+    // Time units with mapping to Moment.js units
+    const unitMappings: { key: string; momentUnit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' }[] = [
+      { key: 'minute', momentUnit: 'minutes' },
+      { key: 'hour', momentUnit: 'hours' },
+      { key: 'day', momentUnit: 'days' },
+      { key: 'week', momentUnit: 'weeks' },
+      { key: 'month', momentUnit: 'months' },
+      { key: 'year', momentUnit: 'years' },
+    ];
     this.timeUnitMap = new Map();
-
-    for (const lang of this.languages) {
-      // Immediate keywords
-      ['now', 'today', 'tomorrow', 'yesterday'].forEach(key => {
-        const word = this.getTranslation(key, lang);
-        if (word && word !== "NOTFOUND") {
-          this.immediateKeywords.add(word.toLowerCase());
-        }
-      });
-
-      // Prefixes
-      const nextWord = this.getTranslation("next", lang);
-      if (nextWord && nextWord !== "NOTFOUND") {
-        nextWord.split("|").forEach(w => this.prefixKeywords.next.add(w.trim().toLowerCase()));
-      }
-      
-      const lastWord = this.getTranslation("last", lang);
-      if (lastWord && lastWord !== "NOTFOUND") {
-        lastWord.split("|").forEach(w => this.prefixKeywords.last.add(w.trim().toLowerCase()));
-      }
-      
-      const thisWord = this.getTranslation("this", lang);
-      if (thisWord && thisWord !== "NOTFOUND") {
-        thisWord.split("|").forEach(w => this.prefixKeywords.this.add(w.trim().toLowerCase()));
-      }
-      
-      // Time units with mapping to Moment.js units
-      const unitMappings: { key: string; momentUnit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' }[] = [
-        { key: 'minute', momentUnit: 'minutes' },
-        { key: 'hour', momentUnit: 'hours' },
-        { key: 'day', momentUnit: 'days' },
-        { key: 'week', momentUnit: 'weeks' },
-        { key: 'month', momentUnit: 'months' },
-        { key: 'year', momentUnit: 'years' },
-      ];
-      
-      for (const mapping of unitMappings) {
-        const unitWord = this.getTranslation(mapping.key, lang);
-        if (unitWord && unitWord !== "NOTFOUND") {
-          unitWord.split("|").forEach(w => {
-            const trimmed = w.trim().toLowerCase();
-            if (trimmed) {
-              this.timeUnitMap.set(trimmed, mapping.momentUnit);
-            }
-          });
-        }
+    for (const mapping of unitMappings) {
+      for (const word of this.tc.collectWords(mapping.key, { lowercase: true })) {
+        this.timeUnitMap.set(word, mapping.momentUnit);
       }
     }
   }
@@ -448,10 +302,9 @@ export default class NLDParser {
   // Moment.js uses: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
   private getDayOfWeekIndex(dayName: string): number {
     const normalized = dayName.toLowerCase();
-    
-    // Mapping of day names to indices (0=Sunday, 1=Monday, etc.)
+
+    // English day names/abbreviations, always available regardless of active languages
     const dayMap: { [key: string]: number } = {
-      // English
       'sunday': 0, 'sun': 0,
       'monday': 1, 'mon': 1,
       'tuesday': 2, 'tue': 2, 'tues': 2,
@@ -460,20 +313,15 @@ export default class NLDParser {
       'friday': 5, 'fri': 5,
       'saturday': 6, 'sat': 6,
     };
-    
+
     // Add days from all enabled languages
     const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    for (let i = 0; i < dayKeys.length; i++) {
-      for (const lang of this.languages) {
-        const dayWord = this.getTranslation(dayKeys[i], lang);
-        if (dayWord && dayWord !== "NOTFOUND") {
-          for (const variant of dayWord.split("|").map(w => w.trim().toLowerCase()).filter(w => w)) {
-            dayMap[variant] = i;
-          }
-        }
+    dayKeys.forEach((key, i) => {
+      for (const variant of this.tc.collectWords(key, { lowercase: true })) {
+        dayMap[variant] = i;
       }
-    }
-    
+    });
+
     return dayMap[normalized] ?? 0; // Default to Sunday if not recognized
   }
 
@@ -551,29 +399,17 @@ export default class NLDParser {
     // LEVEL 1: IMMEDIATE KEYWORDS (Speed and Precision)
     // ============================================================
     if (this.immediateKeywords.has(text)) {
-        // Check "now" in all languages
-        for (const lang of this.languages) {
-            if (this.getTranslation('now', lang).toLowerCase() === text) {
-                return this.cacheAndReturn(cacheKey, new Date());
-            }
+        if (this.tc.collectWords('now', { lowercase: true }).includes(text)) {
+            return this.cacheAndReturn(cacheKey, new Date());
         }
-        // Check "today" in all languages
-        for (const lang of this.languages) {
-            if (this.getTranslation('today', lang).toLowerCase() === text) {
-                return this.cacheAndReturn(cacheKey, new Date());
-            }
+        if (this.tc.collectWords('today', { lowercase: true }).includes(text)) {
+            return this.cacheAndReturn(cacheKey, new Date());
         }
-        // Check "tomorrow" in all languages
-        for (const lang of this.languages) {
-            if (this.getTranslation('tomorrow', lang).toLowerCase() === text) {
-                return this.cacheAndReturn(cacheKey, window.moment().add(1, 'days').toDate());
-            }
+        if (this.tc.collectWords('tomorrow', { lowercase: true }).includes(text)) {
+            return this.cacheAndReturn(cacheKey, window.moment().add(1, 'days').toDate());
         }
-        // Check "yesterday" in all languages
-        for (const lang of this.languages) {
-            if (this.getTranslation('yesterday', lang).toLowerCase() === text) {
-                return this.cacheAndReturn(cacheKey, window.moment().subtract(1, 'days').toDate());
-            }
+        if (this.tc.collectWords('yesterday', { lowercase: true }).includes(text)) {
+            return this.cacheAndReturn(cacheKey, window.moment().subtract(1, 'days').toDate());
         }
     }
 
@@ -605,11 +441,11 @@ export default class NLDParser {
     
     // Check for past expressions in all languages (e.g., "il y a 3 minutes", "vor 2 Stunden", etc.)
     for (const lang of this.languages) {
-        const minutesAgoPattern = this.getTranslation("minutesago", lang);
-        const hoursAgoPattern = this.getTranslation("hoursago", lang);
-        const daysAgoPattern = this.getTranslation("daysago", lang);
-        const weeksAgoPattern = this.getTranslation("weeksago", lang);
-        const monthsAgoPattern = this.getTranslation("monthsago", lang);
+        const minutesAgoPattern = this.tc.translate("minutesago", lang);
+        const hoursAgoPattern = this.tc.translate("hoursago", lang);
+        const daysAgoPattern = this.tc.translate("daysago", lang);
+        const weeksAgoPattern = this.tc.translate("weeksago", lang);
+        const monthsAgoPattern = this.tc.translate("monthsago", lang);
         
         // Helper function to convert pattern to regex
         // Example: "il y a %{timeDelta} minutes" -> "il y a (\d+) minutes"
@@ -673,11 +509,11 @@ export default class NLDParser {
     const testText = cleanedText;
 
     // Try to match all "X unit" patterns after "in"
-    const inPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
-    const andPatterns = Array.from(new Set(this.languages.map(l => this.getTranslation("and", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
+    const inPatterns = Array.from(new Set(this.languages.map(l => this.tc.translate("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
+    const andPatterns = Array.from(new Set(this.languages.map(l => this.tc.translate("and", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
 
-    const inRegex = new RegExp(`^(${this.buildAlternation(inPatterns)})\\s+`, 'i');
-    const andRegex = new RegExp(`\\s+(${this.buildAlternation(andPatterns)})\\s+`, 'gi');
+    const inRegex = new RegExp(`^(${this.tc.buildAlternation(inPatterns)})\\s+`, 'i');
+    const andRegex = new RegExp(`\\s+(${this.tc.buildAlternation(andPatterns)})\\s+`, 'gi');
     
     if (testText.match(inRegex)) {
         const withoutIn = testText.replace(inRegex, '');
@@ -893,22 +729,9 @@ export default class NLDParser {
         
         // Determine which period (month/year) to target
         const targetMoment = window.moment();
-        let isMonth = false;
-        let isYear = false;
-        
-        for (const lang of this.languages) {
-            const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
-            if (monthVariants.includes(periodStr)) {
-                isMonth = true;
-                break;
-            }
-            const yearVariants = this.getTranslation('year', lang).toLowerCase().split('|').map(w => w.trim());
-            if (yearVariants.includes(periodStr)) {
-                isYear = true;
-                break;
-            }
-        }
-        
+        const isMonth = this.tc.collectWords('month', { lowercase: true }).includes(periodStr);
+        const isYear = !isMonth && this.tc.collectWords('year', { lowercase: true }).includes(periodStr);
+
         if (isMonth) {
             if (prefix && this.prefixKeywords.next.has(prefix)) {
                 targetMoment.add(1, 'months').startOf('month');
@@ -958,16 +781,9 @@ export default class NLDParser {
         const prefix = prefixAfter || prefixBeforeMonth || prefixBefore;
         
         const targetMoment = window.moment();
-        let isMonth = false;
-        
-        for (const lang of this.languages) {
-            const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
-            if (monthVariants.includes(periodStr)) {
-                isMonth = true;
-                break;
-            }
-        }
-        
+        const isMonth = this.tc.collectWords('month', { lowercase: true }).includes(periodStr);
+
+
         if (isMonth) {
             if (prefix && this.prefixKeywords.next.has(prefix)) {
                 targetMoment.add(1, 'months').endOf('month');
@@ -999,28 +815,11 @@ export default class NLDParser {
         
         const dayIndex = this.getDayOfWeekIndex(dayName);
         let targetMoment = window.moment();
-        let isMonth = false;
-        
+
         // Check if it's "first" or a prefix (next/last/this)
-        let isFirst = false;
-        for (const lang of this.languages) {
-            const firstWord = this.getTranslation("first", lang);
-            if (firstWord && firstWord !== "NOTFOUND") {
-                if (firstWord.split("|").some(f => f.trim().toLowerCase() === prefixOrFirst)) {
-                    isFirst = true;
-                    break;
-                }
-            }
-        }
-        
-        for (const lang of this.languages) {
-            const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
-            if (monthVariants.includes(periodStr)) {
-                isMonth = true;
-                break;
-            }
-        }
-        
+        const isFirst = this.tc.collectWords("first", { lowercase: true }).includes(prefixOrFirst);
+        const isMonth = this.tc.collectWords('month', { lowercase: true }).includes(periodStr);
+
         if (isMonth) {
             const isLast = !isFirst && this.prefixKeywords.last.has(prefixOrFirst);
             
@@ -1089,44 +888,25 @@ export default class NLDParser {
     // shorter word that is a prefix of a longer one (e.g. French "prochain" vs
     // "prochaine") can match first and leave the remaining letters to be
     // mis-captured as the period.
-    const nextPattern = this.buildAlternation(Array.from(this.prefixKeywords.next));
-    const periodWordsAll: string[] = [];
-    for (const lang of this.languages) {
-      for (const key of ['week', 'month', 'year']) {
-        const word = this.getTranslation(key, lang);
-        if (word && word !== 'NOTFOUND') {
-          periodWordsAll.push(...word.split('|').map(w => w.trim()).filter(w => w));
-        }
-      }
-    }
-    const periodPatternAll = this.buildAlternation(periodWordsAll);
+    const nextPattern = this.tc.buildAlternation(Array.from(this.prefixKeywords.next));
+    const periodWordsAll = ['week', 'month', 'year'].flatMap(key => this.tc.collectWords(key));
+    const periodPatternAll = this.tc.buildAlternation(periodWordsAll);
     const nextDateMatch = cleanedText.match(new RegExp(`(${nextPattern})\\s*(${periodPatternAll})`, 'i'));
 
     if (nextDateMatch) {
         const period = nextDateMatch[2].toLowerCase();
         // Check if it's "week" - if yes, let getParsedDateRange handle it
-        let isNextWeek = false;
-        for (const lang of this.languages) {
-            const weekVariants = this.getTranslation('week', lang).toLowerCase().split('|').map(w => w.trim());
-            if (weekVariants.includes(period)) {
-                isNextWeek = true;
-                break;
-            }
-        }
+        const isNextWeek = this.tc.collectWords('week', { lowercase: true }).includes(period);
         // If it's "next week", let getParsedDateRange handle it (continue to chrono-node)
         if (!isNextWeek) {
             // Check if it's "month" or "year" in all languages
-            for (const lang of this.languages) {
-                const monthVariants = this.getTranslation('month', lang).toLowerCase().split('|').map(w => w.trim());
-                if (monthVariants.includes(period)) {
-                    // Next month -> 1st of next month
-                    return this.cacheAndReturn(cacheKey, window.moment().add(1, 'months').startOf('month').toDate());
-                }
-                const yearVariants = this.getTranslation('year', lang).toLowerCase().split('|').map(w => w.trim());
-                if (yearVariants.includes(period)) {
-                    // Next year -> January 1st of next year
-                    return this.cacheAndReturn(cacheKey, window.moment().add(1, 'years').startOf('year').toDate());
-                }
+            if (this.tc.collectWords('month', { lowercase: true }).includes(period)) {
+                // Next month -> 1st of next month
+                return this.cacheAndReturn(cacheKey, window.moment().add(1, 'months').startOf('month').toDate());
+            }
+            if (this.tc.collectWords('year', { lowercase: true }).includes(period)) {
+                // Next year -> January 1st of next year
+                return this.cacheAndReturn(cacheKey, window.moment().add(1, 'years').startOf('year').toDate());
             }
         }
     }
@@ -1225,15 +1005,8 @@ export default class NLDParser {
     // "week" words directly (not a generic \S+/\w+ capture): otherwise a shorter
     // word that is a prefix of a longer one (e.g. French "prochain" vs "prochaine")
     // can match first and leave the remaining letters to be mis-captured as the period.
-    const nextPattern = this.buildAlternation(Array.from(this.prefixKeywords.next));
-    const weekWordsAll: string[] = [];
-    for (const lang of this.languages) {
-      const weekWord = this.getTranslation('week', lang);
-      if (weekWord && weekWord !== 'NOTFOUND') {
-        weekWordsAll.push(...weekWord.split('|').map(w => w.trim()).filter(w => w));
-      }
-    }
-    const weekPatternAll = this.buildAlternation(weekWordsAll);
+    const nextPattern = this.tc.buildAlternation(Array.from(this.prefixKeywords.next));
+    const weekPatternAll = this.tc.buildAlternationFor('week');
     // First try "next week" pattern
     let nextWeekMatch = selectedText.match(new RegExp(`(${nextPattern})\\s*(${weekPatternAll})`, 'i'));
     let periodIndex = 2; // Index of period in match array
@@ -1246,42 +1019,39 @@ export default class NLDParser {
     }
     if (nextWeekMatch) {
       const period = nextWeekMatch[periodIndex].toLowerCase();
-      for (const lang of this.languages) {
-        const weekVariants = this.getTranslation('week', lang).toLowerCase().split('|').map(w => w.trim());
-        if (weekVariants.includes(period)) {
-          // Next week -> return from Monday to Sunday of next week
-          const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
-          const weekStartIndex = this.getDayOfWeekIndex(String(weekStart));
-          
-          const startMoment = window.moment().add(1, 'weeks').day(weekStartIndex);
-          const endMoment = startMoment.clone().add(6, 'days');
-          
-          const format = "YYYY-MM-DD";
-          const startFormatted = startMoment.format(format);
-          const endFormatted = endMoment.format(format);
-          
-          // Generate list of all dates in range
-          const dateList: Moment[] = [];
-          const currentMoment = startMoment.clone();
-          while (currentMoment.isSameOrBefore(endMoment, 'day')) {
-            dateList.push(currentMoment.clone());
-            currentMoment.add(1, 'day');
-          }
-          
-          const result: NLDRangeResult = {
-            formattedString: `${startFormatted} to ${endFormatted}`,
-            startDate: startMoment.toDate(),
-            endDate: endMoment.toDate(),
-            startMoment: startMoment.clone(),
-            endMoment: endMoment.clone(),
-            isRange: true as const,
-            dateList: dateList,
-          };
-          return result;
+      if (this.tc.collectWords('week', { lowercase: true }).includes(period)) {
+        // Next week -> return from Monday to Sunday of next week
+        const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
+        const weekStartIndex = this.getDayOfWeekIndex(String(weekStart));
+
+        const startMoment = window.moment().add(1, 'weeks').day(weekStartIndex);
+        const endMoment = startMoment.clone().add(6, 'days');
+
+        const format = "YYYY-MM-DD";
+        const startFormatted = startMoment.format(format);
+        const endFormatted = endMoment.format(format);
+
+        // Generate list of all dates in range
+        const dateList: Moment[] = [];
+        const currentMoment = startMoment.clone();
+        while (currentMoment.isSameOrBefore(endMoment, 'day')) {
+          dateList.push(currentMoment.clone());
+          currentMoment.add(1, 'day');
         }
+
+        const result: NLDRangeResult = {
+          formattedString: `${startFormatted} to ${endFormatted}`,
+          startDate: startMoment.toDate(),
+          endDate: endMoment.toDate(),
+          startMoment: startMoment.clone(),
+          endMoment: endMoment.clone(),
+          isRange: true as const,
+          dateList: dateList,
+        };
+        return result;
       }
     }
-    
+
     return null;
   }
 
