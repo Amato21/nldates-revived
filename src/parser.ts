@@ -574,21 +574,14 @@ export default class NLDParser {
         }
     }
     
-    // Fallback to original single combination match (2 units)
-    const relCombinedMatch = cleanedText.match(this.regexRelativeCombined);
-    if (relCombinedMatch) {
-        const value1 = parseInt(relCombinedMatch[1]);
-        const unitStr1 = relCombinedMatch[2].toLowerCase().trim();
-        const value2 = parseInt(relCombinedMatch[3]);
-        const unitStr2 = relCombinedMatch[4].toLowerCase().trim();
-        
-        const unit1 = getUnit(unitStr1);
-        const unit2 = getUnit(unitStr2);
-
-        // Add the two durations
-        const resultDate = window.moment().add(value1, unit1).add(value2, unit2).toDate();
-        return this.cacheAndReturn(cacheKey, resultDate);
-    }
+    // Note: there used to be a "fallback to regexRelativeCombined" block here
+    // for "in 2 weeks and 3 days"-style input that the multi-unit split above
+    // didn't catch. It was provably dead: regexRelativeCombined requires the
+    // same "in ..." prefix as inRegex above, so any text it could match would
+    // already have matched inRegex and returned early via the multi-unit
+    // path. Confirmed empirically across all 11 languages before removing it
+    // (this.regexRelativeCombined itself is still built and used separately
+    // by TimeDetector.hasTimeComponent()).
 
     // Suffix-style combinations, e.g. Chinese "2週和3天後" (2 weeks and 3 days later)
     const relCombinedSuffixMatch = this.regexRelativeCombinedSuffix ? cleanedText.match(this.regexRelativeCombinedSuffix) : null;
@@ -611,20 +604,15 @@ export default class NLDParser {
         const value = parseInt(relMatch[1]);
         const unitStr = relMatch[2].toLowerCase().trim();
         
-        // Look up unit in translation mapping
-        let unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = 'minutes';
-        
-        if (this.timeUnitMap.has(unitStr)) {
-            unit = this.timeUnitMap.get(unitStr)!;
-        } else {
-            // Fallback for common abbreviations if not found in translations
-            if (unitStr.startsWith('h')) unit = 'hours';
-            else if (unitStr.startsWith('d') || unitStr.startsWith('j')) unit = 'days';
-            else if (unitStr.startsWith('w') || unitStr.startsWith('s')) unit = 'weeks';
-            else if (unitStr === 'm' || unitStr.startsWith('min')) unit = 'minutes';
-            else if (unitStr.startsWith('mo') || unitStr === 'M' || unitStr.startsWith('mois')) unit = 'months';
-            else if (unitStr.startsWith('y') || unitStr.startsWith('a')) unit = 'years';
-        }
+        // Look up unit in translation mapping. unitStr is guaranteed to be a
+        // registered key here: regexRelative's unit capture group is built
+        // from this.tc.collectWords() for the same six keys that populate
+        // timeUnitMap, so a successful regex match already implies a hit --
+        // there is deliberately no abbreviation-guessing fallback like the
+        // one in getUnit()/the hardcoded English "ago" regex, since those two
+        // capture units generically ([^\s]+ / \w+) and can receive strings
+        // that were never validated against a translation.
+        const unit: 'minutes' | 'hours' | 'days' | 'weeks' | 'months' | 'years' = this.timeUnitMap.get(unitStr)!;
 
         // MomentJS handles year transitions perfectly
         return this.cacheAndReturn(cacheKey, window.moment().add(value, unit).toDate());
