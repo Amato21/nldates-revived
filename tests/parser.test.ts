@@ -105,6 +105,14 @@ describe('NLDParser', () => {
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
+
+      // "daqui a 3 dias" already worked; the bare "daqui 3 dias" (no "a"),
+      // also common colloquial Portuguese, previously wasn't a registered
+      // variant of the "in" key and silently fell through to "now".
+      it("should parse the bare 'daqui' variant of 'in', without 'a'", () => {
+        const result = parser.getParsedDate('daqui 3 dias', weekStartPreference);
+        expectSameDate(result, moment().add(3, 'days'), 'day');
+      });
     });
 
     describe('Dutch', () => {
@@ -1085,6 +1093,29 @@ describe('NLDParser', () => {
     it("should parse Chinese '前' suffix expressions, which have no chrono-node fallback", () => {
       expectSameDate(parser.getParsedDate('3天前', weekStartPreference), moment().subtract(3, 'days'), 'day');
       expectSameDate(parser.getParsedDate('30分鐘前', weekStartPreference), moment().subtract(30, 'minutes'), 'minute', 2);
+    });
+
+    it("should parse Portuguese 'há' prefix expressions", () => {
+      expectSameDate(parser.getParsedDate('há 3 dias', weekStartPreference), moment().subtract(3, 'days'), 'day');
+    });
+
+    // Portuguese also allows a suffix form ("3 dias atrás", literally "3 days
+    // back") alongside the prefix form above ("há 3 dias") -- the past-tense
+    // mirror of the "later"-suffix mechanism used for future expressions
+    // (e.g. Chinese "2天後"). Before regexAgoSuffix/"agosuffix" existed, this
+    // silently fell through every parsing level and resolved to "now"
+    // instead of erroring or matching, the same "silent fallback" bug class
+    // this file's other "ago" tests above were written to catch.
+    it("should parse Portuguese 'atrás' suffix expressions", () => {
+      expectSameDate(parser.getParsedDate('3 dias atrás', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('5 dias atras', weekStartPreference), moment().subtract(5, 'days'), 'day');
+    });
+
+    // Spanish "atrás" has the same silent-fallback gap as Portuguese above --
+    // the prefix form ("hace 3 días") already worked, the suffix form didn't.
+    it("should parse Spanish 'atrás' suffix expressions", () => {
+      expectSameDate(parser.getParsedDate('3 días atrás', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('hace 3 días', weekStartPreference), moment().subtract(3, 'days'), 'day');
     });
 
     // The hardcoded English "ago" regex (/^(\d+)\s+(\w+)\s+ago$/i) accepts any
