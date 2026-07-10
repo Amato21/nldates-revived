@@ -133,10 +133,15 @@ export class NLDSettingsTab extends PluginSettingTab {
             if (validated.valid) {
               this.plugin.settings.format = value || "YYYY-MM-DD";
               await this.plugin.saveSettings();
-              // Mettre à jour la description avec la prévisualisation
+              // Mettre à jour la description avec la prévisualisation.
+              // validateMomentFormat()'s contract guarantees preview is set
+              // whenever valid is true, so the ": ''" fallback below is
+              // unreachable with real data.
               dateFormatSetting.setDesc(`Output format for parsed dates${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
             } else {
-              // Afficher l'erreur dans la description
+              // Afficher l'erreur dans la description. Every invalid-format
+              // return from validateMomentFormat() always sets error, so the
+              // "Format invalide" fallback below is unreachable with real data.
               dateFormatSetting.setDesc(`Output format for parsed dates - ⚠️ ${validated.error || "Format invalide"}`);
               // Ne pas sauvegarder le format invalide, restaurer le précédent
               text.setValue(this.plugin.settings.format);
@@ -193,10 +198,13 @@ export class NLDSettingsTab extends PluginSettingTab {
             if (validated.valid) {
               this.plugin.settings.timeFormat = value || "HH:mm";
               await this.plugin.saveSettings();
-              // Mettre à jour la description avec la prévisualisation
+              // Mettre à jour la description avec la prévisualisation (see
+              // the date-format setting above: the ": ''" fallback here is
+              // similarly unreachable given validateMomentFormat()'s contract).
               timeFormatSetting.setDesc(`Format for the hotkeys that include the current time${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
             } else {
-              // Afficher l'erreur dans la description
+              // Afficher l'erreur dans la description (unreachable fallback,
+              // same reasoning as the date-format setting above).
               timeFormatSetting.setDesc(`Format for the hotkeys that include the current time - ⚠️ ${validated.error || "Format invalide"}`);
               // Ne pas sauvegarder le format invalide, restaurer le précédent
               text.setValue(this.plugin.settings.timeFormat);
