@@ -42,18 +42,26 @@ export class MarkdownView {
 export class EditorSuggest<T> {
   app: any;
   scope: any;
-  
+  context: any;
+  suggestions: any = { useSelectedItem: () => {} };
+  // Captured registered scope shortcuts, keyed by "modifiers+key" (e.g.
+  // "Shift+Enter"), so tests can invoke them directly to exercise the
+  // callback bodies passed to scope.register().
+  registeredHandlers: Record<string, (evt: any) => boolean> = {};
+
   constructor(app: any) {
     this.app = app;
     this.scope = {
-      register: () => {},
+      register: (modifiers: string[], key: string, callback: (evt: any) => boolean) => {
+        this.registeredHandlers[`${modifiers.join("+")}+${key}`] = callback;
+      },
     };
   }
-  
+
   getSuggestions(context: any): T[] {
     return [];
   }
-  
+
   setInstructions(instructions: any[]): void {}
 }
 

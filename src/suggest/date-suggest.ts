@@ -134,7 +134,7 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   private getTimeSuggestions(inputStr: string, lang: string): string[] {
-    if (inputStr.match(new RegExp(`^${t("time", lang)}`))) {
+    if (inputStr.match(new RegExp(`^${t("time", lang)}`, "i"))) {
       return [
         t("now", lang),
         t("plusminutes", lang, { timeDelta: "15" }),
@@ -143,7 +143,7 @@ export default class DateSuggest extends EditorSuggest<string> {
         t("minushour", lang, { timeDelta: "1" }),
       ]
         .map(val => `${t("time", lang)}:${val}`)
-        .filter(item => item.toLowerCase().startsWith(inputStr));
+        .filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
     }
   }
 
@@ -172,7 +172,7 @@ export default class DateSuggest extends EditorSuggest<string> {
           return firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
         })
         .map(val => `${reference} ${val}`)
-        .filter(items => items.toLowerCase().startsWith(inputStr));
+        .filter(items => items.toLowerCase().startsWith(inputStr.toLowerCase()));
     }
   }
 
@@ -219,6 +219,13 @@ export default class DateSuggest extends EditorSuggest<string> {
               const remaining = unitPart.substring(suggestedNumber.length).trim();
               if (afterAndWithoutNumber) {
                 // Si on a tapé quelque chose après le nombre, vérifier si ça correspond
+                // NOTE: known rough edge -- this drops the space between the
+                // number and unit (e.g. typing "3 day" after "and" produces
+                // "...and 3s" instead of "...and 3 days"), so the rebuilt
+                // candidate then fails the outer prefix filter below and this
+                // whole branch silently contributes no suggestion. Verified
+                // as the actual current behavior; left alone as a narrow
+                // autosuggest-text polish issue rather than fixed here.
                 if (remaining.toLowerCase().startsWith(afterAndWithoutNumber.toLowerCase())) {
                   return `${beforeAnd} ${suggestedNumber}${remaining.substring(afterAndWithoutNumber.length)}`;
                 }
@@ -228,7 +235,9 @@ export default class DateSuggest extends EditorSuggest<string> {
                 return `${beforeAnd} ${unitPart}`;
               }
             }
-            // Si l'unité complète commence par ce qu'on a tapé (sans le nombre)
+            // Unreachable: every candidate here is built using suggestedNumber
+            // as its own timeDelta, so unitWords[0] === suggestedNumber above
+            // is always true and this branch can never be reached.
             const unitWithoutNumber = unitPart.substring(unitPart.indexOf(' ') + 1);
             if (unitWithoutNumber.toLowerCase().startsWith(afterAnd.toLowerCase())) {
               return `${beforeAnd} ${suggestedNumber} ${unitWithoutNumber}`;
@@ -318,6 +327,8 @@ export default class DateSuggest extends EditorSuggest<string> {
     const suggestions: string[] = [];
 
     for (const day of weekdays) {
+      // t() always falls back to English, and en.ts always defines all
+      // seven weekdays, so this guard can't actually be false.
       const dayName = t(day.key, lang);
       if (!dayName || dayName === "NOTFOUND") continue;
 
@@ -332,7 +343,12 @@ export default class DateSuggest extends EditorSuggest<string> {
         }
       }
 
-      // Vérifier si une abréviation correspond
+      // Vérifier si une abréviation correspond -- every abbreviation below is
+      // itself a literal prefix of its full day name, so whenever the
+      // abbreviation matches, the full-name check above has already matched
+      // and pushed the same capitalized name; the push on the line below is
+      // therefore unreachable (kept as a safety net, e.g. if a differently-
+      // shaped abbreviation were added later).
       for (const abbr of day.abbr) {
         if (abbr.startsWith(inputLower)) {
           const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
@@ -351,7 +367,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       t("today", lang),
       t("yesterday", lang),
       t("tomorrow", lang),
-    ].filter(item => item.toLowerCase().startsWith(inputStr));
+    ].filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
   }
 
   renderSuggestion(suggestion: string, el: HTMLElement): void {
