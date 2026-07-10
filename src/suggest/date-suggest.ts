@@ -316,7 +316,40 @@ export default class DateSuggest extends EditorSuggest<string> {
         t("weeksago", lang, { timeDelta }),
         t("monthsago", lang, { timeDelta }),
       ].filter(items => items.toLowerCase().startsWith(inputStr.toLowerCase()));
-      return suggestions;
+      // Don't return an empty array here: any digit-led input (including
+      // suffix-style "3 dias atrás") matches this regexp too, since its
+      // prefix group is optional -- returning unconditionally would make
+      // the suffix-pattern check below unreachable dead code for every
+      // suffix-only language.
+      if (suggestions.length > 0) {
+        return suggestions;
+      }
+    }
+
+    // Suffix-style past expressions, e.g. Portuguese/Spanish "3 dias atrás"
+    // (X unit + agosuffix marker), the past-tense mirror of the prefix
+    // suggestions above.
+    const agoSuffix = t("agosuffix", lang);
+    if (agoSuffix && agoSuffix !== "NOTFOUND") {
+      const suffixMatch = inputStr.match(/^(\d+)\s+(\w*)/i);
+      if (suffixMatch) {
+        const timeDelta = suffixMatch[1];
+        const suffixVariant = agoSuffix.split('|')[0];
+
+        const unitTypes = ['minute', 'hour', 'day', 'week', 'month', 'year'];
+        const suggestions: string[] = [];
+        for (const unitType of unitTypes) {
+          const words = t(unitType, lang).split('|').map(w => w.trim()).slice(0, 2);
+          for (const word of words) {
+            suggestions.push(`${timeDelta} ${word} ${suffixVariant}`);
+          }
+        }
+
+        const filtered = suggestions.filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
+        if (filtered.length > 0) {
+          return filtered;
+        }
+      }
     }
   }
 

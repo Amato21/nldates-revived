@@ -219,6 +219,22 @@ describe('DateSuggest', () => {
   });
 
   describe('getRelativeSuggestions', () => {
+    // The prefix-suggestion block above returns unconditionally on any
+    // digit-led match, even an empty array -- which used to make the
+    // suffix-pattern block below it (for languages with "agosuffix", e.g.
+    // Portuguese "atrás") permanently unreachable, since a bare number like
+    // "3 di" always matches the prefix block's regex too. Fixed by only
+    // returning early when there's an actual suggestion to offer.
+    it('falls through to suffix-pattern suggestions ("atrás") for Portuguese when the prefix block finds nothing', () => {
+      const suggestions = (suggest as any).getRelativeSuggestions('3 di', 'pt');
+      expect(suggestions).toEqual(['3 dia atrás', '3 dias atrás']);
+    });
+
+    it('falls through to suffix-pattern suggestions ("atrás") for Spanish when the prefix block finds nothing', () => {
+      const suggestions = (suggest as any).getRelativeSuggestions('3 dí', 'es');
+      expect(suggestions).toEqual(['3 día atrás', '3 días atrás']);
+    });
+
     it('suggests combined durations for "in X unit and"', () => {
       const suggestions = (suggest as any).getRelativeSuggestions('in 2 weeks and', 'en');
       expect(suggestions).toBeDefined();
