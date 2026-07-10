@@ -954,10 +954,17 @@ describe('NLDParser', () => {
     });
 
     it("should parse '之後/之后' and '以後/以后' as alternative suffix markers to '後/后'", () => {
-      expectSameDate(parser.getParsedDate('2天之後', weekStartPreference), moment().add(2, 'days'), 'day');
-      expectSameDate(parser.getParsedDate('2天之后', weekStartPreference), moment().add(2, 'days'), 'day');
-      expectSameDate(parser.getParsedDate('3個月以後', weekStartPreference), moment().add(3, 'months'), 'day');
-      expectSameDate(parser.getParsedDate('3个月以后', weekStartPreference), moment().add(3, 'months'), 'day');
+      const twoDaysLater = parser.getParsedDate('2天後', weekStartPreference);
+      const threeMonthsLater = parser.getParsedDate('3個月後', weekStartPreference);
+      expectSameDate(parser.getParsedDate('2天之後', weekStartPreference), moment(twoDaysLater), 'day');
+      expectSameDate(parser.getParsedDate('2天之后', weekStartPreference), moment(twoDaysLater), 'day');
+      expectSameDate(parser.getParsedDate('3個月以後', weekStartPreference), moment(threeMonthsLater), 'day');
+      expectSameDate(parser.getParsedDate('3个月以后', weekStartPreference), moment(threeMonthsLater), 'day');
+    });
+
+    it("should parse the colloquial '星期天' form the same as '星期日'", () => {
+      const formal = parser.getParsedDate('星期日', weekStartPreference);
+      expectSameDate(parser.getParsedDate('星期天', weekStartPreference), moment(formal), 'day');
     });
 
     it("should parse the '個禮拜'/'个礼拜' counter form the same as '2週後'", () => {

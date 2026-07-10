@@ -13,7 +13,7 @@ const dict = {
   in: "在",
   // "禮拜/礼拜" (colloquial, originally "worship day") is also extremely common
   // for weekdays, e.g. "禮拜一"/"礼拜一" for Monday.
-  sunday: "星期日|周日|週日|禮拜日|礼拜日|禮拜天|礼拜天",
+  sunday: "星期日|周日|週日|星期天|禮拜日|礼拜日|禮拜天|礼拜天",
   monday: "星期一|周一|週一|禮拜一|礼拜一",
   tuesday: "星期二|周二|週二|禮拜二|礼拜二",
   wednesday: "星期三|周三|週三|禮拜三|礼拜三",
