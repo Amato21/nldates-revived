@@ -23,6 +23,7 @@ const dict = {
   monthsago: "há %{timeDelta} meses",
   minutesago: "há %{timeDelta} minutos",
   hoursago: "há %{timeDelta} horas",
+  agosuffix: "atrás|atras",
   time: "hora",
   now: "agora",
   plusminutes: "+%{timeDelta} minutos",

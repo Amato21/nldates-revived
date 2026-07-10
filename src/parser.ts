@@ -91,6 +91,9 @@ export default class NLDParser {
   // instead of an "in" prefix (e.g. Chinese "2天後" = "2 days" + "後" = "later").
   regexRelativeSuffix: RegExp | null;
   regexRelativeCombinedSuffix: RegExp | null; // For "2週和3天後" (2 weeks and 3 days later)
+  // Mirror of regexRelativeSuffix for the PAST direction (e.g. Portuguese
+  // "3 dias atrás" = "3 days" + "atrás" = "ago").
+  regexAgoSuffix: RegExp | null;
   
   // Keywords for all languages
   immediateKeywords: Set<string>;
@@ -284,6 +287,32 @@ export default class NLDParser {
     } else {
       this.regexRelativeSuffix = null;
       this.regexRelativeCombinedSuffix = null;
+    }
+
+    // Suffix-style PAST languages (e.g. Portuguese "3 dias atrás" = "3 days"
+    // + "atrás" = "ago"), the past-direction mirror of the "later" mechanism
+    // above. Unlike "later", there's no template to infer this marker from
+    // (the daysago template already has its own %{timeDelta}-prefix form, "há
+    // %{timeDelta} dias", which doesn't imply a suffix variant also exists),
+    // so languages must opt in explicitly via the "agosuffix" key.
+    const agoSuffixMarkers = new Set<string>();
+    for (const lang of this.languages) {
+      const agoSuffixWord = this.tc.translate('agosuffix', lang);
+      if (agoSuffixWord && agoSuffixWord !== 'NOTFOUND') {
+        for (const marker of agoSuffixWord.split('|').map(w => w.trim()).filter(w => w)) {
+          agoSuffixMarkers.add(marker);
+        }
+      }
+    }
+
+    if (agoSuffixMarkers.size > 0) {
+      const agoSuffixPattern = this.tc.buildAlternation(Array.from(agoSuffixMarkers));
+      this.regexAgoSuffix = new RegExp(
+        `^\\s*(\\d+)\\s*(${timeUnitPattern})\\s*(?:${agoSuffixPattern})\\s*$`,
+        'i'
+      );
+    } else {
+      this.regexAgoSuffix = null;
     }
   }
 
@@ -496,6 +525,15 @@ export default class NLDParser {
           }
         }
       }
+    }
+
+    // Suffix-style past expressions, e.g. Portuguese "3 dias atrás" (3 days ago)
+    const agoSuffixMatch = this.regexAgoSuffix ? cleanedText.match(this.regexAgoSuffix) : null;
+    if (agoSuffixMatch) {
+      const value = parseInt(agoSuffixMatch[1]);
+      const unitStr = agoSuffixMatch[2].toLowerCase().trim();
+      const unit = this.guessUnit(unitStr);
+      return window.moment().subtract(value, unit).toDate();
     }
 
     return null;

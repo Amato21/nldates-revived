@@ -1087,6 +1087,22 @@ describe('NLDParser', () => {
       expectSameDate(parser.getParsedDate('30分鐘前', weekStartPreference), moment().subtract(30, 'minutes'), 'minute', 2);
     });
 
+    it("should parse Portuguese 'há' prefix expressions", () => {
+      expectSameDate(parser.getParsedDate('há 3 dias', weekStartPreference), moment().subtract(3, 'days'), 'day');
+    });
+
+    // Portuguese also allows a suffix form ("3 dias atrás", literally "3 days
+    // back") alongside the prefix form above ("há 3 dias") -- the past-tense
+    // mirror of the "later"-suffix mechanism used for future expressions
+    // (e.g. Chinese "2天後"). Before regexAgoSuffix/"agosuffix" existed, this
+    // silently fell through every parsing level and resolved to "now"
+    // instead of erroring or matching, the same "silent fallback" bug class
+    // this file's other "ago" tests above were written to catch.
+    it("should parse Portuguese 'atrás' suffix expressions", () => {
+      expectSameDate(parser.getParsedDate('3 dias atrás', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('5 dias atras', weekStartPreference), moment().subtract(5, 'days'), 'day');
+    });
+
     // The hardcoded English "ago" regex (/^(\d+)\s+(\w+)\s+ago$/i) accepts any
     // \w+ as a unit, unlike the translated-language paths whose regex only
     // ever captures words already registered in timeUnitMap -- so this one
