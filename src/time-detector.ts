@@ -90,6 +90,10 @@ export class TimeDetector {
     const dateWords: string[] = [];
     for (const key of dateKeywords) {
       for (const lang of this.languages) {
+        // t() always falls back to English (lang/helper.ts), and en.ts
+        // always defines today/tomorrow/yesterday, so this guard can't
+        // actually be false for these three keys -- kept for safety in case
+        // that invariant ever changes.
         const word = t(key, lang);
         if (word && word !== "NOTFOUND") {
           dateWords.push(word.toLowerCase());
