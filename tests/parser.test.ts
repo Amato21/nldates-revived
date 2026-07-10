@@ -105,6 +105,14 @@ describe('NLDParser', () => {
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
+
+      // "daqui a 3 dias" already worked; the bare "daqui 3 dias" (no "a"),
+      // also common colloquial Portuguese, previously wasn't a registered
+      // variant of the "in" key and silently fell through to "now".
+      it("should parse the bare 'daqui' variant of 'in', without 'a'", () => {
+        const result = parser.getParsedDate('daqui 3 dias', weekStartPreference);
+        expectSameDate(result, moment().add(3, 'days'), 'day');
+      });
     });
 
     describe('Dutch', () => {
@@ -1101,6 +1109,13 @@ describe('NLDParser', () => {
     it("should parse Portuguese 'atrás' suffix expressions", () => {
       expectSameDate(parser.getParsedDate('3 dias atrás', weekStartPreference), moment().subtract(3, 'days'), 'day');
       expectSameDate(parser.getParsedDate('5 dias atras', weekStartPreference), moment().subtract(5, 'days'), 'day');
+    });
+
+    // Spanish "atrás" has the same silent-fallback gap as Portuguese above --
+    // the prefix form ("hace 3 días") already worked, the suffix form didn't.
+    it("should parse Spanish 'atrás' suffix expressions", () => {
+      expectSameDate(parser.getParsedDate('3 días atrás', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('hace 3 días', weekStartPreference), moment().subtract(3, 'days'), 'day');
     });
 
     // The hardcoded English "ago" regex (/^(\d+)\s+(\w+)\s+ago$/i) accepts any

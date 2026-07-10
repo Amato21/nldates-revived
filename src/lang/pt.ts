@@ -5,7 +5,7 @@ const dict = {
   next: "próximo|próxima|seguinte",
   last: "último|última|passado|passada",
   this: "este|esta",
-  in: "em|daqui a",
+  in: "em|daqui a|daqui",
   sunday: "Domingo",
   monday: "Segunda-feira",
   tuesday: "Terça-feira",
