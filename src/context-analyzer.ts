@@ -120,6 +120,10 @@ export default class ContextAnalyzer {
     }
 
     // Pattern 4: Expressions "next/last weekday/week/month/year"
+    // Every one of the 11 supported languages defines weekdays and time
+    // units together with next/last, so the nested checks below can't
+    // actually be false while prefixPattern is true -- kept as a guard in
+    // case a future language module is authored incompletely.
     if (prefixPattern) {
       if (weekdayPattern) {
         this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${prefixPattern})\\s*(${weekdayPattern})${wordBoundaryAfter}`, 'gi'));
