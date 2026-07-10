@@ -7,7 +7,7 @@ import {
 
 import { DayOfWeek } from "./settings";
 import { DateFormatter } from "./date-formatter";
-import t from "./lang/helper";
+import { TranslationCollector } from "./translation-collector";
 
 // Type alias for Moment from the moment library bundled with Obsidian
 // Using the type from the moment library types since moment is bundled with Obsidian
@@ -288,58 +288,44 @@ export function parseOrdinalNumberPattern(match: string): number {
 /**
  * Détermine si une expression temporelle relative courte (minutes/heures) devrait omettre la date
  * car elle reste dans la même journée (aujourd'hui)
- * @param text - Le texte de l'expression temporelle (ex: "dans 15 min", "in 2 hours")
+ * @param text - Le texte de l'expression temporelle (ex: "dans 15 min", "in 2 hours", "30分鐘後")
  * @param languages - Les langues supportées pour détecter les patterns
  * @returns true si c'est une expression relative courte qui reste aujourd'hui
  */
 export function shouldOmitDateForShortRelative(text: string, languages: string[]): boolean {
   const lowerText = text.toLowerCase().trim();
-  
-  // Patterns pour détecter les expressions relatives courtes (minutes/heures) dans toutes les langues
-  // On cherche des patterns comme "dans X min", "in X hours", etc.
+  const tc = new TranslationCollector(languages);
+
+  const inPattern = tc.buildAlternationFor("in");
+  const minutePattern = tc.buildAlternationFor("minute");
+  const hourPattern = tc.buildAlternationFor("hour");
+  // Suffix-style languages (e.g. Chinese "30分鐘後") mark "later" instead of
+  // prefixing with "in"; see translation-collector.ts / parser.ts for why this
+  // is a separate key from the day/hour/minute word lists.
+  const laterPattern = tc.buildAlternationFor("later");
+
   const shortRelativePatterns: RegExp[] = [];
-  
-  // Pour chaque langue, créer des patterns pour "dans/in/over/etc. X minutes/heures"
-  for (const lang of languages) {
-    try {
-      const inWord = t("in", lang);
-      if (inWord && inWord !== "NOTFOUND") {
-        const inWords = inWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
-        const minuteWord = t("minute", lang);
-        const hourWord = t("hour", lang);
-        
-        if (minuteWord && minuteWord !== "NOTFOUND") {
-          const minuteWords = minuteWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
-          for (const inW of inWords) {
-            for (const minW of minuteWords) {
-              // Pattern: "dans X minutes" ou "dans X min"
-              const escapedIn = inW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const escapedMin = minW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const pattern = new RegExp(`^${escapedIn}\\s+\\d+\\s+${escapedMin}`, 'i');
-              shortRelativePatterns.push(pattern);
-            }
-          }
-        }
-        
-        if (hourWord && hourWord !== "NOTFOUND") {
-          const hourWords = hourWord.split("|").map((w: string) => w.trim()).filter((w: string) => w);
-          for (const inW of inWords) {
-            for (const hW of hourWords) {
-              // Pattern: "dans X heures" ou "in X hours"
-              const escapedIn = inW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const escapedHour = hW.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              const pattern = new RegExp(`^${escapedIn}\\s+\\d+\\s+${escapedHour}`, 'i');
-              shortRelativePatterns.push(pattern);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // Ignorer les erreurs de traduction
+
+  // Prefix style: "in X minutes"/"dans X min"/...
+  if (inPattern) {
+    if (minutePattern) {
+      shortRelativePatterns.push(new RegExp(`^(?:${inPattern})\\s+\\d+\\s+(?:${minutePattern})`, 'i'));
+    }
+    if (hourPattern) {
+      shortRelativePatterns.push(new RegExp(`^(?:${inPattern})\\s+\\d+\\s+(?:${hourPattern})`, 'i'));
     }
   }
-  
-  // Vérifier si le texte correspond à un pattern d'expression relative courte
+
+  // Suffix style: "X minutes" + "later" marker, e.g. Chinese "30分鐘後"
+  if (laterPattern) {
+    if (minutePattern) {
+      shortRelativePatterns.push(new RegExp(`^\\d+\\s*(?:${minutePattern})\\s*(?:${laterPattern})$`, 'i'));
+    }
+    if (hourPattern) {
+      shortRelativePatterns.push(new RegExp(`^\\d+\\s*(?:${hourPattern})\\s*(?:${laterPattern})$`, 'i'));
+    }
+  }
+
   return shortRelativePatterns.some(pattern => pattern.test(lowerText));
 }
 
@@ -374,26 +360,19 @@ export function getActiveEditor(workspace: Workspace): Editor | null {
     }
   }
 
-  // Méthode 4: Parcourir tous les leafs pour trouver un éditeur avec focus
+  // Méthodes 4 et 5: Parcourir tous les leafs markdown, en préférant celui qui
+  // a le focus, sinon le premier éditeur disponible en dernier recours.
+  let firstAvailableEditor: Editor | null = null;
   for (const leaf of workspace.getLeavesOfType("markdown")) {
     const view = leaf.view;
     if (view instanceof MarkdownView && view.editor) {
-      // Vérifier si cet éditeur a le focus
       const editorEl = (view.editor as Editor & { cm?: { hasFocus?: () => boolean } }).cm;
       if (editorEl?.hasFocus?.()) {
         return view.editor;
       }
+      firstAvailableEditor = firstAvailableEditor ?? view.editor;
     }
   }
 
-  // Méthode 5: Dernier recours - prendre le premier éditeur disponible
-  const firstLeaf = workspace.getLeavesOfType("markdown")[0];
-  if (firstLeaf) {
-    const view = firstLeaf.view;
-    if (view instanceof MarkdownView && view.editor) {
-      return view.editor;
-    }
-  }
-
-  return null;
+  return firstAvailableEditor;
 }

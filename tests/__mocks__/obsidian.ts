@@ -30,6 +30,15 @@ export class Modal {
   close(): void {}
 }
 
+export class MarkdownView {
+  editor?: any;
+  file?: any;
+  constructor(editor?: any, file?: any) {
+    this.editor = editor;
+    this.file = file;
+  }
+}
+
 export class EditorSuggest<T> {
   app: any;
   scope: any;

@@ -1,8 +1,8 @@
 import { App, MarkdownView, Editor } from "obsidian";
 import type NaturalLanguageDates from "./main";
-import t from "./lang/helper";
 import { LRUCache } from "./lru-cache";
 import { logger } from "./logger";
+import { TranslationCollector } from "./translation-collector";
 
 const CONTEXT_LINES = 10; // Nombre de lignes à analyser avant et après le curseur
 const MAX_DATES_TO_EXTRACT = 10; // Nombre maximum de dates à extraire du contexte
@@ -82,113 +82,50 @@ export default class ContextAnalyzer {
    * Initialise les patterns regex pour la détection de dates dans toutes les langues activées
    */
   private initializeDatePatterns(): void {
-    const languages = this.plugin.settings.languages;
-    
-    // Collecter tous les mots de toutes les langues activées
-    const weekdays: string[] = [];
-    const todayWords: string[] = [];
-    const tomorrowWords: string[] = [];
-    const yesterdayWords: string[] = [];
-    const inWords: string[] = [];
-    const nextWords: string[] = [];
-    const lastWords: string[] = [];
-    const timeUnits: string[] = [];
+    const tc = new TranslationCollector(this.plugin.settings.languages);
 
-    for (const lang of languages) {
-      // Jours de la semaine
-      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      for (const day of days) {
-        const dayWord = t(day, lang);
-        if (dayWord && dayWord !== "NOTFOUND") {
-          weekdays.push(...dayWord.split("|").map(w => w.trim()).filter(w => w));
-        }
-      }
+    const weekdayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const weekdayPattern = tc.buildAlternation(weekdayKeys.flatMap(key => tc.collectWords(key)));
+    const timeWordPattern = tc.buildAlternation(['today', 'tomorrow', 'yesterday'].flatMap(key => tc.collectWords(key)));
+    const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
+    const timeUnitPattern = tc.buildAlternation(timeUnitKeys.flatMap(key => tc.collectWords(key)));
+    const inPattern = tc.buildAlternationFor('in');
+    const prefixPattern = tc.buildAlternation([...tc.collectWords('next'), ...tc.collectWords('last')]);
 
-      // Mots temporels courants
-      const todayWord = t("today", lang);
-      if (todayWord && todayWord !== "NOTFOUND") {
-        todayWords.push(...todayWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-
-      const tomorrowWord = t("tomorrow", lang);
-      if (tomorrowWord && tomorrowWord !== "NOTFOUND") {
-        tomorrowWords.push(...tomorrowWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-
-      const yesterdayWord = t("yesterday", lang);
-      if (yesterdayWord && yesterdayWord !== "NOTFOUND") {
-        yesterdayWords.push(...yesterdayWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-
-      // "in" pour les expressions relatives
-      const inWord = t("in", lang);
-      if (inWord && inWord !== "NOTFOUND") {
-        inWords.push(...inWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-
-      // "next" et "last"
-      const nextWord = t("next", lang);
-      if (nextWord && nextWord !== "NOTFOUND") {
-        nextWords.push(...nextWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-
-      const lastWord = t("last", lang);
-      if (lastWord && lastWord !== "NOTFOUND") {
-        lastWords.push(...lastWord.split("|").map(w => w.trim()).filter(w => w));
-      }
-
-      // Unités de temps
-      const timeUnitKeys = ['minute', 'hour', 'day', 'week', 'month', 'year'];
-      for (const unitKey of timeUnitKeys) {
-        const unitWord = t(unitKey, lang);
-        if (unitWord && unitWord !== "NOTFOUND") {
-          timeUnits.push(...unitWord.split("|").map(w => w.trim()).filter(w => w));
-        }
-      }
-    }
-
-    // Échapper les caractères spéciaux pour les regex
-    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // Créer les patterns regex
     this.datePatterns = [];
 
+    // \b is defined in terms of \w, which is ASCII-only: it never matches
+    // around CJK characters (no boundary exists between two Chinese
+    // characters as far as \b is concerned), so it silently drops every CJK
+    // match. Using explicit lookaround against Latin alphanumerics instead
+    // still blocks partial-word matches for Latin scripts (e.g. "Monday"
+    // inside "Mondayish") while imposing no boundary at all next to CJK
+    // characters, which don't have word separators to check against anyway.
+    const wordBoundaryBefore = '(?<![a-zA-Z0-9_])';
+    const wordBoundaryAfter = '(?![a-zA-Z0-9_])';
+
     // Pattern 1: Jours de la semaine
-    if (weekdays.length > 0) {
-      const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
-      // Utiliser \b pour les limites de mots (fonctionne pour la plupart des langues)
-      this.datePatterns.push(new RegExp(`\\b(${weekdayPattern})\\b`, 'gi'));
+    if (weekdayPattern) {
+      this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${weekdayPattern})${wordBoundaryAfter}`, 'gi'));
     }
 
     // Pattern 2: Mots temporels courants (today, tomorrow, yesterday)
-    const timeWords = [...todayWords, ...tomorrowWords, ...yesterdayWords];
-    if (timeWords.length > 0) {
-      const timeWordPattern = [...new Set(timeWords.map(escapeRegex))].join('|');
-      this.datePatterns.push(new RegExp(`\\b(${timeWordPattern})\\b`, 'gi'));
+    if (timeWordPattern) {
+      this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${timeWordPattern})${wordBoundaryAfter}`, 'gi'));
     }
 
     // Pattern 3: Expressions relatives "dans X jours/semaines/mois"
-    if (inWords.length > 0 && timeUnits.length > 0) {
-      const inPattern = [...new Set(inWords.map(escapeRegex))].join('|');
-      const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
-      this.datePatterns.push(new RegExp(`\\b(${inPattern})\\s+\\d+\\s+(${timeUnitPattern})\\b`, 'gi'));
+    if (inPattern && timeUnitPattern) {
+      this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${inPattern})\\s*\\d+\\s*(${timeUnitPattern})${wordBoundaryAfter}`, 'gi'));
     }
 
     // Pattern 4: Expressions "next/last weekday/week/month/year"
-    const prefixWords = [...nextWords, ...lastWords];
-    if (prefixWords.length > 0) {
-      const prefixPattern = [...new Set(prefixWords.map(escapeRegex))].join('|');
-      
-      // Pour les jours de la semaine
-      if (weekdays.length > 0) {
-        const weekdayPattern = [...new Set(weekdays.map(escapeRegex))].join('|');
-        this.datePatterns.push(new RegExp(`\\b(${prefixPattern})\\s+(${weekdayPattern})\\b`, 'gi'));
+    if (prefixPattern) {
+      if (weekdayPattern) {
+        this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${prefixPattern})\\s*(${weekdayPattern})${wordBoundaryAfter}`, 'gi'));
       }
-      
-      // Pour les unités de temps
-      if (timeUnits.length > 0) {
-        const timeUnitPattern = [...new Set(timeUnits.map(escapeRegex))].join('|');
-        this.datePatterns.push(new RegExp(`\\b(${prefixPattern})\\s+(${timeUnitPattern})\\b`, 'gi'));
+      if (timeUnitPattern) {
+        this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${prefixPattern})\\s*(${timeUnitPattern})${wordBoundaryAfter}`, 'gi'));
       }
     }
   }
