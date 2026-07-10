@@ -161,6 +161,16 @@ describe('NLDParser', () => {
         const tomorrow = moment().add(1, 'days').startOf('day');
         expectSameDate(result, tomorrow, 'day');
       });
+
+      // Japanese has no explicit "later" translation key, so its suffix
+      // marker ("後") must be inferred from the "indays" template
+      // (initializeRegex()'s fallback path for languages without "later").
+      // That inference path had no test coverage before.
+      it("should parse '2日後' (suffix marker inferred from the 'indays' template)", () => {
+        const result = parser.getParsedDate('2日後', weekStartPreference);
+        const expected = moment().add(2, 'days').startOf('day');
+        expectSameDate(result, expected, 'day');
+      });
     });
 
     describe('Russian', () => {
@@ -598,6 +608,24 @@ describe('NLDParser', () => {
         expect(moment(result).isBefore(moment(), 'day')).toBe(true);
       });
 
+      // getParsedDateResult() used to always return a Date (never null), so
+      // the "if time parsing fails, fall back to just the date" branch could
+      // never actually run: chrono-node finding no match for the time part
+      // silently produced `new Date()` (today, right now) instead, which was
+      // then used as if it were the parsed time -- discarding the correctly
+      // computed weekday entirely, not just the time-of-day.
+      it("should fall back to the weekday date, not today, when the time part is unparseable", () => {
+        const result = parser.getParsedDate('next Monday at zzqqxx', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        expect(moment(result).isAfter(moment(), 'day')).toBe(true); // next Monday, not today
+      });
+
+      it("should parse 'this Monday at 3pm' (weekday-with-time, 'this' prefix)", () => {
+        const result = parser.getParsedDate('this Monday at 3pm', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        expect(moment(result).hour()).toBe(15);
+      });
+
       it("should parse 'Wednesday' without prefix as next Wednesday (or today if Wednesday)", () => {
         const result = parser.getParsedDate('Wednesday', weekStartPreference);
         const today = moment();
@@ -770,6 +798,11 @@ describe('NLDParser', () => {
         expect(moment(result!.endDate).day()).toBe(5); // Friday
         expect(result!.dateList).toBeDefined();
         expect(result!.dateList!.length).toBeGreaterThan(0);
+      });
+
+      it("should parse 'from Monday to Friday' via getParsedDate (returns the start date)", () => {
+        const result = parser.getParsedDate('from Monday to Friday', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
       });
 
       it("should parse 'next week' as range", () => {
@@ -1151,6 +1184,17 @@ describe('NLDParser', () => {
     });
   });
 
+  describe('getCacheStats', () => {
+    it("should report cache size growing after a parse and a positive maxSize", () => {
+      const singleUseParser = new NLDParser(['en']);
+      const before = singleUseParser.getCacheStats();
+      singleUseParser.getParsedDate('tomorrow', weekStartPreference);
+      const after = singleUseParser.getCacheStats();
+      expect(after.size).toBeGreaterThan(before.size);
+      expect(after.maxSize).toBeGreaterThan(0);
+    });
+  });
+
   // ==================== ADDITIONAL EDGE CASES ====================
   
   describe('Additional edge cases', () => {
@@ -1165,6 +1209,7 @@ describe('NLDParser', () => {
       const today = moment().startOf('day');
       expectSameDate(result, today, 'day');
     });
+
 
     it("should handle expressions with multiple different time units", () => {
       const result = parser.getParsedDate('in 1 year and 2 months and 3 weeks and 4 days', weekStartPreference);
@@ -1343,6 +1388,12 @@ describe('NLDParser', () => {
         expect(moment(result).date()).toBe(1);
       });
 
+      it("should parse 'the 15th of month' (bare, no prefix, defaults to this month)", () => {
+        const result = parser.getParsedDate('the 15th of month', weekStartPreference);
+        const expected = moment().startOf('month').date(15);
+        expectSameDate(result, expected, 'day');
+      });
+
       // regexOrdinalOfMonth also matches "year" words, not just months (the
       // "isYear" branch in getParsedDate() interprets the ordinal as a day of
       // year). This path had no test coverage at all before. Note the day
@@ -1445,6 +1496,16 @@ describe('NLDParser', () => {
         expect(moment(result).day()).toBe(5); // Friday
       });
 
+      it("should parse 'last Friday of this month' (explicit 'this' month prefix)", () => {
+        const result = parser.getParsedDate('last Friday of this month', weekStartPreference);
+        const expected = moment().endOf('month');
+        while (expected.day() !== 5) {
+          expected.subtract(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+        expect(moment(result).day()).toBe(5); // Friday
+      });
+
       it("should parse 'first Friday of month'", () => {
         const result = parser.getParsedDate('first Friday of month', weekStartPreference);
         const expected = moment().startOf('month');
@@ -1454,6 +1515,38 @@ describe('NLDParser', () => {
         }
         expectSameDate(result, expected, 'day');
         expect(moment(result).day()).toBe(5); // Friday
+      });
+
+      // "next"/"this" directly before the weekday (not "first"/"last") isn't
+      // itself a month shift -- it hits the same "default to first weekday"
+      // path as bare "of month", and only shifts month when a prefix appears
+      // next to the month word itself ("next Monday of next month"). These
+      // pin down both halves of that branch, which had no coverage before.
+      it("should parse 'next Monday of month' as the first Monday of THIS month (no month shift)", () => {
+        const result = parser.getParsedDate('next Monday of month', weekStartPreference);
+        const expected = moment().startOf('month');
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'next Monday of next month' as the first Monday of next month", () => {
+        const result = parser.getParsedDate('next Monday of next month', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month');
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse 'this Monday of month' the same as 'next Monday of month'", () => {
+        const result = parser.getParsedDate('this Monday of month', weekStartPreference);
+        const expected = moment().startOf('month');
+        while (expected.day() !== 1) {
+          expected.add(1, 'day');
+        }
+        expectSameDate(result, expected, 'day');
       });
     });
 

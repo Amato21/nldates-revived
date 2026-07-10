@@ -692,12 +692,16 @@ export default class NLDParser {
             m.day(dayIndex).subtract(1, 'week');
         }
         
-        // Parse time with chrono-node
+        // Parse time with chrono-node. getParsedDateResult now returns null
+        // (rather than a "now" placeholder) when nothing matched, so a time
+        // part chrono-node can't parse (e.g. "next Monday at zzqqxx") falls
+        // back to the already-computed weekday date below, instead of
+        // silently discarding it in favor of the actual current date/time.
         const timeResult = this.getParsedDateResult(timePart, m.toDate());
         if (timeResult) {
             return this.cacheAndReturn(cacheKey, timeResult);
         }
-        
+
         // If time parsing fails, return just the date
         return this.cacheAndReturn(cacheKey, m.toDate());
     }
@@ -957,11 +961,13 @@ export default class NLDParser {
     const referenceDate = new Date();
     
     // Standard library call with forced forwardDate
-    const chronoResult = this.getParsedDateResult(selectedText, referenceDate, { 
+    const chronoResult = this.getParsedDateResult(selectedText, referenceDate, {
       locale,
-      forwardDate: true 
+      forwardDate: true
     } as ParsingOption);
-    return this.cacheAndReturn(cacheKey, chronoResult);
+    // Nothing matched anywhere: this is the final fallback level, so (per
+    // this method's documented contract) fall back to the current date.
+    return this.cacheAndReturn(cacheKey, chronoResult ?? new Date());
   }
 
   /**
@@ -1094,8 +1100,12 @@ export default class NLDParser {
   }
 
   // --- UTILITY FUNCTION: WHO HAS THE BEST SCORE? ---
-  getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date {
-    if (!this.chronos || this.chronos.length === 0) return new Date();
+  // Returns null (rather than a "now" placeholder) when chrono-node found no
+  // match, so callers can tell "nothing parsed" apart from "parsed to right
+  // now" and fall back accordingly instead of silently accepting a bogus
+  // current-date/time result.
+  getParsedDateResult(text: string, referenceDate?: Date, option?: ParsingOption): Date | null {
+    if (!this.chronos || this.chronos.length === 0) return null;
     let bestResult: ParsedResult | null = null;
     let bestScore = 0;
 
@@ -1116,7 +1126,7 @@ export default class NLDParser {
         });
       }
     }
-    return bestResult ? bestResult.start.date() : new Date();
+    return bestResult ? bestResult.start.date() : null;
   }
 
   getParsedResult(text: string): ParsedResult[] {
