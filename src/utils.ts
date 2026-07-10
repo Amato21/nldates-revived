@@ -205,6 +205,10 @@ export async function getOrCreateDailyNote(date: Moment): Promise<TFile | null> 
 // Copyright (c) 2014, Wanasit Tanakitrungruang
 type DictionaryLike = string[] | { [word: string]: unknown } | Map<string, unknown>;
 
+// The Array/Map branches below are unreachable with this file's only caller
+// (matchAnyPattern() is only ever invoked with ORDINAL_WORD_DICTIONARY, a
+// plain object) -- kept because they're copied verbatim from chrono-node's
+// more generically-used original, not because they're currently exercised.
 function extractTerms(dictionary: DictionaryLike): string[] {
   let keys: string[];
   if (dictionary instanceof Array) {
@@ -305,6 +309,13 @@ export function shouldOmitDateForShortRelative(text: string, languages: string[]
   const laterPattern = tc.buildAlternationFor("later");
 
   const shortRelativePatterns: RegExp[] = [];
+
+  // Every one of the 11 supported languages defines minute/hour together
+  // with in/later, so the nested `if (minutePattern)`/`if (hourPattern)`
+  // checks below can't actually be false while their enclosing `if` is true
+  // -- no combination of real (or unknown) language codes produces "in" or
+  // "later" without also producing "minute" and "hour". Kept as a guard in
+  // case a future language module is authored incompletely.
 
   // Prefix style: "in X minutes"/"dans X min"/...
   if (inPattern) {
