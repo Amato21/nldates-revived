@@ -11,6 +11,12 @@ if (typeof moment !== 'function' && (momentNS as any).default) {
 (globalThis as any).window = (globalThis as any).window || {};
 (globalThis as any).window.moment = momentFn;
 
+// Node's global setInterval/clearInterval aren't attached to the synthetic
+// `window` object above, but plugin code (ContextAnalyzer, HistoryManager)
+// calls window.setInterval/window.clearInterval for periodic cache cleanup.
+(globalThis as any).window.setInterval = (globalThis as any).window.setInterval || setInterval;
+(globalThis as any).window.clearInterval = (globalThis as any).window.clearInterval || clearInterval;
+
 // Mock document for Node.js environment
 if (typeof document === 'undefined') {
   (globalThis as any).document = {

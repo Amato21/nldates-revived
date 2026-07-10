@@ -465,15 +465,37 @@ export default class NLDParser {
         
         // Helper function to convert pattern to regex
         // Example: "il y a %{timeDelta} minutes" -> "il y a (\d+) minutes"
+        // Example: "через %{timeDelta} минут|минуту|минуты назад" (Russian
+        // grammatical forms) -> "через (\d+) (?:минут|минуту|минуты) назад"
+        // Example: "%{timeDelta}天前" (Chinese, no spaces) -> "(\d+)天前"
         const patternToRegex = (pattern: string): RegExp | null => {
             if (!pattern || pattern === "NOTFOUND") return null;
-            
-            // Escape special regex characters except %{timeDelta}
+
+            const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Placeholder swapped in before escaping and back out afterwards,
+            // so %{timeDelta} becomes a real capture group instead of being
+            // mangled by escaping its own inserted "(\d+)", and so it still
+            // works when embedded in a token with no surrounding whitespace
+            // (e.g. Chinese "%{timeDelta}天前").
+            const PLACEHOLDER = '\u0000TIMEDELTA\u0000';
+
             const regexStr = pattern
-                .replace(/%\{timeDelta\}/g, '(\\d+)')
-                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                .replace(/\s+/g, '\\s+');
-            
+                .split(/\s+/)
+                .map(token => {
+                    const withPlaceholder = token.replace(/%\{timeDelta\}/g, PLACEHOLDER);
+                    // "|" inside a token means multiple grammatical forms of the
+                    // same word (e.g. Russian "минут|минуту|минуты"): turn it into
+                    // an alternation instead of escaping it into a literal pipe.
+                    if (withPlaceholder.includes('|')) {
+                        const alternatives = withPlaceholder
+                            .split('|')
+                            .map(alt => escapeRegex(alt).split(PLACEHOLDER).join('(\\d+)'));
+                        return `(?:${alternatives.join('|')})`;
+                    }
+                    return escapeRegex(withPlaceholder).split(PLACEHOLDER).join('(\\d+)');
+                })
+                .join('\\s+');
+
             return new RegExp(`^${regexStr}$`, 'i');
         };
         

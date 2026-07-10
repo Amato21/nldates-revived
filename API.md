@@ -21,10 +21,10 @@ Complete API reference for the Natural Language Dates (Revived) plugin for Obsid
 To use the Natural Language Dates API in your Obsidian plugin, you need to access the plugin instance:
 
 ```typescript
-import NaturalLanguageDates from 'nldates-obsidian-revived';
+import NaturalLanguageDates from 'nldates-revived';
 
 // In your plugin's onload method
-const nldatesPlugin = this.app.plugins.plugins['nldates-obsidian-revived'] as NaturalLanguageDates;
+const nldatesPlugin = this.app.plugins.plugins['nldates-revived'] as NaturalLanguageDates;
 
 if (nldatesPlugin) {
   // Use the API
@@ -37,9 +37,9 @@ if (nldatesPlugin) {
 The plugin is written in TypeScript and exports all necessary types. Import them for type safety:
 
 ```typescript
-import type NaturalLanguageDates from 'nldates-obsidian-revived';
-import type { NLDResult, NLDRangeResult } from 'nldates-obsidian-revived/src/parser';
-import type { NLDSettings, DayOfWeek } from 'nldates-obsidian-revived/src/settings';
+import type NaturalLanguageDates from 'nldates-revived';
+import type { NLDResult, NLDRangeResult } from 'nldates-revived/src/parser';
+import type { NLDSettings, DayOfWeek } from 'nldates-revived/src/settings';
 ```
 
 ---
@@ -369,7 +369,7 @@ type DayOfWeek =
 
 ```typescript
 // Get plugin instance
-const nldatesPlugin = this.app.plugins.plugins['nldates-obsidian-revived'] as NaturalLanguageDates;
+const nldatesPlugin = this.app.plugins.plugins['nldates-revived'] as NaturalLanguageDates;
 
 // Parse a simple date
 const tomorrow = nldatesPlugin.parseDate("tomorrow");

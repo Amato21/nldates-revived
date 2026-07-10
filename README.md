@@ -9,7 +9,7 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 * **Past Time Expressions Support:**
     * Full support for past expressions in all languages: `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden`, `@hace 5 minutos`
     * Suggestions now include past expressions (`minutesago`, `hoursago`) alongside future ones
-    * Works seamlessly with all 8 supported languages
+    * Works seamlessly with all 11 supported languages
 * **Smart Date Formatting:**
     * When using short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`), only the time is displayed (e.g., `14:30`) instead of `[[2024-01-15]] 14:30`
     * Automatically detects when a relative expression stays within today
@@ -35,12 +35,12 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
     * **Last day of month:** `@last day of month`, `@dernier jour du mois`, `@letzter Tag des Monats`
     * **First/last weekday of month:** `@first Monday of month`, `@premier lundi du mois`, `@last Friday of next month`
     * Works with all prefixes: `next`, `last`, `this` (and their translations in all languages)
-    * Fully multilingual support across all 8 supported languages
+    * Fully multilingual support across all 11 supported languages
     * Smart clamping: Automatically handles edge cases (e.g., 31st of a 30-day month)
 
 
 ### v0.9.0 - Advanced Multilingual Support 🚀
-* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, Italian, Russian, Ukrainian, and Chinese (Traditional)**!
+* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, Italian, Russian, Ukrainian, and Chinese (Traditional and Simplified)**!
     * Each language works **100%** with its own native words and units
     * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch), `@en 2 minutos` (Spanish), `@tra 2 minuti` (Italian), `@через 2 минуты` (Russian), `@через 2 хвилини` (Ukrainian), `@2分鐘後` (Chinese)
     * All time units (minutes, hours, days, weeks, months, years) are fully translated
@@ -167,7 +167,7 @@ For complete API documentation, see **[API.md](API.md)** - a comprehensive guide
 
 **Accessing the Plugin:**
 ```typescript
-const nldatesPlugin = app.plugins.plugins['nldates-obsidian-revived'] as NaturalLanguageDates;
+const nldatesPlugin = app.plugins.plugins['nldates-revived'] as NaturalLanguageDates;
 ```
 
 **Basic Usage:**
@@ -197,9 +197,9 @@ const hasTime = nldatesPlugin.hasTimeComponent("next Monday at 3pm"); // true
 
 **TypeScript Support:**
 ```typescript
-import type NaturalLanguageDates from 'nldates-obsidian-revived';
-import type { NLDResult, NLDRangeResult } from 'nldates-obsidian-revived/src/parser';
-import type { NLDSettings } from 'nldates-obsidian-revived/src/settings';
+import type NaturalLanguageDates from 'nldates-revived';
+import type { NLDResult, NLDRangeResult } from 'nldates-revived/src/parser';
+import type { NLDSettings } from 'nldates-revived/src/settings';
 ```
 
 ### Architecture
