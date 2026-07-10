@@ -45,6 +45,9 @@ export class TranslationCollector {
 
       for (const variant of translation.split("|")) {
         const trimmed = variant.trim();
+        // No current language dictionary entry has an empty "||" segment or
+        // a trailing/leading "|", so this guard can't actually be false with
+        // real data -- kept in case a future dictionary entry is malformed.
         if (trimmed) {
           words.push(options.lowercase ? trimmed.toLowerCase() : trimmed);
         }

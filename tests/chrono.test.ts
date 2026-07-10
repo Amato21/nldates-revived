@@ -1,0 +1,190 @@
+import "./setup";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// getChronos() has several branches that can't be exercised with real
+// chrono-node locale modules alone (every real locale we ship either has
+// createCasualConfiguration or casual/GB, and en's fallback always
+// succeeds). vi.doMock + dynamic import lets each test control exactly what
+// chrono-node "exports" for a given language key, to reach the remaining
+// failure paths: unsupported languages, a locale module missing both known
+// shapes, exceptions during initialization, and the English-fallback-also-
+// fails path.
+describe("getChronos", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock("chrono-node");
+    vi.resetModules();
+  });
+
+  it("initializes a Chrono per requested language using createCasualConfiguration", async () => {
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["en", "fr"]);
+    expect(chronos.length).toBe(2);
+  });
+
+  it("logs a warning and skips a language chrono-node has no module for at all", async () => {
+    const { logger } = await import("../src/logger");
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["xx-not-a-real-language"]);
+    // Falls through to the English fallback, so it's not empty.
+    expect(chronos.length).toBe(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Language is not supported by chrono-node",
+      { language: "xx-not-a-real-language" }
+    );
+  });
+
+  it("treats a locale module with neither createCasualConfiguration nor casual as unsupported", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      return { ...actual, fr: {} };
+    });
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["fr"]);
+    // Falls through to the (real, working) English fallback.
+    expect(chronos.length).toBe(1);
+  });
+
+  it("catches and logs an error if building a language's Chrono throws", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      return {
+        ...actual,
+        fr: {
+          ...actual.fr,
+          createCasualConfiguration: () => { throw new Error("boom"); },
+        },
+      };
+    });
+    const { logger } = await import("../src/logger");
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["fr"]);
+    expect(chronos.length).toBe(1); // English fallback still succeeds
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to initialize chrono for language",
+      expect.objectContaining({ language: "fr", error: "boom" })
+    );
+  });
+
+  it("uses the GB Chrono instance when the locale is en-gb and GB is available", async () => {
+    const realLocale = window.moment.locale;
+    (window.moment as any).locale = () => 'en-gb';
+    try {
+      const getChronos = (await import("../src/chrono")).default;
+      const chronos = getChronos(["en"]);
+      expect(chronos.length).toBe(1);
+    } finally {
+      (window.moment as any).locale = realLocale;
+    }
+  });
+
+  it("falls back to English casual when GB isn't available for a GB locale", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      const enWithoutGB = { ...(actual.en as Record<string, unknown>) };
+      delete enWithoutGB.GB;
+      return { ...actual, en: enWithoutGB };
+    });
+    const realLocale = window.moment.locale;
+    (window.moment as any).locale = () => 'en-gb';
+    try {
+      const getChronos = (await import("../src/chrono")).default;
+      const chronos = getChronos(["en"]);
+      expect(chronos.length).toBe(1);
+    } finally {
+      (window.moment as any).locale = realLocale;
+    }
+  });
+
+  it("catches and logs a non-Error throw from a language's initialization", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      return {
+        ...actual,
+        fr: {
+          ...actual.fr,
+          // eslint-disable-next-line no-throw-literal
+          createCasualConfiguration: () => { throw "not an Error instance"; },
+        },
+      };
+    });
+    const { logger } = await import("../src/logger");
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["fr"]);
+    expect(chronos.length).toBe(1); // English fallback still succeeds
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to initialize chrono for language",
+      expect.objectContaining({ language: "fr", error: "not an Error instance" })
+    );
+  });
+
+  it("logs an error and returns an empty array if every language fails and English fallback also fails", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      return { ...actual, fr: {}, en: {} };
+    });
+    const { logger } = await import("../src/logger");
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["fr"]);
+    expect(chronos).toEqual([]);
+    expect(warnSpy).toHaveBeenCalledWith("No languages could be initialized, attempting English fallback");
+    expect(errorSpy).toHaveBeenCalledWith("English chrono module not available");
+  });
+
+  it("catches and logs an error if the English fallback itself throws", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      return {
+        ...actual,
+        fr: {},
+        en: {
+          ...actual.en,
+          createCasualConfiguration: () => { throw new Error("fallback boom"); },
+        },
+      };
+    });
+    const { logger } = await import("../src/logger");
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["fr"]);
+    expect(chronos).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to initialize default English chrono",
+      expect.objectContaining({ error: "fallback boom" })
+    );
+  });
+
+  it("catches and logs a non-Error throw from the English fallback", async () => {
+    vi.doMock("chrono-node", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("chrono-node")>();
+      return {
+        ...actual,
+        fr: {},
+        en: {
+          ...actual.en,
+          // eslint-disable-next-line no-throw-literal
+          createCasualConfiguration: () => { throw "fallback not an Error"; },
+        },
+      };
+    });
+    const { logger } = await import("../src/logger");
+    vi.spyOn(logger, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["fr"]);
+    expect(chronos).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to initialize default English chrono",
+      expect.objectContaining({ error: "fallback not an Error" })
+    );
+  });
+});

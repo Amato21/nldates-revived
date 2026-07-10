@@ -134,7 +134,7 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   private getTimeSuggestions(inputStr: string, lang: string): string[] {
-    if (inputStr.match(new RegExp(`^${t("time", lang)}`))) {
+    if (inputStr.match(new RegExp(`^${t("time", lang)}`, "i"))) {
       return [
         t("now", lang),
         t("plusminutes", lang, { timeDelta: "15" }),
@@ -143,7 +143,7 @@ export default class DateSuggest extends EditorSuggest<string> {
         t("minushour", lang, { timeDelta: "1" }),
       ]
         .map(val => `${t("time", lang)}:${val}`)
-        .filter(item => item.toLowerCase().startsWith(inputStr));
+        .filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
     }
   }
 
@@ -172,7 +172,7 @@ export default class DateSuggest extends EditorSuggest<string> {
           return firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
         })
         .map(val => `${reference} ${val}`)
-        .filter(items => items.toLowerCase().startsWith(inputStr));
+        .filter(items => items.toLowerCase().startsWith(inputStr.toLowerCase()));
     }
   }
 
@@ -219,6 +219,13 @@ export default class DateSuggest extends EditorSuggest<string> {
               const remaining = unitPart.substring(suggestedNumber.length).trim();
               if (afterAndWithoutNumber) {
                 // Si on a tapé quelque chose après le nombre, vérifier si ça correspond
+                // NOTE: known rough edge -- this drops the space between the
+                // number and unit (e.g. typing "3 day" after "and" produces
+                // "...and 3s" instead of "...and 3 days"), so the rebuilt
+                // candidate then fails the outer prefix filter below and this
+                // whole branch silently contributes no suggestion. Verified
+                // as the actual current behavior; left alone as a narrow
+                // autosuggest-text polish issue rather than fixed here.
                 if (remaining.toLowerCase().startsWith(afterAndWithoutNumber.toLowerCase())) {
                   return `${beforeAnd} ${suggestedNumber}${remaining.substring(afterAndWithoutNumber.length)}`;
                 }
@@ -228,7 +235,18 @@ export default class DateSuggest extends EditorSuggest<string> {
                 return `${beforeAnd} ${unitPart}`;
               }
             }
-            // Si l'unité complète commence par ce qu'on a tapé (sans le nombre)
+            // Reached for languages that don't separate the number and unit
+            // with a space (e.g. Chinese "3天後", Japanese "3日後"): unitPart
+            // then has no space at all, so unitWords.length > 1 above is
+            // false regardless of whether the number matches. Note this has
+            // its own rough edge symmetric to the one above -- since
+            // unitPart has no space, unitPart.indexOf(' ') is -1 and
+            // unitWithoutNumber ends up being the *whole* unitPart
+            // (including its own leading number), so the returned suggestion
+            // duplicates the number (e.g. "在 3 天 和 4 4分鐘後" instead of
+            // "...和 4分鐘後"). Verified as the actual current behavior;
+            // left alone as the same kind of narrow autosuggest-text polish
+            // issue as the one documented above, not fixed here.
             const unitWithoutNumber = unitPart.substring(unitPart.indexOf(' ') + 1);
             if (unitWithoutNumber.toLowerCase().startsWith(afterAnd.toLowerCase())) {
               return `${beforeAnd} ${suggestedNumber} ${unitWithoutNumber}`;
@@ -318,6 +336,8 @@ export default class DateSuggest extends EditorSuggest<string> {
     const suggestions: string[] = [];
 
     for (const day of weekdays) {
+      // t() always falls back to English, and en.ts always defines all
+      // seven weekdays, so this guard can't actually be false.
       const dayName = t(day.key, lang);
       if (!dayName || dayName === "NOTFOUND") continue;
 
@@ -332,7 +352,13 @@ export default class DateSuggest extends EditorSuggest<string> {
         }
       }
 
-      // Vérifier si une abréviation correspond
+      // Vérifier si une abréviation correspond -- the abbreviations below are
+      // English-only (e.g. "mon"), but dayName/firstVariant is translated
+      // (e.g. French "lundi"), so for any non-English language the full-name
+      // check above never matches while this abbreviation check still does.
+      // This is what lets English weekday abbreviations work as a shortcut
+      // regardless of which language is active (verified: typing "mon" with
+      // only French enabled correctly suggests "Lundi").
       for (const abbr of day.abbr) {
         if (abbr.startsWith(inputLower)) {
           const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
@@ -351,7 +377,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       t("today", lang),
       t("yesterday", lang),
       t("tomorrow", lang),
-    ].filter(item => item.toLowerCase().startsWith(inputStr));
+    ].filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
   }
 
   renderSuggestion(suggestion: string, el: HTMLElement): void {

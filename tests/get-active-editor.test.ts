@@ -42,6 +42,24 @@ describe("getActiveEditor", () => {
     expect(getActiveEditor(workspace)).toBe(editor);
   });
 
+  it("skips activeLeaf.view when it has no editor, falling through to method 4/5", () => {
+    const editor = { id: "from-leaves", cm: { hasFocus: () => false } };
+    const workspace = makeWorkspace({
+      activeLeaf: { view: {} }, // no .editor on this view
+      getLeavesOfType: (type: string) => (type === "markdown" ? [{ view: new MarkdownView(editor) }] : []),
+    });
+    expect(getActiveEditor(workspace)).toBe(editor);
+  });
+
+  it("skips a markdown leaf whose view isn't a MarkdownView instance", () => {
+    const editor = { id: "real-markdown-view", cm: { hasFocus: () => false } };
+    const workspace = makeWorkspace({
+      getLeavesOfType: (type: string) =>
+        type === "markdown" ? [{ view: { notAMarkdownView: true } }, { view: new MarkdownView(editor) }] : [],
+    });
+    expect(getActiveEditor(workspace)).toBe(editor);
+  });
+
   it("falls back to the focused markdown leaf (method 4)", () => {
     const unfocused = new MarkdownView({ id: "unfocused", cm: { hasFocus: () => false } });
     const focusedEditor = { id: "focused", cm: { hasFocus: () => true } };

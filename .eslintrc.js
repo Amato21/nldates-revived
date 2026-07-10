@@ -36,5 +36,13 @@ module.exports = {
         "@typescript-eslint/no-unused-vars": "off",
       },
     },
+    {
+      files: ["tests/**/*.test.ts"],
+      rules: {
+        // vi.spyOn(...).mockImplementation(() => {}) to silence console
+        // output during assertions is a standard, legitimate test pattern.
+        "@typescript-eslint/no-empty-function": "off",
+      },
+    },
   ],
 };
