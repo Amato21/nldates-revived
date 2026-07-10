@@ -259,6 +259,20 @@ describe('DateSuggest', () => {
       expect((suggest as any).getRelativeSuggestions('in 2 weeks and zzz', 'en')).toBeUndefined();
     });
 
+    it('reaches the no-space-unit reconstruction path for languages without spaces between number and unit (Chinese)', () => {
+      // Confirmed via Gemini Code Assist review: for languages like Chinese
+      // whose "in X unit" template has no space (e.g. "3天後"), unitPart
+      // never has more than one "word", so unitWords.length > 1 is always
+      // false and this different branch runs instead of the one used by
+      // space-separated languages. It has its own rough edge: since
+      // unitPart has no space, unitWithoutNumber ends up being the whole
+      // unitPart (number included), so the number gets duplicated in the
+      // result. Documenting actual behavior, not asserting it's desired.
+      const suggestions = (suggest as any).getRelativeSuggestions('在 3 天 和 4', 'zh.hant');
+      expect(suggestions).toBeDefined();
+      expect(suggestions[0]).toBe('在 3 天 和 4 4分鐘後');
+    });
+
     it('suggests weekdays for a partial date range "from monday to"', () => {
       const suggestions = (suggest as any).getRelativeSuggestions('from monday to', 'en');
       expect(suggestions).toBeDefined();
@@ -304,6 +318,16 @@ describe('DateSuggest', () => {
 
     it('returns undefined when nothing matches', () => {
       expect((suggest as any).getWeekdaySuggestions('zzz', 'en')).toBeUndefined();
+    });
+
+    it('matches the English abbreviation even when a non-English language is active', () => {
+      // Confirmed via Gemini Code Assist review: day.abbr is hardcoded to
+      // English abbreviations, but dayName is translated (e.g. French
+      // "lundi"), so for non-English languages the full-name check never
+      // matches while the English-abbreviation check still does -- this is
+      // what lets "mon" work as a shortcut regardless of active language.
+      const suggestions = (suggest as any).getWeekdaySuggestions('mon', 'fr');
+      expect(suggestions).toEqual(['Lundi']);
     });
   });
 

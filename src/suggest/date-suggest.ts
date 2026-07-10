@@ -235,9 +235,18 @@ export default class DateSuggest extends EditorSuggest<string> {
                 return `${beforeAnd} ${unitPart}`;
               }
             }
-            // Unreachable: every candidate here is built using suggestedNumber
-            // as its own timeDelta, so unitWords[0] === suggestedNumber above
-            // is always true and this branch can never be reached.
+            // Reached for languages that don't separate the number and unit
+            // with a space (e.g. Chinese "3天後", Japanese "3日後"): unitPart
+            // then has no space at all, so unitWords.length > 1 above is
+            // false regardless of whether the number matches. Note this has
+            // its own rough edge symmetric to the one above -- since
+            // unitPart has no space, unitPart.indexOf(' ') is -1 and
+            // unitWithoutNumber ends up being the *whole* unitPart
+            // (including its own leading number), so the returned suggestion
+            // duplicates the number (e.g. "在 3 天 和 4 4分鐘後" instead of
+            // "...和 4分鐘後"). Verified as the actual current behavior;
+            // left alone as the same kind of narrow autosuggest-text polish
+            // issue as the one documented above, not fixed here.
             const unitWithoutNumber = unitPart.substring(unitPart.indexOf(' ') + 1);
             if (unitWithoutNumber.toLowerCase().startsWith(afterAnd.toLowerCase())) {
               return `${beforeAnd} ${suggestedNumber} ${unitWithoutNumber}`;
@@ -343,12 +352,13 @@ export default class DateSuggest extends EditorSuggest<string> {
         }
       }
 
-      // Vérifier si une abréviation correspond -- every abbreviation below is
-      // itself a literal prefix of its full day name, so whenever the
-      // abbreviation matches, the full-name check above has already matched
-      // and pushed the same capitalized name; the push on the line below is
-      // therefore unreachable (kept as a safety net, e.g. if a differently-
-      // shaped abbreviation were added later).
+      // Vérifier si une abréviation correspond -- the abbreviations below are
+      // English-only (e.g. "mon"), but dayName/firstVariant is translated
+      // (e.g. French "lundi"), so for any non-English language the full-name
+      // check above never matches while this abbreviation check still does.
+      // This is what lets English weekday abbreviations work as a shortcut
+      // regardless of which language is active (verified: typing "mon" with
+      // only French enabled correctly suggests "Lundi").
       for (const abbr of day.abbr) {
         if (abbr.startsWith(inputLower)) {
           const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
