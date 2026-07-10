@@ -23,6 +23,9 @@ const dict = {
   daysago: "hace %{timeDelta} días",
   weeksago: "hace %{timeDelta} semanas",
   monthsago: "hace %{timeDelta} meses",
+  minutesago: "hace %{timeDelta} minutos",
+  hoursago: "hace %{timeDelta} horas",
+  agosuffix: "atrás|atras",
   time: "hora",
   now: "ahora",
   plusminutes: "+%{timeDelta} minutos",
@@ -39,6 +42,8 @@ const dict = {
   at: "a las|a la|a|en",
   from: "de|desde",
   to: "a|hasta",
+  of: "de|del",
+  first: "primer|primera",
 } as const;
 
 export default dict;

@@ -21,6 +21,8 @@ const dict = {
   daysago: "%{timeDelta}日前", // X days ago
   weeksago: "%{timeDelta}週間前",
   monthsago: "%{timeDelta}ヶ月前",
+  minutesago: "%{timeDelta}分前", // X minutes ago
+  hoursago: "%{timeDelta}時間前", // X hours ago
   time: "時間",
   now: "今", // Ima (Maintenant)
   plusminutes: "+%{timeDelta} 分",
@@ -33,6 +35,8 @@ const dict = {
   week: "週|週間|しゅう|しゅうかん",
   month: "月|ヶ月|かげつ|がつ",
   year: "年|ねん",
+  of: "の",
+  first: "最初|第一|初|最初の",
   and: "と|および",
   at: "に|で",
   from: "から|より",

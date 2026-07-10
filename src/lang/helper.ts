@@ -9,26 +9,59 @@ import nl from './nl';
 import es from './es';
 import it from './it';
 import ru from './ru';
+import uk from './uk';
+import zh from './zh';
 
 const notFoundDefault = "NOTFOUND" as const;
 
-export default function t(key: string, lang: string, variables?: Record<string, string>): string {
-  const languages = {
-    en: i18n.create({ values: en }),
-    ja: i18n.create({ values: ja }),
-    fr: i18n.create({ values: fr }),
-    pt: i18n.create({ values: pt }),
-    de: i18n.create({ values: de }),
-    nl: i18n.create({ values: nl }),
-    es: i18n.create({ values: es }),
-    it: i18n.create({ values: it }),
-    ru: i18n.create({ values: ru }),
-  };
+type Translator = (key: string, defaultValue: string, variables?: Record<string, string>) => string;
 
-  // Access languages dynamically
-  const langTranslator = (languages as unknown as Record<string, (key: string, defaultValue: string, variables?: Record<string, string>) => string>)[lang];
-  const translation = langTranslator ? langTranslator(key, notFoundDefault, variables) : notFoundDefault;
+// Cache des traducteurs pour éviter de les recréer à chaque appel
+// Performance optimization: translators are created once and reused
+const translatorCache: Record<string, Translator> = {};
+
+// Map des modules de langue pour faciliter l'accès
+const languageModules: Record<string, typeof en> = {
+  en,
+  ja,
+  fr,
+  pt,
+  de,
+  nl,
+  es,
+  it,
+  ru,
+  uk,
+  'zh.hant': zh,
+};
+
+/**
+ * Obtient un traducteur pour une langue donnée (avec cache)
+ * Gets a translator for a given language (cached)
+ */
+function getTranslator(lang: string): Translator {
+  if (!translatorCache[lang]) {
+    const languageModule = languageModules[lang];
+    if (languageModule) {
+      translatorCache[lang] = i18n.create({ values: languageModule });
+    } else {
+      // Fallback vers l'anglais si la langue n'est pas trouvée
+      if (!translatorCache['en']) {
+        translatorCache['en'] = i18n.create({ values: en });
+      }
+      return translatorCache['en'];
+    }
+  }
+  return translatorCache[lang];
+}
+
+export default function t(key: string, lang: string, variables?: Record<string, string>): string {
+  const langTranslator = getTranslator(lang);
+  const translation = langTranslator(key, notFoundDefault, variables);
   
-  const enTranslator = (languages as unknown as Record<string, (key: string, variables?: Record<string, string>) => string>)["en"];
-  return translation === notFoundDefault ? (enTranslator ? enTranslator(key, variables) : key) : translation;
+  if (translation === notFoundDefault) {
+    const enTranslator = getTranslator("en");
+    return enTranslator(key, notFoundDefault, variables);
+  }
+  return translation;
 }
