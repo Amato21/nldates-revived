@@ -945,6 +945,27 @@ describe('NLDParser', () => {
       expectSameDate(counterForm, moment(traditional), 'day');
     });
 
+    it("should parse the colloquial '禮拜'/'礼拜' weekday form the same as '星期一'", () => {
+      const formal = parser.getParsedDate('星期一', weekStartPreference);
+      expectSameDate(parser.getParsedDate('禮拜一', weekStartPreference), moment(formal), 'day');
+      expectSameDate(parser.getParsedDate('礼拜一', weekStartPreference), moment(formal), 'day');
+      expectSameDate(parser.getParsedDate('下禮拜一', weekStartPreference), moment().add(1, 'week').day(1), 'day');
+      expectSameDate(parser.getParsedDate('下礼拜一', weekStartPreference), moment().add(1, 'week').day(1), 'day');
+    });
+
+    it("should parse '之後/之后' and '以後/以后' as alternative suffix markers to '後/后'", () => {
+      expectSameDate(parser.getParsedDate('2天之後', weekStartPreference), moment().add(2, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('2天之后', weekStartPreference), moment().add(2, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('3個月以後', weekStartPreference), moment().add(3, 'months'), 'day');
+      expectSameDate(parser.getParsedDate('3个月以后', weekStartPreference), moment().add(3, 'months'), 'day');
+    });
+
+    it("should parse the '個禮拜'/'个礼拜' counter form the same as '2週後'", () => {
+      const traditional = parser.getParsedDate('2週後', weekStartPreference);
+      expectSameDate(parser.getParsedDate('2個禮拜後', weekStartPreference), moment(traditional), 'day');
+      expectSameDate(parser.getParsedDate('2个礼拜后', weekStartPreference), moment(traditional), 'day');
+    });
+
     it("should parse simplified '现在' as now", () => {
       const result = parser.getParsedDate('现在', weekStartPreference);
       expect(Math.abs(result.getTime() - Date.now())).toBeLessThan(1000);
