@@ -143,7 +143,7 @@ describe('DateSuggest Integration Tests', () => {
         start: { line: 0, ch: 0 },
       } as any;
 
-      const suggestions = suggest.getSuggestions(context);
+      suggest.getSuggestions(context);
 
       expect(mockHistoryManager.getTopSuggestionsSync).not.toHaveBeenCalled();
       expect(mockContextAnalyzer.analyzeContextSync).not.toHaveBeenCalled();
@@ -216,12 +216,6 @@ describe('DateSuggest Integration Tests', () => {
 
   describe('Suggestion Selection', () => {
     it('should record selection in history when suggestion is selected', () => {
-      const context = {
-        query: 'tomorrow',
-        editor: mockApp.workspace.getActiveViewOfType().editor,
-        start: { line: 0, ch: 0 },
-      } as any;
-
       // Simulate selecting a suggestion - onChoose might not exist or work differently
       // This test verifies the structure is correct
       expect(plugin.settings.enableHistorySuggestions).toBeDefined();

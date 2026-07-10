@@ -12,9 +12,9 @@ const CLEANUP_INTERVAL = 300000; // Nettoyage périodique toutes les 5 minutes
 export default class HistoryManager {
   private plugin: Plugin;
   private history: SelectionHistory = {};
-  private historyLoaded: boolean = false;
+  private historyLoaded = false;
   private cachedTopSuggestions: string[] = [];
-  private cacheValid: boolean = false;
+  private cacheValid = false;
   private cleanupInterval: number | null = null; // ID de l'intervalle de nettoyage
 
   constructor(plugin: Plugin) {
@@ -203,7 +203,7 @@ export default class HistoryManager {
    * Récupère les suggestions les plus fréquentes de manière synchrone (utilise le cache)
    * @param limit Nombre maximum de suggestions à retourner
    */
-  getTopSuggestionsSync(limit: number = 10): string[] {
+  getTopSuggestionsSync(limit = 10): string[] {
     if (!this.cacheValid) {
       // Si le cache n'est pas valide, retourner un tableau vide
       // Le cache sera mis à jour lors de l'initialisation
@@ -216,7 +216,7 @@ export default class HistoryManager {
    * Récupère les suggestions les plus fréquentes, triées par fréquence (async, met à jour le cache)
    * @param limit Nombre maximum de suggestions à retourner
    */
-  async getTopSuggestions(limit: number = 10): Promise<string[]> {
+  async getTopSuggestions(limit = 10): Promise<string[]> {
     await this.loadHistory();
     this.updateCache();
     return this.cachedTopSuggestions.slice(0, limit);

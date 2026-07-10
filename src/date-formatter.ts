@@ -28,7 +28,7 @@ export class DateFormatter {
     date: Date,
     dateFormat: string,
     timeFormat: string,
-    separator: string = " "
+    separator = " "
   ): string {
     const dateStr = this.format(date, dateFormat);
     const timeStr = this.format(date, timeFormat);

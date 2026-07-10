@@ -107,7 +107,7 @@ export function validateMomentFormat(format: string): { valid: boolean; error?: 
     // Vérifier que le format ne contient pas de caractères dangereux
     // Moment.js utilise des caractères spéciaux, mais on veut éviter les injections
     // Les formats Moment.js valides contiennent principalement des lettres, chiffres et caractères de ponctuation
-    const dangerousPattern = /[<>\"'`]/;
+    const dangerousPattern = /[<>"'`]/;
     if (dangerousPattern.test(format)) {
       return { valid: false, error: "Le format contient des caractères non autorisés" };
     }
@@ -124,7 +124,7 @@ export function validateMomentFormat(format: string): { valid: boolean; error?: 
  * @param maxLength - Longueur maximale autorisée (défaut: 200)
  * @returns L'entrée sanitizée ou null si invalide
  */
-export function sanitizeInput(input: string | undefined | null, maxLength: number = 200): string | null {
+export function sanitizeInput(input: string | undefined | null, maxLength = 200): string | null {
   if (!input || typeof input !== 'string') {
     return null;
   }
@@ -156,7 +156,7 @@ export function sanitizeInput(input: string | undefined | null, maxLength: numbe
  * @param maxLength - Longueur maximale autorisée (défaut: 100)
  * @returns Le paramètre validé ou null si invalide
  */
-export function validateUriParam(param: string | undefined | null, maxLength: number = 100): string | null {
+export function validateUriParam(param: string | undefined | null, maxLength = 100): string | null {
   return sanitizeInput(param, maxLength);
 }
 
@@ -272,7 +272,7 @@ const ORDINAL_WORD_DICTIONARY: { [word: string]: number } = {
 
 export const ORDINAL_NUMBER_PATTERN = `(?:${matchAnyPattern(
   ORDINAL_WORD_DICTIONARY
-)}|[0-9]{1,2}(?:st|nd|rd|th|ème|ème|er|e|er|e|\.)?)`;
+)}|[0-9]{1,2}(?:st|nd|rd|th|ème|ème|er|e|er|e|\\.)?)`;
 
 export function parseOrdinalNumberPattern(match: string): number {
   let num = match.toLowerCase();

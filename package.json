@@ -20,7 +20,7 @@
     "@rollup/plugin-node-resolve": "13.0.6",
     "@rollup/plugin-typescript": "8.3.0",
     "@types/moment": "2.13.0",
-    "@types/node": "16.11.7",
+    "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "5.3.1",
     "@typescript-eslint/parser": "5.3.1",
     "@vitest/coverage-v8": "^4.0.16",
@@ -38,5 +38,10 @@
     "chrono-node": "^2.9.0",
     "obsidian-daily-notes-interface": "0.9.4",
     "roddeh-i18n": "^1.2.1"
+  },
+  "overrides": {
+    "@rollup/pluginutils": {
+      "picomatch": "2.3.1"
+    }
   }
 }

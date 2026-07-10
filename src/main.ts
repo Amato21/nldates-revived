@@ -1,4 +1,4 @@
-import { MarkdownView, ObsidianProtocolData, Plugin } from "obsidian";
+import { ObsidianProtocolData, Plugin } from "obsidian";
 
 import DatePickerModal from "./modals/date-picker";
 import NLDParser, { NLDResult } from "./parser";

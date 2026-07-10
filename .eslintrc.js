@@ -27,5 +27,14 @@ module.exports = {
         "obsidianmd/ui/sentence-case": "off",
       },
     },
+    {
+      files: ["tests/__mocks__/**/*.ts", "tests/setup.ts"],
+      rules: {
+        // Mocks intentionally stub out the Obsidian API with empty methods
+        // and unused parameters to match its signatures.
+        "@typescript-eslint/no-empty-function": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+      },
+    },
   ],
 };

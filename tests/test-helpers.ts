@@ -87,8 +87,8 @@ export function createTestDate(
   year: number,
   month: number,
   day: number,
-  hour: number = 0,
-  minute: number = 0
+  hour = 0,
+  minute = 0
 ): Date {
   return moment({ year, month: month - 1, day, hour, minute }).toDate();
 }

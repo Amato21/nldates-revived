@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import NLDParser from '../src/parser';
 import { DayOfWeek } from '../src/settings';
 import moment from 'moment';
-import { expectSameDate, expectDateInRange, expectFutureDate, expectPastDate } from './test-helpers';
+import { expectSameDate, expectFutureDate, expectPastDate } from './test-helpers';
 
 describe('NLDParser', () => {
   let parser: NLDParser;
@@ -1107,7 +1107,7 @@ describe('NLDParser', () => {
         'zh.hant': '明天'
       };
 
-      Object.entries(expressions).forEach(([lang, expr]) => {
+      Object.entries(expressions).forEach(([, expr]) => {
         const result = parser.getParsedDate(expr, weekStartPreference);
         expect(result).toBeInstanceOf(Date);
         const tomorrow = moment().add(1, 'days').startOf('day');
