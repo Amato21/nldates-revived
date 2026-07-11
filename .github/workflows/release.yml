@@ -12,10 +12,15 @@ on:
   release:
     types: [published]
 
-# Needed to upload assets to the release; GITHUB_TOKEN defaults to
-# read-only on newer repos.
+# contents:write is needed to upload assets to the release; GITHUB_TOKEN
+# defaults to read-only on newer repos. attestations:write and id-token:write
+# are needed to sign build provenance attestations for the release assets
+# (lets users verify main.js/manifest.json/styles.css were actually built
+# from this repo by this workflow, not tampered with after the fact).
 permissions:
   contents: write
+  attestations: write
+  id-token: write
 
 env:
   PLUGIN_NAME: nldates-obsidian # Change this to the name of your plugin-id folder
@@ -40,6 +45,14 @@ jobs:
           mkdir ${{ env.PLUGIN_NAME }}
           cp main.js manifest.json ${{ env.PLUGIN_NAME }}
           zip -r "${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip" ${{ env.PLUGIN_NAME }}
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+            ${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
