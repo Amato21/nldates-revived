@@ -22,9 +22,6 @@ permissions:
   attestations: write
   id-token: write
 
-env:
-  PLUGIN_NAME: nldates-obsidian # Change this to the name of your plugin-id folder
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -42,9 +39,6 @@ jobs:
         run: |
           npm ci
           npm run build --if-present
-          mkdir ${{ env.PLUGIN_NAME }}
-          cp main.js manifest.json ${{ env.PLUGIN_NAME }}
-          zip -r "${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip" ${{ env.PLUGIN_NAME }}
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -52,12 +46,14 @@ jobs:
             main.js
             manifest.json
             styles.css
-            ${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          assets=(main.js manifest.json "${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip")
+          # Only main.js/manifest.json/styles.css: Obsidian only ever
+          # downloads these directly from the release, and a zip on top is
+          # flagged by Obsidian's plugin review as an unsupported extra file.
+          assets=(main.js manifest.json)
           # styles.css doesn't exist on every historical tag; only upload it
           # if the checked-out ref actually has one.
           if [ -f styles.css ]; then
