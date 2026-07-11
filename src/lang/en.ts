@@ -6,7 +6,6 @@ const dict = {
   last: "Last",
   this: "This",
   in: "In",
-  agosuffix: "ago",
   sunday: "Sunday",
   monday: "Monday",
   tuesday: "Tuesday",

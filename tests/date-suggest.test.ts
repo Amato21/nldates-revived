@@ -219,8 +219,8 @@ describe('DateSuggest', () => {
   });
 
   describe('getRelativeSuggestions', () => {
-    // The "in"/"ago" prefix-suggestion block above returns unconditionally
-    // on any digit-led match, even an empty array -- which used to make the
+    // The prefix-suggestion block above returns unconditionally on any
+    // digit-led match, even an empty array -- which used to make the
     // suffix-pattern block below it (for languages with "agosuffix", e.g.
     // Portuguese "atrás") permanently unreachable, since a bare number like
     // "3 di" always matches the prefix block's regex too. Fixed by only

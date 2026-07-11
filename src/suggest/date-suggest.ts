@@ -300,13 +300,7 @@ export default class DateSuggest extends EditorSuggest<string> {
     }
 
     // Pattern standard pour les dates relatives simples
-    // Support both "in" prefixes (future) and "ago" prefixes (past)
-    const inPattern = t("in", lang);
-    const agoPattern = t("ago", lang);
-    const prefixPattern = agoPattern && agoPattern !== "NOTFOUND" 
-      ? `(${inPattern}|${agoPattern})` 
-      : `(${inPattern})`;
-    const regexp = new RegExp(`^(${prefixPattern} )?([+-]?\\d+)`, "i")
+    const regexp = new RegExp(`^(${t("in", lang)} )?([+-]?\\d+)`, "i")
     const relativeDate = inputStr.match(regexp);
     if (relativeDate) {
       const timeDelta = relativeDate[relativeDate.length - 1];
@@ -326,32 +320,31 @@ export default class DateSuggest extends EditorSuggest<string> {
       // suffix-style "3 dias atrás") matches this regexp too, since its
       // prefix group is optional -- returning unconditionally would make
       // the suffix-pattern check below unreachable dead code for every
-      // suffix-only language (verified: previously ANY input starting with
-      // digits short-circuited here even when it produced zero matches).
+      // suffix-only language.
       if (suggestions.length > 0) {
         return suggestions;
       }
     }
 
-    // Also check for suffix patterns like "3 dias atrás" (X unit agoSuffix)
+    // Suffix-style past expressions, e.g. Portuguese/Spanish "3 dias atrás"
+    // (X unit + agosuffix marker), the past-tense mirror of the prefix
+    // suggestions above.
     const agoSuffix = t("agosuffix", lang);
     if (agoSuffix && agoSuffix !== "NOTFOUND") {
       const suffixMatch = inputStr.match(/^(\d+)\s+(\w*)/i);
       if (suffixMatch) {
         const timeDelta = suffixMatch[1];
         const suffixVariant = agoSuffix.split('|')[0];
-        
-        // Generate suggestions with singular/plural variants for each unit type
+
         const unitTypes = ['minute', 'hour', 'day', 'week', 'month', 'year'];
         const suggestions: string[] = [];
-        
         for (const unitType of unitTypes) {
           const words = t(unitType, lang).split('|').map(w => w.trim()).slice(0, 2);
           for (const word of words) {
             suggestions.push(`${timeDelta} ${word} ${suffixVariant}`);
           }
         }
-        
+
         const filtered = suggestions.filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
         if (filtered.length > 0) {
           return filtered;
