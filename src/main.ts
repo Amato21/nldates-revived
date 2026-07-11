@@ -16,6 +16,7 @@ import HistoryManager from "./history-manager";
 import ContextAnalyzer from "./context-analyzer";
 import { logger } from "./logger";
 import { NLDParseError, ErrorCodes } from "./errors";
+import moment from "./window-moment";
 
 export default class NaturalLanguageDates extends Plugin {
   public parser: NLDParser;
@@ -332,7 +333,7 @@ export default class NaturalLanguageDates extends Plugin {
       return {
         formattedString: "Invalid date",
         date: invalidDate,
-        moment: window.moment(invalidDate),
+        moment: moment(invalidDate),
       };
     }
 
@@ -345,7 +346,7 @@ export default class NaturalLanguageDates extends Plugin {
     return {
       formattedString,
       date,
-      moment: window.moment(date),
+      moment: moment(date),
     };
   }
 
@@ -377,7 +378,7 @@ export default class NaturalLanguageDates extends Plugin {
       return {
         formattedString: "Invalid date",
         date: invalidDate,
-        moment: window.moment(invalidDate),
+        moment: moment(invalidDate),
       };
     }
 
@@ -487,7 +488,7 @@ export default class NaturalLanguageDates extends Plugin {
       return {
         formattedString: "Invalid date",
         date: invalidDate,
-        moment: window.moment(invalidDate),
+        moment: moment(invalidDate),
       };
     }
 

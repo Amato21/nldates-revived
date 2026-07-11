@@ -1,6 +1,7 @@
 import { adjustCursor, getSelectedText, shouldOmitDateForShortRelative, getActiveEditor } from "./utils";
 import NaturalLanguageDates from "./main";
 import t from "./lang/helper";
+import moment from "./window-moment";
 
 export function getParseCommand(plugin: NaturalLanguageDates, mode: string): void {
   const { workspace } = plugin.app;
@@ -21,8 +22,8 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
     
     // Si on a une liste de dates, générer une liste de liens au lieu d'une plage
     if (dateRange.dateList && dateRange.dateList.length > 0) {
-      const dateLinks = dateRange.dateList.map(moment => {
-        const formatted = moment.format(plugin.settings.format);
+      const dateLinks = dateRange.dateList.map(m => {
+        const formatted = m.format(plugin.settings.format);
         if (mode == "replace") {
           return `[[${formatted}]]`;
         } else if (mode == "link") {
@@ -79,7 +80,7 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
   const hasTime = plugin.hasTimeComponent(selectedText);
 
   // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
-  const isToday = date.moment.isSame(window.moment(), 'day');
+  const isToday = date.moment.isSame(moment(), 'day');
   const isRelativeShortTerm = shouldOmitDateForShortRelative(selectedText, plugin.settings.languages);
   const shouldOmitDate = plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
 
@@ -130,7 +131,7 @@ export function insertMomentCommand(
   const editor = getActiveEditor(workspace);
 
   if (editor) {
-    editor.replaceSelection(window.moment(date).format(format));
+    editor.replaceSelection(moment(date).format(format));
   }
 }
 
