@@ -263,7 +263,7 @@ export default class DatePickerModal extends Modal {
     if (!this.quickButtonsEl) return;
 
     this.quickButtonsEl.empty();
-    this.quickButtonsEl.createEl("div", { cls: "nld-quick-buttons-label", text: "Quick select:" });
+    this.quickButtonsEl.createDiv({ cls: "nld-quick-buttons-label", text: "Quick select:" });
 
     const primaryLang = this.plugin.settings.languages[0] || "en";
     

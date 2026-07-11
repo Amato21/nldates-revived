@@ -142,6 +142,7 @@ export function sanitizeInput(input: string | undefined | null, maxLength = 200)
   // de scripts car les dates en langage naturel utilisent des lettres de toutes les langues
   // supportées (latin, cyrillique, japonais, chinois...), ainsi que l'apostrophe
   // (ex: "Aujourd'hui" en français, "П'ятниці" en ukrainien).
+  // eslint-disable-next-line no-control-regex -- intentional: this range is the actual sanitization target, not a typo.
   const invalidCharsPattern = /[<>`\u0000-\u001F\u007F-\u009F]/;
 
   if (invalidCharsPattern.test(trimmed)) {
@@ -362,7 +363,7 @@ export function getActiveEditor(workspace: Workspace): Editor | null {
 
   // Méthode 3: Chercher dans tous les leafs pour trouver un éditeur actif
   // Utile pour QuickAdd et autres plugins qui créent des éditeurs personnalisés
-  const activeLeaf = workspace.activeLeaf;
+  const activeLeaf = workspace.getMostRecentLeaf();
   if (activeLeaf) {
     const view = activeLeaf.view;
     // Vérifier si la vue a un éditeur
