@@ -101,7 +101,16 @@ export default class ContextAnalyzer {
     // still blocks partial-word matches for Latin scripts (e.g. "Monday"
     // inside "Mondayish") while imposing no boundary at all next to CJK
     // characters, which don't have word separators to check against anyway.
-    const wordBoundaryBefore = '(?<![a-zA-Z0-9_])';
+    //
+    // The leading boundary can't be a lookbehind ("(?<!...)"): that syntax
+    // isn't supported on iOS/Safari before 16.4 and throws at RegExp
+    // construction time, breaking every one of these patterns on older
+    // devices. Using a consuming alternation ("start-of-string or a single
+    // non-word character") instead works the same way but actually consumes
+    // that leading character, so the content to extract is wrapped in its
+    // own capturing group below rather than read off the whole match.
+    // Lookahead ("(?!...)") has no such compatibility issue and can stay.
+    const wordBoundaryBefore = '(?:^|[^a-zA-Z0-9_])';
     const wordBoundaryAfter = '(?![a-zA-Z0-9_])';
 
     // Pattern 1: Jours de la semaine
@@ -116,7 +125,7 @@ export default class ContextAnalyzer {
 
     // Pattern 3: Expressions relatives "dans X jours/semaines/mois"
     if (inPattern && timeUnitPattern) {
-      this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${inPattern})\\s*\\d+\\s*(${timeUnitPattern})${wordBoundaryAfter}`, 'gi'));
+      this.datePatterns.push(new RegExp(`${wordBoundaryBefore}((?:${inPattern})\\s*\\d+\\s*(?:${timeUnitPattern}))${wordBoundaryAfter}`, 'gi'));
     }
 
     // Pattern 4: Expressions "next/last weekday/week/month/year"
@@ -126,10 +135,10 @@ export default class ContextAnalyzer {
     // case a future language module is authored incompletely.
     if (prefixPattern) {
       if (weekdayPattern) {
-        this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${prefixPattern})\\s*(${weekdayPattern})${wordBoundaryAfter}`, 'gi'));
+        this.datePatterns.push(new RegExp(`${wordBoundaryBefore}((?:${prefixPattern})\\s*(?:${weekdayPattern}))${wordBoundaryAfter}`, 'gi'));
       }
       if (timeUnitPattern) {
-        this.datePatterns.push(new RegExp(`${wordBoundaryBefore}(${prefixPattern})\\s*(${timeUnitPattern})${wordBoundaryAfter}`, 'gi'));
+        this.datePatterns.push(new RegExp(`${wordBoundaryBefore}((?:${prefixPattern})\\s*(?:${timeUnitPattern}))${wordBoundaryAfter}`, 'gi'));
       }
     }
   }
@@ -258,15 +267,18 @@ export default class ContextAnalyzer {
 
     // Utiliser les patterns dynamiques générés pour toutes les langues activées
     for (const pattern of this.datePatterns) {
-      const matches = text.match(pattern);
-      if (matches) {
-        for (const match of matches) {
+      // The leading boundary consumes a character instead of using a
+      // zero-width lookbehind (see initializeDatePatterns), so the text to
+      // extract is read from capture group 1, not the whole match.
+      for (const match of text.matchAll(pattern)) {
+        const content = match[1];
+        if (content) {
           // Pour les langues sans casse (comme le japonais), toLowerCase() ne change rien
-          const normalized = match.toLowerCase().trim();
+          const normalized = content.toLowerCase().trim();
           if (!seen.has(normalized) && dates.length < MAX_DATES_TO_EXTRACT) {
             seen.add(normalized);
             // Normaliser avec la première lettre en majuscule (ou laisser tel quel pour le japonais)
-            dates.push(this.normalizeDate(match.trim()));
+            dates.push(this.normalizeDate(content.trim()));
           }
         }
       }

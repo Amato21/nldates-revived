@@ -48,6 +48,35 @@ describe("ContextAnalyzer", () => {
     expect(found.some(d => d.includes("3 days"))).toBe(true);
   });
 
+  // Regression guard: the leading word-boundary used to be a negative
+  // lookbehind ("(?<!...)"), which throws a SyntaxError constructing the
+  // RegExp on Safari/iOS before 16.4. Verifies the fix (a consuming
+  // alternation instead) is actually in place, not just that extraction
+  // still happens to work.
+  it("never constructs a pattern using lookbehind syntax", () => {
+    const { app, plugin } = createApp("", ["en", "fr", "zh.hant"]);
+    analyzer = new ContextAnalyzer(app, plugin);
+    const patterns = (analyzer as any).datePatterns as RegExp[];
+    expect(patterns.length).toBeGreaterThan(0);
+    for (const pattern of patterns) {
+      expect(pattern.source).not.toContain("?<!");
+      expect(pattern.source).not.toContain("?<=");
+    }
+  });
+
+  it("still blocks partial-word matches and matches at the start of the string after the lookbehind fix", () => {
+    const { app, plugin, editor } = createApp("Mondayish is not a real word, but Monday is", ["en"]);
+    analyzer = new ContextAnalyzer(app, plugin);
+    const found = analyzer.analyzeContextSync(editor, 0).datesInContext.map(d => d.toLowerCase());
+    expect(found).not.toContain("mondayish");
+    expect(found).toContain("monday");
+
+    const { app: app2, plugin: plugin2, editor: editor2 } = createApp("Monday is the day", ["en"]);
+    analyzer.destroy();
+    analyzer = new ContextAnalyzer(app2, plugin2);
+    expect(analyzer.analyzeContextSync(editor2, 0).datesInContext.map(d => d.toLowerCase())).toContain("monday");
+  });
+
   it("extracts dates from Chinese context (Simplified and Traditional)", () => {
     const { app, plugin, editor } = createApp("下周一开会，2天后交稿。", ["zh.hant"]);
     analyzer = new ContextAnalyzer(app, plugin);
