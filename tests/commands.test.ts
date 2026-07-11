@@ -45,7 +45,7 @@ describe('Commands Integration Tests', () => {
       workspace: {
         getActiveViewOfType: vi.fn(() => mockView),
         getLeavesOfType: vi.fn(() => []),
-        activeLeaf: null,
+        getMostRecentLeaf: vi.fn(() => null),
       },
     };
 

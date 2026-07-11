@@ -8,7 +8,7 @@ import { getActiveEditor } from "../src/utils";
 function makeWorkspace(overrides: Record<string, unknown> = {}) {
   return {
     activeEditor: undefined,
-    activeLeaf: undefined,
+    getMostRecentLeaf: () => undefined,
     getActiveViewOfType: () => null,
     getLeavesOfType: () => [],
     ...overrides,
@@ -34,18 +34,18 @@ describe("getActiveEditor", () => {
     expect(getActiveEditor(workspace)).toBe(editor);
   });
 
-  it("falls back to activeLeaf.view.editor (method 3)", () => {
+  it("falls back to getMostRecentLeaf().view.editor (method 3)", () => {
     const editor = { id: "from-active-leaf" };
     const workspace = makeWorkspace({
-      activeLeaf: { view: { editor } },
+      getMostRecentLeaf: () => ({ view: { editor } }),
     });
     expect(getActiveEditor(workspace)).toBe(editor);
   });
 
-  it("skips activeLeaf.view when it has no editor, falling through to method 4/5", () => {
+  it("skips getMostRecentLeaf().view when it has no editor, falling through to method 4/5", () => {
     const editor = { id: "from-leaves", cm: { hasFocus: () => false } };
     const workspace = makeWorkspace({
-      activeLeaf: { view: {} }, // no .editor on this view
+      getMostRecentLeaf: () => ({ view: {} }), // no .editor on this view
       getLeavesOfType: (type: string) => (type === "markdown" ? [{ view: new MarkdownView(editor) }] : []),
     });
     expect(getActiveEditor(workspace)).toBe(editor);

@@ -1,8 +1,9 @@
 // CHANGEMENT ICI : On utilise "import * as chrono" car la version 2.x n'a plus d'export par défaut
 import * as chrono from "chrono-node";
 import { Chrono, Parser, Refiner } from "chrono-node";
-import { ORDINAL_NUMBER_PATTERN, parseOrdinalNumberPattern } from "./utils";
+import { ORDINAL_NUMBER_PATTERN, parseOrdinalNumberPattern, describeError } from "./utils";
 import { logger } from "./logger";
+import moment from "./window-moment";
 
 // Local type definition matching chrono-node's Configuration interface
 // Configuration is not exported from the main module, so we define it locally
@@ -17,14 +18,14 @@ function getOrdinalDateParser() {
     extract: (_context: unknown, match: RegExpMatchArray) => {
       return {
         day: parseOrdinalNumberPattern(match[0]),
-        month: window.moment().month(),
+        month: moment().month(),
       };
     },
   } as Parser);
 }
 
 export default function getChronos(languages: string[]): Chrono[] {
-  const locale = window.moment.locale();
+  const locale = moment.locale();
   const isGB = locale === 'en-gb';
 
   const chronos: Chrono[] = [];
@@ -78,7 +79,7 @@ export default function getChronos(languages: string[]): Chrono[] {
     } catch (error) {
       logger.error(`Failed to initialize chrono for language`, {
         language: l,
-        error: error instanceof Error ? error.message : String(error),
+        error: describeError(error),
       });
     }
   });
@@ -102,7 +103,7 @@ export default function getChronos(languages: string[]): Chrono[] {
       }
     } catch (error) {
       logger.error('Failed to initialize default English chrono', {
-        error: error instanceof Error ? error.message : String(error),
+        error: describeError(error),
       });
     }
   }

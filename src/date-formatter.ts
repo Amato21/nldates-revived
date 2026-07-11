@@ -1,6 +1,7 @@
 /**
  * Module pour le formatage de dates
  */
+import moment from "./window-moment";
 
 /**
  * Classe pour formater des dates
@@ -13,7 +14,7 @@ export class DateFormatter {
    * @returns La date formatée en string
    */
   static format(date: Date, format: string): string {
-    return window.moment(date).format(format);
+    return moment(date).format(format);
   }
 
   /**

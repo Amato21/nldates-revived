@@ -16,6 +16,7 @@ import HistoryManager from "./history-manager";
 import ContextAnalyzer from "./context-analyzer";
 import { logger } from "./logger";
 import { NLDParseError, ErrorCodes } from "./errors";
+import moment from "./window-moment";
 
 export default class NaturalLanguageDates extends Plugin {
   public parser: NLDParser;
@@ -36,7 +37,7 @@ export default class NaturalLanguageDates extends Plugin {
     this.contextAnalyzer = new ContextAnalyzer(this.app, this);
     
     // Initialize history asynchronously
-    this.historyManager.initialize().catch(err => {
+    this.historyManager.initialize().catch((err: unknown) => {
       logger.error("Error initializing history", { error: err });
     });
 
@@ -94,7 +95,7 @@ export default class NaturalLanguageDates extends Plugin {
     });
 
     this.addSettingTab(new NLDSettingsTab(this.app, this));
-    this.registerObsidianProtocolHandler("nldates", this.actionHandler.bind(this));
+    this.registerObsidianProtocolHandler("nldates", params => this.actionHandler(params));
     this.registerEditorSuggest(new DateSuggest(this.app, this));
 
     // Démarrer le monitoring de la mémoire
@@ -218,7 +219,7 @@ export default class NaturalLanguageDates extends Plugin {
           };
           
           logger.debug("Utilisation mémoire des caches", stats);
-        }).catch(err => {
+        }).catch((err: unknown) => {
           logger.warn("Impossible de récupérer les statistiques de l'historique", { error: err });
           // Logger quand même les autres statistiques
           if (Object.keys(stats).length > 0) {
@@ -236,7 +237,7 @@ export default class NaturalLanguageDates extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    const loadedData = await this.loadData();
+    const loadedData = await this.loadData() as Partial<NLDSettings> | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     
     // Ensure languages is not empty (use default values if necessary)
@@ -332,7 +333,7 @@ export default class NaturalLanguageDates extends Plugin {
       return {
         formattedString: "Invalid date",
         date: invalidDate,
-        moment: window.moment(invalidDate),
+        moment: moment(invalidDate),
       };
     }
 
@@ -345,7 +346,7 @@ export default class NaturalLanguageDates extends Plugin {
     return {
       formattedString,
       date,
-      moment: window.moment(date),
+      moment: moment(date),
     };
   }
 
@@ -377,7 +378,7 @@ export default class NaturalLanguageDates extends Plugin {
       return {
         formattedString: "Invalid date",
         date: invalidDate,
-        moment: window.moment(invalidDate),
+        moment: moment(invalidDate),
       };
     }
 
@@ -487,7 +488,7 @@ export default class NaturalLanguageDates extends Plugin {
       return {
         formattedString: "Invalid date",
         date: invalidDate,
-        moment: window.moment(invalidDate),
+        moment: moment(invalidDate),
       };
     }
 

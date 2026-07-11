@@ -3,6 +3,7 @@ import { generateMarkdownLink, getLocaleWeekStart, validateMomentFormat, getActi
 import type NaturalLanguageDates from "../main";
 import { DEFAULT_SETTINGS } from "../settings";
 import t from "../lang/helper";
+import moment from "../window-moment";
 
 type Moment = import("moment").Moment;
 
@@ -22,8 +23,8 @@ export default class DatePickerModal extends Modal {
   constructor(app: App, plugin: NaturalLanguageDates) {
     super(app);
     this.plugin = plugin;
-    this.selectedDate = window.moment();
-    this.currentMonth = window.moment();
+    this.selectedDate = moment();
+    this.currentMonth = moment();
     // Détecter le mode sombre
     this.isDarkMode = activeDocument.body.classList.contains("theme-dark");
   }
@@ -148,7 +149,7 @@ export default class DatePickerModal extends Modal {
 
     // Sélecteur de mois (dropdown)
     const monthSelect = navEl.createEl("select", { cls: "nld-month-select" });
-    const monthNames = window.moment.months();
+    const monthNames = moment.months();
     monthNames.forEach((month, index) => {
       const option = monthSelect.createEl("option", { text: month, value: String(index) });
       if (index === this.currentMonth.month()) {
@@ -262,7 +263,7 @@ export default class DatePickerModal extends Modal {
     if (!this.quickButtonsEl) return;
 
     this.quickButtonsEl.empty();
-    this.quickButtonsEl.createEl("div", { cls: "nld-quick-buttons-label", text: "Quick select:" });
+    this.quickButtonsEl.createDiv({ cls: "nld-quick-buttons-label", text: "Quick select:" });
 
     const primaryLang = this.plugin.settings.languages[0] || "en";
     
@@ -279,27 +280,27 @@ export default class DatePickerModal extends Modal {
     const quickOptions = [
       { 
         label: getFirstVariant("today"), 
-        moment: window.moment() 
+        moment: moment() 
       },
       { 
         label: getFirstVariant("tomorrow"), 
-        moment: window.moment().add(1, "day") 
+        moment: moment().add(1, "day") 
       },
       { 
         label: getFirstVariant("yesterday"), 
-        moment: window.moment().subtract(1, "day") 
+        moment: moment().subtract(1, "day") 
       },
       { 
         label: `${getFirstVariant("next")} ${getFirstVariant("week")}`, 
-        moment: window.moment().add(1, "week") 
+        moment: moment().add(1, "week") 
       },
       { 
         label: `${getFirstVariant("next")} ${getFirstVariant("month")}`, 
-        moment: window.moment().add(1, "month") 
+        moment: moment().add(1, "month") 
       },
       { 
         label: `${getFirstVariant("next")} ${getFirstVariant("year")}`, 
-        moment: window.moment().add(1, "year") 
+        moment: moment().add(1, "year") 
       },
     ];
 
@@ -330,7 +331,7 @@ export default class DatePickerModal extends Modal {
       : this.plugin.settings.weekStart;
     
     const weekStartIndex = weekStart === "sunday" ? 0 : 1;
-    const weekdays = window.moment.weekdaysShort();
+    const weekdays = moment.weekdaysShort();
     const orderedWeekdays = [
       ...weekdays.slice(weekStartIndex),
       ...weekdays.slice(0, weekStartIndex),
@@ -366,7 +367,7 @@ export default class DatePickerModal extends Modal {
       endDate.add(endDiff, "days");
     }
 
-    const today = window.moment();
+    const today = moment();
     const currentDate = startDate.clone();
 
     while (currentDate.isSameOrBefore(endDate, "day")) {
@@ -444,8 +445,8 @@ export default class DatePickerModal extends Modal {
           break;
         case "Home":
           e.preventDefault();
-          updateSelectedDate(window.moment());
-          this.currentMonth = window.moment();
+          updateSelectedDate(moment());
+          this.currentMonth = moment();
           this.renderCalendar();
           break;
         case "Escape":

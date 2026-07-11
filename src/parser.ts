@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import { TimeDetector } from "./time-detector";
 import { LRUCache } from "./lru-cache";
 import { TranslationCollector } from "./translation-collector";
+import moment from "./window-moment";
 
 import { DayOfWeek } from "./settings";
 import {
@@ -11,6 +12,7 @@ import {
   getWeekNumber,
   ORDINAL_NUMBER_PATTERN,
   parseOrdinalNumberPattern,
+  describeError,
 } from "./utils";
 
 
@@ -434,8 +436,8 @@ export default class NLDParser {
     const cacheKey = this.generateCacheKey(cleanedText, weekStartPreference);
 
     // Vérifier le cache avant de parser
-    if (this.cache.has(cacheKey)) {
-      const cachedDate = this.cache.get(cacheKey)!;
+    const cachedDate = this.cache.get(cacheKey);
+    if (cachedDate) {
       // Créer une nouvelle instance de Date pour éviter les références partagées
       return new Date(cachedDate.getTime());
     }
@@ -474,10 +476,10 @@ export default class NLDParser {
       return new Date();
     }
     if (this.tc.collectWords('tomorrow', { lowercase: true }).includes(text)) {
-      return window.moment().add(1, 'days').toDate();
+      return moment().add(1, 'days').toDate();
     }
     if (this.tc.collectWords('yesterday', { lowercase: true }).includes(text)) {
-      return window.moment().subtract(1, 'days').toDate();
+      return moment().subtract(1, 'days').toDate();
     }
     return null;
   }
@@ -496,7 +498,7 @@ export default class NLDParser {
       const value = parseInt(agoMatch[1]);
       const unitStr = agoMatch[2].toLowerCase().trim();
       const unit = this.guessUnit(unitStr);
-      return window.moment().subtract(value, unit).toDate();
+      return moment().subtract(value, unit).toDate();
     }
 
     // Check for past expressions in all languages (e.g., "il y a 3 minutes", "vor 2 Stunden", etc.)
@@ -521,7 +523,7 @@ export default class NLDParser {
           const match = cleanedText.match(regex);
           if (match) {
             const value = parseInt(match[1]);
-            return window.moment().subtract(value, unit).toDate();
+            return moment().subtract(value, unit).toDate();
           }
         }
       }
@@ -533,7 +535,7 @@ export default class NLDParser {
       const value = parseInt(agoSuffixMatch[1]);
       const unitStr = agoSuffixMatch[2].toLowerCase().trim();
       const unit = this.guessUnit(unitStr);
-      return window.moment().subtract(value, unit).toDate();
+      return moment().subtract(value, unit).toDate();
     }
 
     return null;
@@ -582,8 +584,9 @@ export default class NLDParser {
   // this fallback can never fire for them (verified empirically before the
   // dead branches that used to sit in those paths were removed).
   private guessUnit(unitStr: string): TimeUnit {
-    if (this.timeUnitMap.has(unitStr)) {
-      return this.timeUnitMap.get(unitStr)!;
+    const mapped = this.timeUnitMap.get(unitStr);
+    if (mapped) {
+      return mapped;
     }
     if (unitStr.startsWith('h')) return 'hours';
     else if (unitStr.startsWith('d') || unitStr.startsWith('j')) return 'days';
@@ -601,7 +604,7 @@ export default class NLDParser {
     // First check combinations "in 2 weeks and 3 days" or multiple combinations
     // Try to parse multiple combinations like "in 1 year and 2 months and 3 weeks and 4 days"
     let hasMultiUnits = false;
-    const totalMoment = window.moment();
+    const totalMoment = moment();
 
     // Try to match all "X unit" patterns after "in"
     const inPatterns = Array.from(new Set(this.languages.map(l => this.tc.translate("in", l)).filter(v => v !== "NOTFOUND").flatMap(v => v.split("|"))));
@@ -642,7 +645,7 @@ export default class NLDParser {
       const unit1 = this.guessUnit(unitStr1);
       const unit2 = this.guessUnit(unitStr2);
 
-      return window.moment().add(value1, unit1).add(value2, unit2).toDate();
+      return moment().add(value1, unit1).add(value2, unit2).toDate();
     }
 
     // Then check simple expressions "in 2 minutes"
@@ -654,11 +657,11 @@ export default class NLDParser {
       // unitStr is guaranteed to be a registered key here: regexRelative's
       // unit capture group is built from this.tc.collectWords() for the same
       // six keys that populate timeUnitMap, so a successful regex match
-      // already implies a hit.
-      const unit: TimeUnit = this.timeUnitMap.get(unitStr)!;
+      // already implies a hit -- the fallback below is unreachable.
+      const unit = this.timeUnitMap.get(unitStr) ?? this.guessUnit(unitStr);
 
       // MomentJS handles year transitions perfectly
-      return window.moment().add(value, unit).toDate();
+      return moment().add(value, unit).toDate();
     }
 
     // Suffix-style simple expressions, e.g. Chinese "2天後" (2 days later)
@@ -667,7 +670,7 @@ export default class NLDParser {
       const value = parseInt(relSuffixMatch[1]);
       const unitStr = relSuffixMatch[2].toLowerCase().trim();
       const unit = this.guessUnit(unitStr);
-      return window.moment().add(value, unit).toDate();
+      return moment().add(value, unit).toDate();
     }
 
     return null;
@@ -683,10 +686,10 @@ export default class NLDParser {
     if (!rangeMatch) return null;
 
     const startDayName = rangeMatch[1].toLowerCase();
-    const m = window.moment();
+    const m = moment();
     const startDayIndex = this.getDayOfWeekIndex(startDayName);
 
-    const startMoment = window.moment().day(startDayIndex);
+    const startMoment = moment().day(startDayIndex);
     if (startMoment.isBefore(m, 'day')) {
       startMoment.add(1, 'week');
     }
@@ -705,7 +708,7 @@ export default class NLDParser {
       const dayName = weekWithTimeMatch[2].toLowerCase();
       const timePart = weekWithTimeMatch[3].trim();
 
-      const m = window.moment();
+      const m = moment();
       const dayIndex = this.getDayOfWeekIndex(dayName);
 
       if (this.prefixKeywords.this.has(prefix)) {
@@ -737,7 +740,7 @@ export default class NLDParser {
       const prefix = weekMatch[1].toLowerCase();
       const dayName = weekMatch[2].toLowerCase();
 
-      const m = window.moment();
+      const m = moment();
       const dayIndex = this.getDayOfWeekIndex(dayName);
 
       if (this.prefixKeywords.this.has(prefix)) {
@@ -756,12 +759,12 @@ export default class NLDParser {
     const weekOnlyMatch = cleanedText.match(this.regexWeekdayOnly);
     if (weekOnlyMatch) {
       const dayName = weekOnlyMatch[1].toLowerCase();
-      const m = window.moment();
+      const m = moment();
       const dayIndex = this.getDayOfWeekIndex(dayName);
 
       m.day(dayIndex);
       // If the day is in the past (before today), move to next week
-      if (m.isBefore(window.moment(), 'day')) {
+      if (m.isBefore(moment(), 'day')) {
         m.add(1, 'week');
       }
       return m.toDate();
@@ -790,7 +793,7 @@ export default class NLDParser {
     const dayNumber = parseOrdinalNumberPattern(ordinalStr);
 
     // Determine which period (month/year) to target
-    const targetMoment = window.moment();
+    const targetMoment = moment();
     const isMonth = this.tc.collectWords('month', { lowercase: true }).includes(periodStr);
     const isYear = !isMonth && this.tc.collectWords('year', { lowercase: true }).includes(periodStr);
 
@@ -842,7 +845,7 @@ export default class NLDParser {
     // Use prefix after month if present (French inversion), otherwise prefix before month, otherwise prefix before "last"
     const prefix = prefixAfter || prefixBeforeMonth || prefixBefore;
 
-    const targetMoment = window.moment();
+    const targetMoment = moment();
     const isMonth = this.tc.collectWords('month', { lowercase: true }).includes(periodStr);
     if (!isMonth) return null;
 
@@ -881,7 +884,7 @@ export default class NLDParser {
     if (!isMonth) return null;
 
     const isLast = !isFirst && this.prefixKeywords.last.has(prefixOrFirst);
-    let targetMoment = window.moment();
+    let targetMoment = moment();
 
     if (isFirst) {
       // First weekday of month
@@ -957,10 +960,10 @@ export default class NLDParser {
     if (isNextWeek) return null;
 
     if (this.tc.collectWords('month', { lowercase: true }).includes(period)) {
-      return window.moment().add(1, 'months').startOf('month').toDate();
+      return moment().add(1, 'months').startOf('month').toDate();
     }
     if (this.tc.collectWords('year', { lowercase: true }).includes(period)) {
-      return window.moment().add(1, 'years').startOf('year').toDate();
+      return moment().add(1, 'years').startOf('year').toDate();
     }
     return null;
   }
@@ -1014,18 +1017,18 @@ export default class NLDParser {
       const startDayName = rangeMatch[1].toLowerCase();
       const endDayName = rangeMatch[2].toLowerCase();
       
-      const m = window.moment();
+      const m = moment();
       const startDayIndex = this.getDayOfWeekIndex(startDayName);
       const endDayIndex = this.getDayOfWeekIndex(endDayName);
       
       // Find next start day
-      const startMoment = window.moment().day(startDayIndex);
+      const startMoment = moment().day(startDayIndex);
       if (startMoment.isBefore(m, 'day')) {
         startMoment.add(1, 'week');
       }
       
       // Find next end day (must be after or equal to start day)
-      let endMoment = window.moment().day(endDayIndex);
+      let endMoment = moment().day(endDayIndex);
       // If end day is before start day, take the one from next week
       if (endMoment.isBefore(startMoment, 'day')) {
         endMoment.add(1, 'week');
@@ -1084,7 +1087,7 @@ export default class NLDParser {
         const weekStart = weekStartPreference === "locale-default" ? getLocaleWeekStart() : weekStartPreference;
         const weekStartIndex = this.getDayOfWeekIndex(String(weekStart));
 
-        const startMoment = window.moment().add(1, 'weeks').day(weekStartIndex);
+        const startMoment = moment().add(1, 'weeks').day(weekStartIndex);
         const endMoment = startMoment.clone().add(6, 'days');
 
         const format = "YYYY-MM-DD";
@@ -1138,7 +1141,7 @@ export default class NLDParser {
       } catch (e) {
         logger.warn('Chrono parsing error in getParsedDateResult', {
           text,
-          error: e instanceof Error ? e.message : String(e),
+          error: describeError(e),
         });
       }
     }
@@ -1161,7 +1164,7 @@ export default class NLDParser {
       } catch (e) {
         logger.warn('Chrono parsing error in getParsedResult', {
           text,
-          error: e instanceof Error ? e.message : String(e),
+          error: describeError(e),
         });
       }
     }

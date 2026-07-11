@@ -48,7 +48,7 @@ describe('DateSuggest', () => {
       workspace: {
         getActiveViewOfType: vi.fn(() => ({ editor: mockEditor })),
         getLeavesOfType: vi.fn(() => []),
-        activeLeaf: null,
+        getMostRecentLeaf: vi.fn(() => null),
       },
       metadataCache: {
         getFileCache: vi.fn(() => ({ tags: [], frontmatter: {} })),

@@ -11,6 +11,7 @@ import type NaturalLanguageDates from "../main";
 import t from "../lang/helper";
 import { generateMarkdownLink, shouldOmitDateForShortRelative, getActiveEditor } from "../utils";
 import { logger } from "../logger";
+import moment from "../window-moment";
 
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
@@ -463,8 +464,8 @@ export default class DateSuggest extends EditorSuggest<string> {
         // C'est une plage de dates
         // Si on a une liste de dates, générer une liste de liens au lieu d'une plage
         if (dateRange.dateList && dateRange.dateList.length > 0) {
-          const dateLinks = dateRange.dateList.map(moment => {
-            const formatted = moment.format(this.plugin.settings.format);
+          const dateLinks = dateRange.dateList.map(m => {
+            const formatted = m.format(this.plugin.settings.format);
             return makeIntoLink 
               ? generateMarkdownLink(this.app, formatted)
               : formatted;
@@ -497,7 +498,7 @@ export default class DateSuggest extends EditorSuggest<string> {
         const parsedResult = this.plugin.parseDate(suggestion);
 
         // --- OPTIMISATION : Omettre la date pour expressions relatives courtes aujourd'hui ---
-        const isToday = parsedResult.moment.isSame(window.moment(), 'day');
+        const isToday = parsedResult.moment.isSame(moment(), 'day');
         const isRelativeShortTerm = shouldOmitDateForShortRelative(suggestion, this.plugin.settings.languages);
         const shouldOmitDate = this.plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm && hasTime;
 

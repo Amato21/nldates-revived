@@ -9,6 +9,7 @@
     "target": "ES6",
     "allowJs": true,
     "noImplicitAny": true,
+    "useUnknownInCatchVariables": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "lib": [

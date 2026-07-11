@@ -8,6 +8,7 @@ import {
 import { DayOfWeek } from "./settings";
 import { DateFormatter } from "./date-formatter";
 import { TranslationCollector } from "./translation-collector";
+import moment from "./window-moment";
 
 // Type alias for Moment from the moment library bundled with Obsidian
 // Using the type from the moment library types since moment is bundled with Obsidian
@@ -96,7 +97,7 @@ export function validateMomentFormat(format: string): { valid: boolean; error?: 
   }
 
   try {
-    const testDate = window.moment();
+    const testDate = moment();
     const formatted = testDate.format(format);
     
     // Vérifier que le format produit quelque chose de valide
@@ -141,6 +142,7 @@ export function sanitizeInput(input: string | undefined | null, maxLength = 200)
   // de scripts car les dates en langage naturel utilisent des lettres de toutes les langues
   // supportées (latin, cyrillique, japonais, chinois...), ainsi que l'apostrophe
   // (ex: "Aujourd'hui" en français, "П'ятниці" en ukrainien).
+  // eslint-disable-next-line no-control-regex -- intentional: this range is the actual sanitization target, not a typo.
   const invalidCharsPattern = /[<>`\u0000-\u001F\u007F-\u009F]/;
 
   if (invalidCharsPattern.test(trimmed)) {
@@ -165,7 +167,7 @@ export function getWeekNumber(dayOfWeek: Omit<DayOfWeek, "locale-default">): num
 }
 
 export function getLocaleWeekStart(): Omit<DayOfWeek, "locale-default"> {
-  const localeData = window.moment.localeData() as { _week?: { dow: number } };
+  const localeData = moment.localeData() as { _week?: { dow: number } };
   const startOfWeek = localeData._week?.dow ?? 0;
   return daysOfWeek[startOfWeek];
 }
@@ -361,7 +363,7 @@ export function getActiveEditor(workspace: Workspace): Editor | null {
 
   // Méthode 3: Chercher dans tous les leafs pour trouver un éditeur actif
   // Utile pour QuickAdd et autres plugins qui créent des éditeurs personnalisés
-  const activeLeaf = workspace.activeLeaf;
+  const activeLeaf = workspace.getMostRecentLeaf();
   if (activeLeaf) {
     const view = activeLeaf.view;
     // Vérifier si la vue a un éditeur
@@ -386,4 +388,15 @@ export function getActiveEditor(workspace: Workspace): Editor | null {
   }
 
   return firstAvailableEditor;
+}
+
+// Extracts a readable message from a caught value of unknown type. Plain
+// `String(e)` is unsafe for arbitrary unknown values (a thrown plain object
+// would stringify to the useless "[object Object]"), but blanket
+// `JSON.stringify(e)` isn't right either -- it would wrap thrown strings in
+// literal quotes, changing what already-thrown-string call sites log.
+export function describeError(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  return JSON.stringify(e);
 }
