@@ -5,6 +5,11 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 
 ## New Features
 
+### v0.9.6 - Obsidian Plugin Review Compliance
+* Removed a regex lookbehind that isn't supported on iOS/Safari before 16.4, which could break date detection on older devices.
+* Replaced runtime `<style>` element injection in the date picker with a proper `styles.css` file, per Obsidian's plugin guidelines.
+* Fixed dark-mode/theme detection to use `activeDocument` for compatibility with pop-out windows.
+
 ### v0.9.5 - Security & Documentation Improvements
 * **Past Time Expressions Support:**
     * Full support for past expressions in all languages: `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden`, `@hace 5 minutos`
@@ -73,8 +78,13 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 
 ## How to Install
 
-### Via BRAT (Recommended for now)
-Since this is a new fork, the quickest way to get updates is via the **BRAT** plugin:
+### Via Obsidian Community Plugins (Recommended)
+1.  Open **Settings → Community plugins** in Obsidian.
+2.  Click **Browse** and search for "Natural Language Dates (Revived)".
+3.  Install and enable it.
+
+### Via BRAT (for the latest beta builds)
+To get updates ahead of the official release, use the **BRAT** plugin:
 1.  Install **BRAT** from the Community Plugins store.
 2.  Add a Beta Plugin with this URL: `https://github.com/Amato21/nldates-revived`
 3.  Enjoy!
