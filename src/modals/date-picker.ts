@@ -25,16 +25,13 @@ export default class DatePickerModal extends Modal {
     this.selectedDate = window.moment();
     this.currentMonth = window.moment();
     // Détecter le mode sombre
-    this.isDarkMode = document.body.classList.contains("theme-dark");
+    this.isDarkMode = activeDocument.body.classList.contains("theme-dark");
   }
 
   onOpen(): void {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("nld-date-picker-modal");
-
-    // Injecter les styles CSS
-    this.injectStyles();
 
     // Ajouter les styles pour le mode sombre
     if (this.isDarkMode) {
@@ -463,8 +460,8 @@ export default class DatePickerModal extends Modal {
     // Observer les changements de classe pour détecter le changement de thème
     this.themeObserver = new MutationObserver(() => {
       const wasDarkMode = this.isDarkMode;
-      this.isDarkMode = document.body.classList.contains("theme-dark");
-      
+      this.isDarkMode = activeDocument.body.classList.contains("theme-dark");
+
       if (wasDarkMode !== this.isDarkMode && this.contentEl) {
         if (this.isDarkMode) {
           this.contentEl.addClass("nld-dark-mode");
@@ -474,7 +471,7 @@ export default class DatePickerModal extends Modal {
       }
     });
 
-    this.themeObserver.observe(document.body, {
+    this.themeObserver.observe(activeDocument.body, {
       attributes: true,
       attributeFilter: ["class"],
     });
@@ -487,221 +484,6 @@ export default class DatePickerModal extends Modal {
     }
     this.close();
     activeEditor.replaceSelection(dateStr);
-  }
-
-  private injectStyles(): void {
-    // Vérifier si les styles sont déjà injectés
-    if (document.getElementById("nld-date-picker-styles")) {
-      return;
-    }
-
-    const style = document.createElement("style");
-    style.id = "nld-date-picker-styles";
-    style.textContent = `
-      .nld-date-picker-modal {
-        --nld-primary: var(--interactive-accent);
-        --nld-bg: var(--background-primary);
-        --nld-text: var(--text-normal);
-        --nld-border: var(--background-modifier-border);
-        --nld-hover: var(--background-modifier-hover);
-        --nld-selected: var(--interactive-accent);
-        --nld-today: var(--text-accent);
-      }
-
-      .nld-date-picker-modal.nld-dark-mode {
-        --nld-bg: var(--background-primary);
-        --nld-text: var(--text-normal);
-        --nld-border: var(--background-modifier-border);
-        --nld-hover: var(--background-modifier-hover);
-      }
-
-      .nld-date-picker-container {
-        padding: 0.5rem;
-      }
-
-      /* Boutons rapides */
-      .nld-quick-buttons {
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid var(--nld-border);
-      }
-
-      .nld-quick-buttons-label {
-        font-size: 0.85rem;
-        color: var(--nld-text);
-        margin-bottom: 0.75rem;
-        font-weight: 500;
-      }
-
-      .nld-quick-buttons-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.5rem;
-      }
-
-      .nld-quick-btn {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--nld-border);
-        background: var(--nld-bg);
-        color: var(--nld-text);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.9rem;
-        transition: all 0.2s ease;
-      }
-
-      .nld-quick-btn:hover {
-        background: var(--nld-hover);
-        border-color: var(--nld-primary);
-      }
-
-      .nld-quick-btn:active {
-        transform: scale(0.98);
-      }
-
-      /* Section calendrier */
-      .nld-calendar-section {
-        margin-bottom: 1.5rem;
-      }
-
-      /* Navigation */
-      .nld-calendar-nav {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-        gap: 0.5rem;
-      }
-
-      .nld-nav-btn {
-        width: 2rem;
-        height: 2rem;
-        border: 1px solid var(--nld-border);
-        background: var(--nld-bg);
-        color: var(--nld-text);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 1.2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-      }
-
-      .nld-nav-btn:hover {
-        background: var(--nld-hover);
-        border-color: var(--nld-primary);
-      }
-
-      .nld-month-year {
-        flex: 1;
-        text-align: center;
-        font-weight: 600;
-        font-size: 1.1rem;
-        color: var(--nld-text);
-      }
-
-      .nld-year-select,
-      .nld-month-select {
-        padding: 0.4rem 0.6rem;
-        border: 1px solid var(--nld-border);
-        background: var(--nld-bg);
-        color: var(--nld-text);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.9rem;
-      }
-
-      .nld-year-select:hover,
-      .nld-month-select:hover {
-        border-color: var(--nld-primary);
-      }
-
-      /* Calendrier */
-      .nld-calendar {
-        border: 1px solid var(--nld-border);
-        border-radius: 6px;
-        padding: 0.75rem;
-        background: var(--nld-bg);
-      }
-
-      .nld-calendar-header {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 0.25rem;
-        margin-bottom: 0.5rem;
-      }
-
-      .nld-calendar-day-header {
-        text-align: center;
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: var(--nld-text);
-        padding: 0.5rem 0;
-      }
-
-      .nld-calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 0.25rem;
-      }
-
-      .nld-calendar-day {
-        aspect-ratio: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        position: relative;
-      }
-
-      .nld-calendar-day:hover {
-        background: var(--nld-hover);
-        border-color: var(--nld-border);
-      }
-
-      .nld-calendar-day.nld-selected {
-        background: var(--nld-selected);
-        color: white;
-        border-color: var(--nld-selected);
-        font-weight: 600;
-      }
-
-      .nld-calendar-day.nld-today {
-        border: 2px solid var(--nld-today);
-        font-weight: 600;
-      }
-
-      .nld-calendar-day.nld-today.nld-selected {
-        border-color: var(--nld-selected);
-      }
-
-      .nld-calendar-day.nld-other-month {
-        opacity: 0.4;
-      }
-
-      .nld-day-number {
-        font-size: 0.9rem;
-      }
-
-      /* Section input */
-      .nld-input-section {
-        margin-top: 1.5rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--nld-border);
-      }
-
-      /* Responsive */
-      @media (max-width: 500px) {
-        .nld-quick-buttons-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-    `;
-    document.head.appendChild(style);
   }
 
   onClose(): void {
@@ -718,12 +500,6 @@ export default class DatePickerModal extends Modal {
     if (this.themeObserver) {
       this.themeObserver.disconnect();
       this.themeObserver = null;
-    }
-
-    // Nettoyer les styles
-    const stylesEl = document.getElementById("nld-date-picker-styles");
-    if (stylesEl) {
-      stylesEl.remove();
     }
   }
 }

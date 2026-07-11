@@ -40,6 +40,11 @@ if (typeof document === 'undefined') {
   };
 }
 
+// Obsidian exposes "activeDocument" as a global (the document of whichever
+// window currently has focus, for pop-out window support) -- aliased to the
+// regular document here since tests only ever run in a single window.
+(globalThis as any).activeDocument = (globalThis as any).document;
+
 // Mock KeyboardEvent for Node.js environment
 if (typeof KeyboardEvent === 'undefined') {
   (globalThis as any).KeyboardEvent = class KeyboardEvent {
