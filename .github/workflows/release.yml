@@ -44,8 +44,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            main.js \
-            manifest.json \
-            "${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip" \
-            --clobber
+          assets=(main.js manifest.json "${{ env.PLUGIN_NAME }}-${{ github.event.release.tag_name }}.zip")
+          # styles.css doesn't exist on every historical tag; only upload it
+          # if the checked-out ref actually has one.
+          if [ -f styles.css ]; then
+            assets+=(styles.css)
+          fi
+          gh release upload "${{ github.event.release.tag_name }}" "${assets[@]}" --clobber
