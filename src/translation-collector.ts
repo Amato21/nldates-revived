@@ -23,10 +23,13 @@ export class TranslationCollector {
    */
   translate(key: string, lang: string): string {
     const cacheKey = `${lang}:${key}`;
-    if (!this.translationCache.has(cacheKey)) {
-      this.translationCache.set(cacheKey, t(key, lang));
+    const cached = this.translationCache.get(cacheKey);
+    if (cached !== undefined) {
+      return cached;
     }
-    return this.translationCache.get(cacheKey)!;
+    const translated = t(key, lang);
+    this.translationCache.set(cacheKey, translated);
+    return translated;
   }
 
   /**

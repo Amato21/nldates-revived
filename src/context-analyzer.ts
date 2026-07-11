@@ -202,7 +202,9 @@ export default class ContextAnalyzer {
         }
 
         // Extraire le titre depuis les frontmatter ou le premier titre
-        if (metadata.frontmatter?.title) {
+        // Frontmatter values are user-authored YAML, so "title" isn't
+        // guaranteed to actually be a string (e.g. `title: 42`).
+        if (typeof metadata.frontmatter?.title === "string") {
           context.title = metadata.frontmatter.title;
         } else if (metadata.headings && metadata.headings.length > 0) {
           context.title = metadata.headings[0].heading;

@@ -78,7 +78,7 @@ export default class HistoryManager {
       if (exists) {
         const data = await this.plugin.app.vault.adapter.read(path);
         if (data) {
-          const parsed = JSON.parse(data);
+          const parsed: unknown = JSON.parse(data);
           if (parsed && typeof parsed === "object") {
             this.history = parsed as SelectionHistory;
           }
@@ -155,7 +155,7 @@ export default class HistoryManager {
     this.updateCache();
 
     // Save (asynchronously, don't block)
-    this.saveHistory().catch(err => {
+    this.saveHistory().catch((err: unknown) => {
       logger.error("Error saving history:", { error: err });
     });
   }

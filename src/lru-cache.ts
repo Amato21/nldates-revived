@@ -63,7 +63,10 @@ export class LRUCache<K, V> {
       this.cache.delete(key);
     } else if (this.cache.size >= this.maxSize) {
       // Supprimer l'entrée la moins récemment utilisée (première entrée)
-      const firstKey = this.cache.keys().next().value;
+      // Map iterator's IteratorResult.value type defaults to "T | any" (the
+      // return-position type param defaults to any), which TS collapses to
+      // any -- cast explicitly rather than just annotating the variable.
+      const firstKey = this.cache.keys().next().value as K | undefined;
       if (firstKey !== undefined) {
         this.cache.delete(firstKey);
       }

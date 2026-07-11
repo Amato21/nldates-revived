@@ -434,8 +434,8 @@ export default class NLDParser {
     const cacheKey = this.generateCacheKey(cleanedText, weekStartPreference);
 
     // Vérifier le cache avant de parser
-    if (this.cache.has(cacheKey)) {
-      const cachedDate = this.cache.get(cacheKey)!;
+    const cachedDate = this.cache.get(cacheKey);
+    if (cachedDate) {
       // Créer une nouvelle instance de Date pour éviter les références partagées
       return new Date(cachedDate.getTime());
     }
@@ -582,8 +582,9 @@ export default class NLDParser {
   // this fallback can never fire for them (verified empirically before the
   // dead branches that used to sit in those paths were removed).
   private guessUnit(unitStr: string): TimeUnit {
-    if (this.timeUnitMap.has(unitStr)) {
-      return this.timeUnitMap.get(unitStr)!;
+    const mapped = this.timeUnitMap.get(unitStr);
+    if (mapped) {
+      return mapped;
     }
     if (unitStr.startsWith('h')) return 'hours';
     else if (unitStr.startsWith('d') || unitStr.startsWith('j')) return 'days';
@@ -654,8 +655,8 @@ export default class NLDParser {
       // unitStr is guaranteed to be a registered key here: regexRelative's
       // unit capture group is built from this.tc.collectWords() for the same
       // six keys that populate timeUnitMap, so a successful regex match
-      // already implies a hit.
-      const unit: TimeUnit = this.timeUnitMap.get(unitStr)!;
+      // already implies a hit -- the fallback below is unreachable.
+      const unit = this.timeUnitMap.get(unitStr) ?? this.guessUnit(unitStr);
 
       // MomentJS handles year transitions perfectly
       return window.moment().add(value, unit).toDate();
