@@ -6,9 +6,6 @@ const dict = {
   last: "último|última|passado|passada",
   this: "este|esta",
   in: "em|daqui a|daqui",
-  ago: "há",
-  // "atrás|atras" intentionally includes unaccented form for mobile/quick typing
-  agosuffix: "atrás|atras",
   sunday: "Domingo",
   monday: "Segunda-feira",
   tuesday: "Terça-feira",
@@ -21,11 +18,12 @@ const dict = {
   indays: "em %{timeDelta} dias",
   inweeks: "em %{timeDelta} semanas",
   inmonths: "em %{timeDelta} meses",
-  minutesago: "há %{timeDelta} minutos",
-  hoursago: "há %{timeDelta} horas",
   daysago: "há %{timeDelta} dias",
   weeksago: "há %{timeDelta} semanas",
   monthsago: "há %{timeDelta} meses",
+  minutesago: "há %{timeDelta} minutos",
+  hoursago: "há %{timeDelta} horas",
+  agosuffix: "atrás|atras",
   time: "hora",
   now: "agora",
   plusminutes: "+%{timeDelta} minutos",
@@ -42,6 +40,8 @@ const dict = {
   at: "às|as|à|a",
   from: "de|desde",
   to: "até|ao|à",
+  of: "do|da|de",
+  first: "primeiro|primeira",
 } as const;
 
 export default dict;

@@ -1,7 +1,11 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import NaturalLanguageDates from "./main";
-import { getLocaleWeekStart } from "./utils";
+import { getLocaleWeekStart, validateMomentFormat } from "./utils";
 
+/**
+ * Day of the week type for week start preference.
+ * Can be a specific day or "locale-default" to use the system locale.
+ */
 export type DayOfWeek =
   | "sunday"
   | "monday"
@@ -12,6 +16,10 @@ export type DayOfWeek =
   | "saturday"
   | "locale-default";
 
+/**
+ * Plugin settings interface.
+ * Contains all configuration options for the Natural Language Dates plugin.
+ */
 export interface NLDSettings {
   autosuggestToggleLink: boolean;
   autocompleteTriggerPhrase: string;
@@ -31,6 +39,9 @@ export interface NLDSettings {
   dutch: boolean;
   spanish: boolean;
   italian: boolean;
+  russian: boolean;
+  ukrainian: boolean;
+  chinese: boolean;
 
   modalToggleTime: boolean;
   modalToggleLink: boolean;
@@ -40,6 +51,9 @@ export interface NLDSettings {
   enableSmartSuggestions: boolean;
   enableHistorySuggestions: boolean;
   enableContextSuggestions: boolean;
+
+  // Smart date formatting
+  omitDateForShortRelative: boolean;
 }
 
 export const DEFAULT_SETTINGS: NLDSettings = {
@@ -61,6 +75,9 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   dutch: false,
   spanish: false,
   italian: false,
+  russian: false,
+  ukrainian: false,
+  chinese: false,
 
   modalToggleTime: false,
   modalToggleLink: false,
@@ -70,6 +87,9 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   enableSmartSuggestions: true,
   enableHistorySuggestions: true,
   enableContextSuggestions: true,
+
+  // Smart date formatting
+  omitDateForShortRelative: true,
 };
 
 const weekdays = [
@@ -101,7 +121,7 @@ export class NLDSettingsTab extends PluginSettingTab {
 
     new Setting(containerEl).setHeading().setName("Parser settings");
 
-    new Setting(containerEl)
+    const dateFormatSetting = new Setting(containerEl)
       .setName("Date format")
       .setDesc("Output format for parsed dates")
       .addMomentFormat((text) =>
@@ -109,10 +129,31 @@ export class NLDSettingsTab extends PluginSettingTab {
           .setDefaultFormat("YYYY-MM-DD")
           .setValue(this.plugin.settings.format)
           .onChange(async (value) => {
-            this.plugin.settings.format = value || "YYYY-MM-DD";
-            await this.plugin.saveSettings();
+            const validated = validateMomentFormat(value || "YYYY-MM-DD");
+            if (validated.valid) {
+              this.plugin.settings.format = value || "YYYY-MM-DD";
+              await this.plugin.saveSettings();
+              // Mettre à jour la description avec la prévisualisation.
+              // validateMomentFormat()'s contract guarantees preview is set
+              // whenever valid is true, so the ": ''" fallback below is
+              // unreachable with real data.
+              dateFormatSetting.setDesc(`Output format for parsed dates${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+            } else {
+              // Afficher l'erreur dans la description. Every invalid-format
+              // return from validateMomentFormat() always sets error, so the
+              // "Format invalide" fallback below is unreachable with real data.
+              dateFormatSetting.setDesc(`Output format for parsed dates - ⚠️ ${validated.error || "Format invalide"}`);
+              // Ne pas sauvegarder le format invalide, restaurer le précédent
+              text.setValue(this.plugin.settings.format);
+            }
           })
       );
+    
+    // Afficher la prévisualisation initiale
+    const initialValidation = validateMomentFormat(this.plugin.settings.format);
+    if (initialValidation.valid && initialValidation.preview) {
+      dateFormatSetting.setDesc(`Output format for parsed dates (Preview: ${initialValidation.preview})`);
+    }
 
     new Setting(containerEl)
       .setName("Week starts on")
@@ -139,10 +180,13 @@ export class NLDSettingsTab extends PluginSettingTab {
     this.createLanguageSetting(containerEl, "Dutch", "dutch", "nl", "under development");
     this.createLanguageSetting(containerEl, "Spanish", "spanish", "es");
     this.createLanguageSetting(containerEl, "Italian", "italian", "it");
+    this.createLanguageSetting(containerEl, "Russian", "russian", "ru");
+    this.createLanguageSetting(containerEl, "Ukrainian", "ukrainian", "uk");
+    this.createLanguageSetting(containerEl, "Chinese (Traditional)", "chinese", "zh.hant", "partially supported");
 
     new Setting(containerEl).setHeading().setName("Hotkey formatting settings");
 
-    new Setting(containerEl)
+    const timeFormatSetting = new Setting(containerEl)
       .setName("Time format")
       .setDesc("Format for the hotkeys that include the current time")
       .addMomentFormat((text) =>
@@ -150,10 +194,29 @@ export class NLDSettingsTab extends PluginSettingTab {
           .setDefaultFormat("HH:mm")
           .setValue(this.plugin.settings.timeFormat)
           .onChange(async (value) => {
-            this.plugin.settings.timeFormat = value || "HH:mm";
-            await this.plugin.saveSettings();
+            const validated = validateMomentFormat(value || "HH:mm");
+            if (validated.valid) {
+              this.plugin.settings.timeFormat = value || "HH:mm";
+              await this.plugin.saveSettings();
+              // Mettre à jour la description avec la prévisualisation (see
+              // the date-format setting above: the ": ''" fallback here is
+              // similarly unreachable given validateMomentFormat()'s contract).
+              timeFormatSetting.setDesc(`Format for the hotkeys that include the current time${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+            } else {
+              // Afficher l'erreur dans la description (unreachable fallback,
+              // same reasoning as the date-format setting above).
+              timeFormatSetting.setDesc(`Format for the hotkeys that include the current time - ⚠️ ${validated.error || "Format invalide"}`);
+              // Ne pas sauvegarder le format invalide, restaurer le précédent
+              text.setValue(this.plugin.settings.timeFormat);
+            }
           })
       );
+    
+    // Afficher la prévisualisation initiale
+    const initialTimeValidation = validateMomentFormat(this.plugin.settings.timeFormat);
+    if (initialTimeValidation.valid && initialTimeValidation.preview) {
+      timeFormatSetting.setDesc(`Format for the hotkeys that include the current time (Preview: ${initialTimeValidation.preview})`);
+    }
 
     new Setting(containerEl)
       .setName("Separator")
@@ -254,6 +317,22 @@ export class NLDSettingsTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl).setHeading().setName("Date formatting");
+
+    new Setting(containerEl)
+      .setName("Omit date for short relative expressions")
+      .setDesc(
+        "When enabled, short relative expressions for today (e.g., 'in 15 min', 'dans 2 heures') will display only the time (e.g., '14:30') instead of '[[2024-01-15]] 14:30'"
+      )
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.omitDateForShortRelative)
+          .onChange(async (value) => {
+            this.plugin.settings.omitDateForShortRelative = value;
+            await this.plugin.saveSettings();
+          })
+      );
   }
 
   protected createLanguageSetting(containerEl: HTMLElement, text: string, settingKey: keyof NLDSettings, code: string, note?: string) : Setting {
@@ -278,7 +357,10 @@ export class NLDSettingsTab extends PluginSettingTab {
         this.plugin.settings.languages.push(code);
       }
     } else {
-      this.plugin.settings.languages.remove(code);
+      const index = this.plugin.settings.languages.indexOf(code);
+      if (index > -1) {
+        this.plugin.settings.languages.splice(index, 1);
+      }
     }
   }
 }

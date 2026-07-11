@@ -1,4 +1,5 @@
 import { Plugin, normalizePath } from "obsidian";
+import { logger } from "./logger";
 
 export interface SelectionHistory {
   [suggestion: string]: number; // Nombre de fois que cette suggestion a été sélectionnée
@@ -6,16 +7,60 @@ export interface SelectionHistory {
 
 const MAX_HISTORY_SIZE = 100; // Limite du nombre d'entrées dans l'historique
 const HISTORY_FILE = "plugins/nldates-revived/history.json";
+const CLEANUP_INTERVAL = 300000; // Nettoyage périodique toutes les 5 minutes
 
 export default class HistoryManager {
   private plugin: Plugin;
   private history: SelectionHistory = {};
-  private historyLoaded: boolean = false;
+  private historyLoaded = false;
   private cachedTopSuggestions: string[] = [];
-  private cacheValid: boolean = false;
+  private cacheValid = false;
+  private cleanupInterval: number | null = null; // ID de l'intervalle de nettoyage
 
   constructor(plugin: Plugin) {
     this.plugin = plugin;
+    this.startPeriodicCleanup();
+  }
+
+  /**
+   * Démarre le nettoyage périodique de l'historique
+   */
+  private startPeriodicCleanup(): void {
+    // Nettoyer toutes les 5 minutes
+    this.cleanupInterval = window.setInterval(() => {
+      this.performPeriodicCleanup();
+    }, CLEANUP_INTERVAL);
+  }
+
+  /**
+   * Arrête le nettoyage périodique (à appeler lors de la destruction)
+   */
+  stopPeriodicCleanup(): void {
+    if (this.cleanupInterval !== null) {
+      window.clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  /**
+   * Effectue un nettoyage périodique de l'historique
+   * Réduit la taille si nécessaire et nettoie les entrées peu utilisées
+   */
+  private performPeriodicCleanup(): void {
+    if (!this.historyLoaded) {
+      return;
+    }
+
+    const currentSize = Object.keys(this.history).length;
+    
+    // Si l'historique dépasse la limite, le réduire
+    if (currentSize > MAX_HISTORY_SIZE) {
+      this.trimHistory();
+      logger.debug(`Nettoyage périodique de l'historique: réduit de ${currentSize} à ${Object.keys(this.history).length} entrées`);
+    }
+
+    // Mettre à jour le cache des suggestions
+    this.updateCache();
   }
 
   /**
@@ -63,7 +108,7 @@ export default class HistoryManager {
       
       await this.plugin.app.vault.adapter.write(path, JSON.stringify(this.history, null, 2));
     } catch (error) {
-      console.error("Erreur lors de la sauvegarde de l'historique:", error);
+      logger.error("Error saving history:", { error });
     }
   }
 
@@ -109,9 +154,9 @@ export default class HistoryManager {
     // Mettre à jour le cache
     this.updateCache();
 
-    // Sauvegarder (de manière asynchrone, ne pas bloquer)
+    // Save (asynchronously, don't block)
     this.saveHistory().catch(err => {
-      console.error("Erreur lors de la sauvegarde de l'historique:", err);
+      logger.error("Error saving history:", { error: err });
     });
   }
 
@@ -158,7 +203,7 @@ export default class HistoryManager {
    * Récupère les suggestions les plus fréquentes de manière synchrone (utilise le cache)
    * @param limit Nombre maximum de suggestions à retourner
    */
-  getTopSuggestionsSync(limit: number = 10): string[] {
+  getTopSuggestionsSync(limit = 10): string[] {
     if (!this.cacheValid) {
       // Si le cache n'est pas valide, retourner un tableau vide
       // Le cache sera mis à jour lors de l'initialisation
@@ -171,7 +216,7 @@ export default class HistoryManager {
    * Récupère les suggestions les plus fréquentes, triées par fréquence (async, met à jour le cache)
    * @param limit Nombre maximum de suggestions à retourner
    */
-  async getTopSuggestions(limit: number = 10): Promise<string[]> {
+  async getTopSuggestions(limit = 10): Promise<string[]> {
     await this.loadHistory();
     this.updateCache();
     return this.cachedTopSuggestions.slice(0, limit);
@@ -185,6 +230,13 @@ export default class HistoryManager {
     this.cachedTopSuggestions = [];
     this.cacheValid = true;
     await this.saveHistory();
+  }
+
+  /**
+   * Nettoie les ressources lors de la destruction de l'instance
+   */
+  destroy(): void {
+    this.stopPeriodicCleanup();
   }
 
   /**

@@ -6,7 +6,6 @@ const dict = {
   last: "dernier|dernière|passé|passée",
   this: "ce|cette|cet",
   in: "dans",
-  ago: "il y a",
   sunday: "Dimanche",
   monday: "Lundi",
   tuesday: "Mardi",
@@ -22,6 +21,8 @@ const dict = {
   daysago: "il y a %{timeDelta} jours",
   weeksago: "il y a %{timeDelta} semaines",
   monthsago: "il y a %{timeDelta} mois",
+  minutesago: "il y a %{timeDelta} minutes",
+  hoursago: "il y a %{timeDelta} heures",
   time: "heure",
   now: "maintenant",
   plusminutes: "+%{timeDelta} minutes",
@@ -38,6 +39,8 @@ const dict = {
   at: "à|a",
   from: "de|depuis|du",
   to: "à|a|jusqu'à|jusqu'au|au",
+  of: "du|de",
+  first: "premier|première",
 } as const;
 
 export default dict;

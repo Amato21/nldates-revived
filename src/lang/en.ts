@@ -6,7 +6,6 @@ const dict = {
   last: "Last",
   this: "This",
   in: "In",
-  agosuffix: "ago",
   sunday: "Sunday",
   monday: "Monday",
   tuesday: "Tuesday",
@@ -22,6 +21,8 @@ const dict = {
   daysago: "%{timeDelta} days ago",
   weeksago: "%{timeDelta} weeks ago",
   monthsago: "%{timeDelta} months ago",
+  minutesago: "%{timeDelta} minutes ago",
+  hoursago: "%{timeDelta} hours ago",
   time: "Time",
   now: "Now",
   plusminutes: "+%{timeDelta} minutes",
@@ -38,6 +39,8 @@ const dict = {
   at: "At",
   from: "From",
   to: "To|Until|Till",
+  of: "of",
+  first: "first",
 } as const;
 
 export default dict;

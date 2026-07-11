@@ -21,6 +21,8 @@ const dict = {
   daysago: "%{timeDelta} giorni fa",
   weeksago: "%{timeDelta} settimane fa",
   monthsago: "%{timeDelta} mesi fa",
+  minutesago: "%{timeDelta} minuti fa",
+  hoursago: "%{timeDelta} ore fa",
   time: "ora",
   now: "adesso|ora",
   plusminutes: "+%{timeDelta} minuti",
@@ -37,6 +39,8 @@ const dict = {
   at: "alle|alla|a",
   from: "da|dal|dalla",
   to: "a|fino a|fino al|fino alla",
+  of: "del|della|di",
+  first: "primo|prima",
 } as const;
 
 export default dict;
