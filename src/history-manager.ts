@@ -1,13 +1,27 @@
 import { Plugin, normalizePath } from "obsidian";
 import { logger } from "./logger";
 
+export interface HistoryEntry {
+  count: number; // Nombre de fois que cette suggestion a été sélectionnée
+  lastUsed: number; // Date.now() de la dernière sélection
+}
+
 export interface SelectionHistory {
-  [suggestion: string]: number; // Nombre de fois que cette suggestion a été sélectionnée
+  [suggestion: string]: HistoryEntry;
 }
 
 const MAX_HISTORY_SIZE = 100; // Limite du nombre d'entrées dans l'historique
 const HISTORY_FILE = "plugins/nldates-revived/history.json";
 const CLEANUP_INTERVAL = 300000; // Nettoyage périodique toutes les 5 minutes
+
+// A suggestion's rank is frequency weighted by recency, not raw lifetime
+// count: without decay, something selected 50 times six months ago would
+// permanently outrank something selected 3 times this week, even though
+// the latter is clearly more relevant *now*. Halving the weight every
+// HALF_LIFE_MS of inactivity means every reuse "refreshes" an entry, while
+// genuinely stale entries fade out instead of camping the top of the list
+// forever.
+const HALF_LIFE_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours
 
 export default class HistoryManager {
   private plugin: Plugin;
@@ -64,6 +78,44 @@ export default class HistoryManager {
   }
 
   /**
+   * Convertit un historique chargé depuis le disque vers le format actuel.
+   * Les fichiers écrits par une version antérieure du plugin stockent un
+   * simple compteur (`{ [suggestion]: number }`) au lieu de
+   * `{ [suggestion]: HistoryEntry }` -- on donne à ces entrées un
+   * lastUsed de "maintenant" pour ne pas les faire disparaître
+   * immédiatement du classement le temps qu'un nouvel usage les rafraîchisse.
+   */
+  private migrateHistory(raw: Record<string, unknown>): SelectionHistory {
+    const migrated: SelectionHistory = {};
+    const now = Date.now();
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value === "number") {
+        migrated[key] = { count: value, lastUsed: now };
+      } else if (
+        value &&
+        typeof value === "object" &&
+        typeof (value as HistoryEntry).count === "number" &&
+        typeof (value as HistoryEntry).lastUsed === "number"
+      ) {
+        migrated[key] = value as HistoryEntry;
+      }
+      // Anything else (malformed entry) is silently dropped rather than
+      // carried forward -- a single bad entry shouldn't poison the rest.
+    }
+    return migrated;
+  }
+
+  /**
+   * Score d'une entrée : fréquence pondérée par la fraîcheur d'utilisation
+   * (voir HALF_LIFE_MS). Utilisé pour trier/trimmer l'historique.
+   */
+  private computeScore(entry: HistoryEntry, now: number): number {
+    const ageMs = Math.max(0, now - entry.lastUsed);
+    const decay = Math.pow(0.5, ageMs / HALF_LIFE_MS);
+    return entry.count * decay;
+  }
+
+  /**
    * Charge l'historique depuis le stockage
    */
   async loadHistory(): Promise<void> {
@@ -80,7 +132,7 @@ export default class HistoryManager {
         if (data) {
           const parsed: unknown = JSON.parse(data);
           if (parsed && typeof parsed === "object") {
-            this.history = parsed as SelectionHistory;
+            this.history = this.migrateHistory(parsed as Record<string, unknown>);
           }
         }
       }
@@ -157,8 +209,12 @@ export default class HistoryManager {
       return;
     }
 
-    // Incrémenter le compteur (utiliser la clé en minuscules)
-    this.history[normalized] = (this.history[normalized] || 0) + 1;
+    // Incrémenter le compteur et rafraîchir la date d'utilisation (utiliser la clé en minuscules)
+    const existing = this.history[normalized];
+    this.history[normalized] = {
+      count: (existing?.count || 0) + 1,
+      lastUsed: Date.now(),
+    };
 
     // Limiter la taille de l'historique si nécessaire
     if (Object.keys(this.history).length > MAX_HISTORY_SIZE) {
@@ -175,17 +231,19 @@ export default class HistoryManager {
   }
 
   /**
-   * Réduit la taille de l'historique en gardant les entrées les plus fréquentes
+   * Réduit la taille de l'historique en gardant les entrées les plus pertinentes
+   * (fréquence pondérée par la fraîcheur, voir computeScore())
    */
   private trimHistory(): void {
+    const now = Date.now();
     const entries = Object.entries(this.history);
-    
-    // Trier par fréquence (décroissant)
-    entries.sort((a, b) => b[1] - a[1]);
-    
-    // Garder uniquement les MAX_HISTORY_SIZE entrées les plus fréquentes
+
+    // Trier par score (décroissant)
+    entries.sort((a, b) => this.computeScore(b[1], now) - this.computeScore(a[1], now));
+
+    // Garder uniquement les MAX_HISTORY_SIZE entrées les plus pertinentes
     const trimmed = entries.slice(0, MAX_HISTORY_SIZE);
-    
+
     this.history = Object.fromEntries(trimmed);
   }
 
@@ -198,16 +256,18 @@ export default class HistoryManager {
   }
 
   /**
-   * Met à jour le cache des suggestions les plus fréquentes
+   * Met à jour le cache des suggestions les plus pertinentes
+   * (fréquence pondérée par la fraîcheur, voir computeScore())
    */
   private updateCache(): void {
+    const now = Date.now();
     const entries = Object.entries(this.history);
-    
-    // Trier par fréquence (décroissant)
-    entries.sort((a, b) => b[1] - a[1]);
-    
+
+    // Trier par score (décroissant)
+    entries.sort((a, b) => this.computeScore(b[1], now) - this.computeScore(a[1], now));
+
     // Mettre en cache les top suggestions avec la première lettre capitalisée
-    this.cachedTopSuggestions = entries.slice(0, 50).map(([suggestion]) => 
+    this.cachedTopSuggestions = entries.slice(0, 50).map(([suggestion]) =>
       this.normalizeSuggestion(suggestion)
     );
     this.cacheValid = true;
