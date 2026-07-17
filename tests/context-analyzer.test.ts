@@ -122,7 +122,9 @@ describe("ContextAnalyzer", () => {
     } as any;
     analyzer = new ContextAnalyzer(app, plugin);
     const result = analyzer.analyzeContextSync(editor, 0);
-    expect(result).toEqual({ datesInContext: [], tags: [] });
+    expect(result.datesInContext).toEqual([]);
+    expect(result.tags).toEqual([]);
+    expect(result.timestamp).toEqual(expect.any(Number));
   });
 
   it("extracts tags and a title from frontmatter metadata", () => {

@@ -20,8 +20,14 @@ type Translator = (key: string, defaultValue: string, variables?: Record<string,
 // Performance optimization: translators are created once and reused
 const translatorCache: Record<string, Translator> = {};
 
+// Shape shared by every language dict: same keys as `en`, but each language
+// has its own string values (not `en`'s exact literal text) -- using
+// `typeof en` directly here would compare every other language's text
+// against `en`'s literal English strings and always fail.
+type LangDict = { readonly [K in keyof typeof en]: string };
+
 // Map des modules de langue pour faciliter l'accès
-const languageModules: Record<string, typeof en> = {
+const languageModules: Record<string, LangDict> = {
   en,
   ja,
   fr,
@@ -43,11 +49,15 @@ function getTranslator(lang: string): Translator {
   if (!translatorCache[lang]) {
     const languageModule = languageModules[lang];
     if (languageModule) {
-      translatorCache[lang] = i18n.create({ values: languageModule });
+      // roddeh-i18n's shipped types declare the 2nd call argument as
+      // `number | FormattingContext`, but its actual runtime API (used
+      // throughout this file) also accepts a plain string default value --
+      // that overload just isn't reflected in its .d.ts, hence the cast.
+      translatorCache[lang] = i18n.create({ values: languageModule }) as unknown as Translator;
     } else {
       // Fallback vers l'anglais si la langue n'est pas trouvée
       if (!translatorCache['en']) {
-        translatorCache['en'] = i18n.create({ values: en });
+        translatorCache['en'] = i18n.create({ values: en }) as unknown as Translator;
       }
       return translatorCache['en'];
     }
