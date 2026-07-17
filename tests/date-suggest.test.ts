@@ -564,6 +564,41 @@ describe('DateSuggest', () => {
       expect(inserted).toBe('[[2024-01-02|tomorrow]]');
     });
 
+    it('uses the typed casing for the alias when the user fully typed the word, even if it differs from the suggestion\'s dictionary casing (regression)', () => {
+      // French's "tomorrow" dictionary entry is "Demain" (capitalized), but
+      // a user who typed "@demain" in lowercase and picked the "Demain"
+      // suggestion expects the alias to read "demain", not the dictionary's
+      // canonical casing -- Shift's own tooltip says "Keep text as alias".
+      plugin.settings.autosuggestToggleLink = true;
+      plugin.parseDate = vi.fn(() => ({ formattedString: '2024-01-02', date: moment('2024-01-02').toDate(), moment: moment('2024-01-02') }));
+      (suggest as any).context = {
+        editor: mockEditor,
+        start: { line: 0, ch: 0 },
+        end: { line: 0, ch: 8 },
+        query: 'demain', // what the user actually typed
+      };
+      suggest.selectSuggestion('Demain', { shiftKey: true } as any); // suggestion picked from the dropdown
+      const inserted = mockEditor.replaceRange.mock.calls[0][0];
+      expect(inserted).toBe('[[2024-01-02|demain]]');
+    });
+
+    it('falls back to the full suggestion text for the alias when the user only typed a partial word (regression)', () => {
+      // Typing "@demai" and picking "Demain" from the dropdown: the typed
+      // query is a partial/incomplete word, so using it verbatim as the
+      // alias would show a broken-looking half-typed word in the note.
+      plugin.settings.autosuggestToggleLink = true;
+      plugin.parseDate = vi.fn(() => ({ formattedString: '2024-01-02', date: moment('2024-01-02').toDate(), moment: moment('2024-01-02') }));
+      (suggest as any).context = {
+        editor: mockEditor,
+        start: { line: 0, ch: 0 },
+        end: { line: 0, ch: 6 },
+        query: 'demai', // incomplete
+      };
+      suggest.selectSuggestion('Demain', { shiftKey: true } as any);
+      const inserted = mockEditor.replaceRange.mock.calls[0][0];
+      expect(inserted).toBe('[[2024-01-02|Demain]]');
+    });
+
     it('builds a hybrid [[date]] time link when the suggestion has a time and linking is enabled', () => {
       plugin.settings.autosuggestToggleLink = true;
       plugin.settings.format = 'YYYY-MM-DD';
