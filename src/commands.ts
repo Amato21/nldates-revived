@@ -11,8 +11,13 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
   if (!editor) {
     return;
   }
-  const cursor = editor.getCursor();
   const selectedText = getSelectedText(editor);
+  // Captured after getSelectedText(): when nothing was selected, that call
+  // expands the selection to the word at the cursor, which moves where the
+  // selection actually ends. Capturing the cursor beforehand would anchor
+  // adjustCursor()'s offset math to the pre-expansion position instead of
+  // the edge of the text that's about to be replaced.
+  const cursor = editor.getCursor("to");
 
   // Vérifier d'abord si c'est une plage de dates
   const dateRange = plugin.parseDateRange(selectedText);
@@ -29,6 +34,10 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
         } else if (mode == "link") {
           return `[${formatted}](${formatted})`;
         } else {
+          // "clean" and "time" both resolve to the plain formatted date here:
+          // each dateList entry is a whole calendar day with no parsed time
+          // component, so "time" for a range means the same as "clean" (see
+          // the identical mode == "time" case in the non-list branch below).
           return formatted;
         }
       });

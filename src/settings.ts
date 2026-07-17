@@ -262,16 +262,28 @@ export class NLDSettingsTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl)
+    const triggerPhraseDesc = "Character(s) that will cause the date autosuggest to open";
+    const triggerPhraseSetting = new Setting(containerEl)
       .setName("Trigger phrase")
-      .setDesc("Character(s) that will cause the date autosuggest to open")
+      .setDesc(triggerPhraseDesc)
       .addMomentFormat((text) =>
         text
           .setPlaceholder(DEFAULT_SETTINGS.autocompleteTriggerPhrase)
           .setValue(this.plugin.settings.autocompleteTriggerPhrase || "@")
           .onChange(async (value) => {
-            this.plugin.settings.autocompleteTriggerPhrase = value.trim();
-            await this.plugin.saveSettings();
+            const trimmed = value.trim();
+            if (trimmed) {
+              this.plugin.settings.autocompleteTriggerPhrase = trimmed;
+              await this.plugin.saveSettings();
+              triggerPhraseSetting.setDesc(triggerPhraseDesc);
+            } else {
+              // An empty trigger phrase makes onTrigger()'s
+              // query.startsWith(triggerPhrase) always true, so the
+              // autosuggest popup would fire on virtually every keystroke.
+              // Refuse to save it, matching the Date/Time format fields above.
+              triggerPhraseSetting.setDesc(`${triggerPhraseDesc} - ⚠️ Trigger phrase cannot be empty`);
+              text.setValue(this.plugin.settings.autocompleteTriggerPhrase || "@");
+            }
           })
       );
 

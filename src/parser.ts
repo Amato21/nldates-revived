@@ -127,7 +127,6 @@ export default class NLDParser {
     this.timeDetector = new TimeDetector({
       languages: this.languages,
       chronos: this.chronos,
-      immediateKeywords: this.immediateKeywords,
       regexRelative: this.regexRelative,
       regexRelativeCombined: this.regexRelativeCombined,
       regexWeekday: this.regexWeekday,

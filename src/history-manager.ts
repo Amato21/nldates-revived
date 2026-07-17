@@ -84,8 +84,13 @@ export default class HistoryManager {
           }
         }
       }
-    } catch {
-      // Si le fichier n'existe pas, c'est normal (première utilisation)
+    } catch (error) {
+      // The exists()/read() calls above already handle the "file doesn't
+      // exist yet" case explicitly (the `if (exists)` guard) -- reaching
+      // this catch means an actual anomaly (corrupted JSON from an
+      // interrupted write, a sync conflict, etc.), so log it instead of
+      // silently discarding the user's history with no diagnostic trail.
+      logger.error("Error loading history:", { error });
       this.history = {};
     }
     this.historyLoaded = true;

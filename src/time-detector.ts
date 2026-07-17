@@ -7,7 +7,6 @@ import t from "./lang/helper";
 export interface TimeDetectorDependencies {
   languages: string[];
   chronos: Chrono[];
-  immediateKeywords: Set<string>;
   regexRelative: RegExp;
   regexRelativeCombined: RegExp;
   regexWeekday: RegExp;
@@ -20,7 +19,6 @@ export interface TimeDetectorDependencies {
 export class TimeDetector {
   private languages: string[];
   private chronos: Chrono[];
-  private immediateKeywords: Set<string>;
   private regexRelative: RegExp;
   private regexRelativeCombined: RegExp;
   private regexWeekday: RegExp;
@@ -29,7 +27,6 @@ export class TimeDetector {
   constructor(dependencies: TimeDetectorDependencies) {
     this.languages = dependencies.languages;
     this.chronos = dependencies.chronos;
-    this.immediateKeywords = dependencies.immediateKeywords;
     this.regexRelative = dependencies.regexRelative;
     this.regexRelativeCombined = dependencies.regexRelativeCombined;
     this.regexWeekday = dependencies.regexWeekday;
@@ -41,10 +38,19 @@ export class TimeDetector {
    */
   hasTimeComponent(text: string): boolean {
     // 1. If it's "now" in any language, YES.
-    const nowWords = Array.from(this.immediateKeywords).filter(w => 
-      this.languages.some(lang => t('now', lang).toLowerCase() === w)
+    // Translations can list several variants pipe-separated (e.g. Italian
+    // "adesso|ora", Chinese "現在|现在"); split each language's "now" entry
+    // directly instead of trying to match individual immediateKeywords
+    // entries (already split, for all of now/today/tomorrow/yesterday
+    // combined) against the raw, unsplit translation string, which could
+    // never equal a single already-split variant.
+    const nowWords = this.languages.flatMap(lang =>
+      t('now', lang).toLowerCase().split('|').map(w => w.trim()).filter(w => w)
     );
-    if (nowWords.some(w => new RegExp(`^${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i').test(text))) {
+    // Exact, case-insensitive match against the whole string -- no need to
+    // compile a RegExp per word per call for that, a plain lowercase +
+    // includes() does the same thing more simply and more cheaply.
+    if (nowWords.includes(text.toLowerCase().trim())) {
       return true;
     }
 
