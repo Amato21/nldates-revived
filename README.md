@@ -5,6 +5,10 @@ It brings the plugin back to life with a modern engine, true multilingual suppor
 
 ## New Features
 
+### v0.9.7 - Bug Fixes
+* Fixed `@now`, `@in 20 minutes`, and other expressions relative to the current instant getting cached for a whole day, causing them to return the same stale timestamp on every call after the first. They're now always computed fresh (thanks @raeglan for the report!).
+* Removed leftover ES5 transpilation helpers (`__awaiter`, `__generator`, `__spreadArray`) from the build output by targeting ES2020.
+
 ### v0.9.6 - Obsidian Plugin Review Compliance
 * Removed a regex lookbehind that isn't supported on iOS/Safari before 16.4, which could break date detection on older devices.
 * Replaced runtime `<style>` element injection in the date picker with a proper `styles.css` file, per Obsidian's plugin guidelines.
