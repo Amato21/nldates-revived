@@ -17,6 +17,69 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Optimal String Alignment (OSA) edit distance: like Levenshtein, but also
+// treats swapping two adjacent characters as a single edit (e.g. "heir" vs
+// "hier" is distance 1, not 2) -- an adjacent-letter transposition is one of
+// the most common typing mistakes, and plain Levenshtein would otherwise
+// count it as two substitutions and push it past the threshold in
+// fuzzyMatchesQuery() below. Space is kept to three rolling rows of length
+// b.length + 1 (instead of a full (a.length+1) x (b.length+1) table) since
+// this runs on every keystroke against every candidate.
+function editDistance(a: string, b: string): number {
+  const n = b.length;
+  let twoRowsAgo = new Array<number>(n + 1).fill(0);
+  let prevRow = Array.from({ length: n + 1 }, (_, j) => j);
+  let currentRow = new Array<number>(n + 1).fill(0);
+
+  for (let i = 1; i <= a.length; i++) {
+    currentRow[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let value = Math.min(
+        prevRow[j] + 1, // deletion
+        currentRow[j - 1] + 1, // insertion
+        prevRow[j - 1] + cost // substitution
+      );
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        value = Math.min(value, twoRowsAgo[j - 2] + 1); // transposition
+      }
+      currentRow[j] = value;
+    }
+    [twoRowsAgo, prevRow, currentRow] = [prevRow, currentRow, twoRowsAgo];
+  }
+  return prevRow[n];
+}
+
+// Prefix match if possible (fast, exact, and the only behavior for queries
+// too short to fuzzy-match reliably); otherwise tolerate a small edit
+// distance between the query and candidate prefixes of similar length, so a
+// single wrong/missing/transposed letter near the start of the query still
+// surfaces the intended suggestion instead of none at all. Checks a window
+// of prefix lengths around the query's own length (query.length ± threshold)
+// rather than a single fixed-length slice -- comparing against a prefix
+// that's forced to be longer than the query by more than the threshold would
+// otherwise make the edit distance at least that length difference, which
+// can exceed the threshold even for an exact-prefix match (e.g. "tomur"
+// against a fixed 7-character slice of "tomorrow" is already 2 edits away
+// before accounting for the actual typo). Only used for short, fixed
+// candidate lists (today/tomorrow, weekdays, history/context) -- the
+// multi-stage progressive-typing suggestion generators elsewhere in this
+// file keep strict prefix matching, since fuzzy matching interacts
+// unpredictably with their partial-completion logic.
+function fuzzyMatchesQuery(candidate: string, query: string): boolean {
+  const c = candidate.toLowerCase();
+  const q = query.toLowerCase();
+  if (!q || c.startsWith(q)) return true;
+  if (q.length <= 2) return false; // too short to fuzzy-match without noise
+  const threshold = q.length <= 5 ? 1 : 2;
+  const minLen = Math.max(1, q.length - threshold);
+  const maxLen = Math.min(c.length, q.length + threshold);
+  for (let len = minLen; len <= maxLen; len++) {
+    if (editDistance(c.slice(0, len), q) <= threshold) return true;
+  }
+  return false;
+}
+
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
 
@@ -106,8 +169,8 @@ export default class DateSuggest extends EditorSuggest<string> {
       try {
         const historySuggestions = this.plugin.historyManager.getTopSuggestionsSync(15);
         for (const suggestion of historySuggestions) {
-          // Vérifier que la suggestion correspond à la requête
-          if (suggestion.toLowerCase().startsWith(query) && !smartSuggestions.includes(suggestion)) {
+          // Vérifier que la suggestion correspond à la requête (tolère une petite faute de frappe)
+          if (fuzzyMatchesQuery(suggestion, query) && !smartSuggestions.includes(suggestion)) {
             smartSuggestions.push(suggestion);
           }
         }
@@ -124,9 +187,9 @@ export default class DateSuggest extends EditorSuggest<string> {
           context.start.line
         );
         
-        // Ajouter les dates trouvées dans le contexte
+        // Ajouter les dates trouvées dans le contexte (tolère une petite faute de frappe)
         for (const dateStr of contextInfo.datesInContext) {
-          if (dateStr.toLowerCase().startsWith(query) && !smartSuggestions.includes(dateStr)) {
+          if (fuzzyMatchesQuery(dateStr, query) && !smartSuggestions.includes(dateStr)) {
             smartSuggestions.push(dateStr);
           }
         }
@@ -403,8 +466,8 @@ export default class DateSuggest extends EditorSuggest<string> {
       const firstVariant = dayName.split('|')[0].trim();
       const dayNameLower = firstVariant.toLowerCase();
 
-      // Vérifier si le nom complet commence par l'input
-      if (dayNameLower.startsWith(inputLower)) {
+      // Vérifier si le nom complet commence par l'input (tolère une petite faute de frappe)
+      if (fuzzyMatchesQuery(dayNameLower, inputLower)) {
         const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
         if (!suggestions.includes(capitalized)) {
           suggestions.push(capitalized);
@@ -436,7 +499,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       t("today", lang),
       t("yesterday", lang),
       t("tomorrow", lang),
-    ].filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
+    ].filter(item => fuzzyMatchesQuery(item, inputStr));
   }
 
   renderSuggestion(suggestion: string, el: HTMLElement): void {
