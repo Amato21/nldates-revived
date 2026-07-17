@@ -2,6 +2,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import NaturalLanguageDates from "./main";
 import { getLocaleWeekStart, validateMomentFormat } from "./utils";
 import moment from "./window-moment";
+import HistoryManagerModal from "./modals/history-manager-modal";
 
 /**
  * Day of the week type for week start preference.
@@ -328,6 +329,19 @@ export class NLDSettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.enableContextSuggestions = value;
             await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Manage history")
+      .setDesc(
+        "View your suggestion history and remove individual entries, or clear it entirely"
+      )
+      .addButton((button) =>
+        button
+          .setButtonText("Manage history")
+          .onClick(() => {
+            new HistoryManagerModal(this.app, this.plugin).open();
           })
       );
 

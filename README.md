@@ -100,6 +100,7 @@ Go to **Settings > Natural Language Dates**:
     * **Enable smart suggestions:** Master toggle for all intelligent features
     * **History-based suggestions:** Learn from your frequently used date patterns. Ranking favors what you've picked *recently*, not just most often overall — something you used a lot months ago naturally fades if you haven't reached for it lately, while anything you reuse jumps back to the top.
     * **Context-based suggestions:** Detect dates already mentioned in the current document (within ±10 lines of the cursor) and suggest them
+    * **Manage history:** Opens a list of everything in your suggestion history (most relevant first), with a button to remove any single entry, plus a "Clear all" option (armed on the first click, applied on the second, so it can't be triggered by accident)
 * **Date Formatting:**
     * **Omit date for short relative expressions:** When enabled, short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`) will display only the time (e.g., `14:30`) instead of `[[2024-01-15]] 14:30` (enabled by default)
 
