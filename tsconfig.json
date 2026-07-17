@@ -6,7 +6,7 @@
     "module": "ESNext",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES6",
+    "target": "ES2020",
     "allowJs": true,
     "noImplicitAny": true,
     "useUnknownInCatchVariables": true,
@@ -16,7 +16,7 @@
       "dom",
       "es5",
       "scripthost",
-      "es2019"
+      "es2020"
     ]
   },
   "include": [

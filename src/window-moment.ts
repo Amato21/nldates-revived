@@ -16,7 +16,7 @@
 // error-handling branches around a throwing .format()), and a plain
 // captured reference would keep pointing at the pre-mock function.
 const moment: typeof import("moment") = new Proxy(
-  (() => undefined) as unknown as typeof import("moment"),
+  ((): undefined => undefined) as unknown as typeof import("moment"),
   {
     apply: (_target, thisArg, args: unknown[]) =>
       Reflect.apply(window.moment as unknown as (...a: unknown[]) => unknown, thisArg, args),
