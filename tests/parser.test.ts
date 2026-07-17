@@ -1323,12 +1323,63 @@ describe('NLDParser', () => {
       // real day-of-year against the day it was last populated on. Forcing
       // a stale cacheDay is the only practical way to exercise that branch
       // without mocking the system clock.
+      // Uses "next monday" rather than "today"/"now": those bypass the
+      // cache entirely (see the "volatile expressions" tests below), so
+      // they wouldn't touch cacheDay at all.
       const singleUseParser: any = new NLDParser(['en']);
       singleUseParser.getParsedDate('tomorrow', weekStartPreference);
       expect(singleUseParser.cache.size).toBeGreaterThan(0);
       singleUseParser.cacheDay = -999;
-      singleUseParser.getParsedDate('today', weekStartPreference);
+      singleUseParser.getParsedDate('next monday', weekStartPreference);
       expect(singleUseParser.cacheDay).not.toBe(-999);
+    });
+  });
+
+  describe('Volatile expressions bypass the cache (issue #28)', () => {
+    // "now"/"in X minutes"/"X ago" resolve relative to the exact current
+    // instant. Regression test for the bug where they got cached for a
+    // whole day, so repeated calls kept returning the first result they
+    // ever produced that day instead of a fresh one.
+    it("'now' should not be served from a stale cache entry", () => {
+      const singleUseParser: any = new NLDParser(['en']);
+      const first = singleUseParser.getParsedDate('now', weekStartPreference);
+      // Poison the cache with a stale entry for the exact key 'now' would use,
+      // so a cache hit would be detectable as wrong.
+      const cacheKey = singleUseParser.generateCacheKey('now', weekStartPreference);
+      singleUseParser.cache.set(cacheKey, new Date(0));
+      const second = singleUseParser.getParsedDate('now', weekStartPreference);
+      expect(second.getTime()).not.toBe(new Date(0).getTime());
+      expect(moment(second).isSame(moment(), 'minute')).toBe(true);
+      expect(first).toBeInstanceOf(Date);
+    });
+
+    it("'in 20 minutes' should not be served from a stale cache entry", () => {
+      const singleUseParser: any = new NLDParser(['en']);
+      singleUseParser.getParsedDate('in 20 minutes', weekStartPreference);
+      const cacheKey = singleUseParser.generateCacheKey('in 20 minutes', weekStartPreference);
+      singleUseParser.cache.set(cacheKey, new Date(0));
+      const result = singleUseParser.getParsedDate('in 20 minutes', weekStartPreference);
+      expect(result.getTime()).not.toBe(new Date(0).getTime());
+      expect(moment(result).isSame(moment().add(20, 'minutes'), 'minute')).toBe(true);
+    });
+
+    it("'2 hours ago' should not be served from a stale cache entry", () => {
+      const singleUseParser: any = new NLDParser(['en']);
+      singleUseParser.getParsedDate('2 hours ago', weekStartPreference);
+      const cacheKey = singleUseParser.generateCacheKey('2 hours ago', weekStartPreference);
+      singleUseParser.cache.set(cacheKey, new Date(0));
+      const result = singleUseParser.getParsedDate('2 hours ago', weekStartPreference);
+      expect(result.getTime()).not.toBe(new Date(0).getTime());
+      expect(moment(result).isSame(moment().subtract(2, 'hours'), 'minute')).toBe(true);
+    });
+
+    it("volatile expressions should never add entries to the cache", () => {
+      const singleUseParser: any = new NLDParser(['en']);
+      singleUseParser.getParsedDate('now', weekStartPreference);
+      singleUseParser.getParsedDate('today', weekStartPreference);
+      singleUseParser.getParsedDate('in 20 minutes', weekStartPreference);
+      singleUseParser.getParsedDate('2 hours ago', weekStartPreference);
+      expect(singleUseParser.cache.size).toBe(0);
     });
   });
 

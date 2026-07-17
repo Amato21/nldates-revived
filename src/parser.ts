@@ -422,15 +422,33 @@ export default class NLDParser {
    * ```
    */
   getParsedDate(selectedText: string, weekStartPreference: DayOfWeek): Date {
+    // Nettoyer les caractères spéciaux en fin de chaîne (ex: "tomorrow!!!")
+    const cleanedText = selectedText.trim().replace(/[!?.]+$/, '');
+    const text = cleanedText.toLowerCase();
+
+    // "now"/"today", "X ago", and "in X units" all resolve relative to the
+    // exact current instant (not just the current day), so caching them at
+    // the cache's day-sized granularity would return a stale time on every
+    // call after the first within that day (e.g. "in 20 minutes" or "now"
+    // always returning the first result they ever produced that day).
+    // Always compute these fresh, bypassing the cache entirely.
+    // "tomorrow"/"yesterday" resolve to a specific calendar day like the
+    // other cached expressions below, so they stay on the cached path
+    // (handled by tryImmediateKeywords further down).
+    const nowWords = this.tc.collectWords('now', { lowercase: true });
+    const todayWords = this.tc.collectWords('today', { lowercase: true });
+    const volatileResult =
+      (nowWords.includes(text) || todayWords.includes(text) ? new Date() : null) ??
+      this.tryPastExpressions(text, cleanedText) ??
+      this.tryRelativeCalculation(cleanedText);
+    if (volatileResult) return volatileResult;
+
     // Vérifier si le jour a changé pour invalider le cache
     const currentDay = this.getDayOfYear();
     if (currentDay !== this.cacheDay) {
       this.cache.clear();
       this.cacheDay = currentDay;
     }
-
-    // Nettoyer les caractères spéciaux en fin de chaîne (ex: "tomorrow!!!")
-    const cleanedText = selectedText.trim().replace(/[!?.]+$/, '');
 
     // Générer la clé du cache avec le texte nettoyé pour que "tomorrow" et "tomorrow!!!" utilisent la même clé
     const cacheKey = this.generateCacheKey(cleanedText, weekStartPreference);
@@ -442,16 +460,12 @@ export default class NLDParser {
       return new Date(cachedDate.getTime());
     }
 
-    const text = cleanedText.toLowerCase();
-
     // Each try*() method below returns null when it doesn't recognize the
     // input, letting the next level have a shot -- same LEVEL 1-4 order this
     // file has always used, just split into named, independently readable
     // methods instead of one function that used to run ~570 lines.
     const result =
       this.tryImmediateKeywords(text) ??
-      this.tryPastExpressions(text, cleanedText) ??
-      this.tryRelativeCalculation(cleanedText) ??
       this.tryDateRangeShortcut(cleanedText) ??
       this.tryWeekdays(cleanedText) ??
       this.tryOrdinalOfMonth(cleanedText) ??
