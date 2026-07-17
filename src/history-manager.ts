@@ -85,10 +85,18 @@ export default class HistoryManager {
    * lastUsed de "maintenant" pour ne pas les faire disparaître
    * immédiatement du classement le temps qu'un nouvel usage les rafraîchisse.
    */
-  private migrateHistory(raw: Record<string, unknown>): SelectionHistory {
+  private migrateHistory(raw: unknown): SelectionHistory {
     const migrated: SelectionHistory = {};
+    // typeof [] === "object", so a top-level JSON array (corrupted file,
+    // stray manual edit) would otherwise sail through the caller's
+    // `typeof parsed === "object"` check and get walked here: Object.entries()
+    // on an array yields numeric-string keys ("0", "1", ...) that would be
+    // migrated into bogus history entries.
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return migrated;
+    }
     const now = Date.now();
-    for (const [key, value] of Object.entries(raw)) {
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
       if (typeof value === "number") {
         migrated[key] = { count: value, lastUsed: now };
       } else if (
@@ -97,7 +105,13 @@ export default class HistoryManager {
         typeof (value as HistoryEntry).count === "number" &&
         typeof (value as HistoryEntry).lastUsed === "number"
       ) {
-        migrated[key] = value as HistoryEntry;
+        // Copy only the two expected fields rather than keeping the whole
+        // parsed object reference, so unexpected extra properties on a
+        // malformed entry aren't silently carried forward and re-persisted.
+        migrated[key] = {
+          count: (value as HistoryEntry).count,
+          lastUsed: (value as HistoryEntry).lastUsed,
+        };
       }
       // Anything else (malformed entry) is silently dropped rather than
       // carried forward -- a single bad entry shouldn't poison the rest.
@@ -132,7 +146,7 @@ export default class HistoryManager {
         if (data) {
           const parsed: unknown = JSON.parse(data);
           if (parsed && typeof parsed === "object") {
-            this.history = this.migrateHistory(parsed as Record<string, unknown>);
+            this.history = this.migrateHistory(parsed);
           }
         }
       }

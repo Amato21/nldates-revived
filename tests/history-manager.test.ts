@@ -99,6 +99,29 @@ describe('HistoryManager.loadHistory', () => {
     expect((manager as any).history.broken).toBeUndefined();
     expect((manager as any).history.tomorrow).toBeDefined();
   });
+
+  it('drops extra unexpected properties on an otherwise-valid entry instead of carrying them forward', async () => {
+    const plugin = makePlugin({
+      read: vi.fn(async () => JSON.stringify({ tomorrow: { count: 3, lastUsed: 12345, extra: 'unexpected' } })),
+    });
+    manager = new HistoryManager(plugin);
+
+    await manager.loadHistory();
+
+    expect((manager as any).history.tomorrow).toEqual({ count: 3, lastUsed: 12345 });
+  });
+
+  it('returns an empty history instead of migrating garbage entries when the loaded data is a top-level array (regression)', async () => {
+    // typeof [] === "object", so a corrupted file containing a JSON array
+    // used to sail through the "typeof parsed === object" guard and get
+    // walked as if it were { "0": ..., "1": ..., "2": ... }.
+    const plugin = makePlugin({ read: vi.fn(async () => JSON.stringify([1, 2, 3])) });
+    manager = new HistoryManager(plugin);
+
+    await manager.loadHistory();
+
+    expect((manager as any).history).toEqual({});
+  });
 });
 
 describe('HistoryManager suggestion capitalization (regression)', () => {
