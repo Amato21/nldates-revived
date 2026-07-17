@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Settings → Smart suggestions → **Manage history**: view your suggestion history (most relevant first) and remove individual entries, or clear the whole history at once.
 
 ### Fixed
+- Combining a day keyword with a relative time expression (e.g. `@today in 3 minutes`, `@aujourd'hui dans 3 minutes`) resolved to the right date but the *current* time instead of the requested offset — chrono-node returns multiple disjoint matches for this kind of input, and only the first one was ever considered. Reported and reproduced in both English and French.
 - `getWordBoundaries()` (used by every parse command invoked with no text selected) crashed when the cursor sat on an empty line or between non-word characters.
 - A corrupted `history.json` (interrupted write, sync conflict) was silently wiped with no logging.
 - Ordinal-only dates like `@15th` resolved to the wrong month (and sometimes the wrong year) due to a 0-indexed/1-indexed mismatch between moment.js and chrono-node.
@@ -31,6 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - History-based suggestions are now ranked by frequency weighted by recency (a 30-day half-life) instead of raw lifetime count, so a suggestion used heavily months ago no longer permanently outranks one used a few times this week. Existing `history.json` files are migrated automatically.
 - Improved internal type safety across language dictionaries and context caching (no user-facing behavior change).
+
+### Known limitations
+- Combining a day keyword with a relative time (e.g. `@today in 3 minutes`) doesn't advance the time in Portuguese, Japanese, or Chinese — chrono-node's own parser for these three locales drops the relative-time portion of the phrase entirely, so there's nothing for the fix above to pick between. Standalone `@in 3 minutes` (no day keyword) already works correctly in every language. Tracked in [#40](https://github.com/Amato21/nldates-revived/issues/40).
 
 ## [0.9.7] - 2026-07-17
 
