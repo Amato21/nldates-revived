@@ -321,6 +321,49 @@ export default class HistoryManager {
   }
 
   /**
+   * Supprime une seule entrée de l'historique (gestion fine, par opposition
+   * à clearHistory() qui vide tout). `suggestion` peut être la forme normalisée
+   * affichée à l'utilisateur (ex: "Next Friday") ou la clé brute stockée en
+   * interne (ex: "next friday") -- les deux sont acceptées puisque
+   * l'utilisateur ne voit jamais la clé brute, seulement la version affichée.
+   */
+  async removeEntry(suggestion: string): Promise<void> {
+    await this.loadHistory();
+
+    const normalized = suggestion.toLowerCase().trim();
+    if (!(normalized in this.history)) {
+      return;
+    }
+
+    delete this.history[normalized];
+    this.updateCache();
+
+    await this.saveHistory();
+  }
+
+  /**
+   * Récupère toutes les entrées de l'historique, triées par pertinence
+   * (voir computeScore()), avec leurs métadonnées -- utilisé par l'interface
+   * de gestion fine de l'historique (affichage + suppression individuelle).
+   * Contrairement à getTopSuggestionsSync()/getTopSuggestions(), qui ne
+   * renvoient que le texte affiché, ceci renvoie aussi la clé brute (pour
+   * removeEntry()) et les métadonnées count/lastUsed (pour l'affichage).
+   */
+  async getEntriesForManagement(): Promise<Array<{ key: string; display: string; count: number; lastUsed: number }>> {
+    await this.loadHistory();
+
+    const now = Date.now();
+    return Object.entries(this.history)
+      .sort((a, b) => this.computeScore(b[1], now) - this.computeScore(a[1], now))
+      .map(([key, entry]) => ({
+        key,
+        display: this.normalizeSuggestion(key),
+        count: entry.count,
+        lastUsed: entry.lastUsed,
+      }));
+  }
+
+  /**
    * Nettoie les ressources lors de la destruction de l'instance
    */
   destroy(): void {

@@ -228,3 +228,88 @@ describe('HistoryManager recency-weighted ranking', () => {
     }
   });
 });
+
+describe('HistoryManager fine-grained management (removeEntry / getEntriesForManagement)', () => {
+  let manager: HistoryManager | undefined;
+
+  afterEach(() => {
+    manager?.stopPeriodicCleanup();
+    manager = undefined;
+  });
+
+  it('removes a single entry by its display-cased text, leaving the others untouched', async () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+    await manager.recordSelection('tomorrow');
+    await manager.recordSelection('next friday');
+
+    await manager.removeEntry('Tomorrow'); // display casing, not the raw lowercase key
+
+    const suggestions = manager.getTopSuggestionsSync(10);
+    expect(suggestions).not.toContain('Tomorrow');
+    expect(suggestions).toContain('Next Friday');
+  });
+
+  it('removes a single entry by its raw lowercase key too', async () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+    await manager.recordSelection('tomorrow');
+
+    await manager.removeEntry('tomorrow');
+
+    expect(manager.getTopSuggestionsSync(10)).not.toContain('Tomorrow');
+  });
+
+  it('persists the removal to disk', async () => {
+    const write = vi.fn(async () => {});
+    const plugin = makePlugin({ exists: vi.fn(async () => false), write });
+    manager = new HistoryManager(plugin);
+    await manager.recordSelection('tomorrow');
+
+    await manager.removeEntry('tomorrow');
+
+    // recordSelection() saves fire-and-forget (not awaited internally), so
+    // its write can still be in flight when removeEntry()'s own awaited
+    // save fires -- checking the *last* call rather than the first avoids
+    // being sensitive to that ordering, since removeEntry() was invoked
+    // (and its save scheduled) strictly after recordSelection().
+    expect(write).toHaveBeenCalled();
+    const lastCall = write.mock.calls[write.mock.calls.length - 1];
+    expect(JSON.parse(lastCall[1] as string)).toEqual({});
+  });
+
+  it('does nothing (and does not throw) when removing an entry that does not exist', async () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+    await manager.recordSelection('tomorrow');
+
+    await expect(manager.removeEntry('nonexistent')).resolves.toBeUndefined();
+    expect(manager.getTopSuggestionsSync(10)).toContain('Tomorrow');
+  });
+
+  it('getEntriesForManagement() returns display text, raw key, count, and lastUsed, sorted by relevance', async () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+    await manager.recordSelection('tomorrow');
+    await manager.recordSelection('tomorrow');
+    await manager.recordSelection('next friday');
+
+    const entries = await manager.getEntriesForManagement();
+
+    const tomorrow = entries.find(e => e.key === 'tomorrow');
+    expect(tomorrow).toBeDefined();
+    expect(tomorrow?.display).toBe('Tomorrow');
+    expect(tomorrow?.count).toBe(2);
+    expect(typeof tomorrow?.lastUsed).toBe('number');
+
+    // Higher score (count 2, same recency) should rank first.
+    expect(entries[0].key).toBe('tomorrow');
+  });
+
+  it('getEntriesForManagement() returns an empty array when there is no history', async () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+
+    expect(await manager.getEntriesForManagement()).toEqual([]);
+  });
+});

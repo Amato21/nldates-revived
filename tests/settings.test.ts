@@ -2,6 +2,7 @@ import './setup';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Setting } from 'obsidian';
 import { NLDSettingsTab, DEFAULT_SETTINGS } from '../src/settings';
+import HistoryManagerModal from '../src/modals/history-manager-modal';
 import moment from 'moment';
 
 describe('NLDSettingsTab', () => {
@@ -230,6 +231,15 @@ describe('NLDSettingsTab', () => {
       const setting = findSetting('Omit date for short relative expressions');
       await setting.components[0].onChangeHandler(false);
       expect(plugin.settings.omitDateForShortRelative).toBe(false);
+    });
+
+    it('opens the history manager modal when "Manage history" is clicked', () => {
+      const openSpy = vi.spyOn(HistoryManagerModal.prototype, 'open').mockImplementation(() => {});
+      tab.display();
+      const setting = findSetting('Manage history');
+      setting.components[0].clickHandler();
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      openSpy.mockRestore();
     });
   });
 

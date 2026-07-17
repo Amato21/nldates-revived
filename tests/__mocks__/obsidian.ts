@@ -62,7 +62,8 @@ export class Modal {
   
   onOpen(): void {}
   onClose(): void {}
-  close(): void {}
+  open(): void { this.onOpen(); }
+  close(): void { this.onClose(); }
 }
 
 export class MarkdownView {
@@ -144,6 +145,24 @@ function makeDropdownComponent() {
   return comp;
 }
 
+function makeButtonComponent() {
+  const comp = {
+    buttonText: "",
+    tooltip: "",
+    icon: "",
+    isWarning: false,
+    isCta: false,
+    clickHandler: null as (() => void | Promise<void>) | null,
+    setButtonText(t: string) { comp.buttonText = t; return comp; },
+    setTooltip(t: string) { comp.tooltip = t; return comp; },
+    setIcon(i: string) { comp.icon = i; return comp; },
+    setWarning() { comp.isWarning = true; return comp; },
+    setCta() { comp.isCta = true; return comp; },
+    onClick(fn: () => void | Promise<void>) { comp.clickHandler = fn; return comp; },
+  };
+  return comp;
+}
+
 export class Setting {
   containerEl: HTMLElement;
   nameText = "";
@@ -182,6 +201,12 @@ export class Setting {
   }
   addDropdown(callback: (dropdown: any) => void): this {
     const comp = makeDropdownComponent();
+    this.components.push(comp);
+    callback(comp);
+    return this;
+  }
+  addButton(callback: (button: any) => void): this {
+    const comp = makeButtonComponent();
     this.components.push(comp);
     callback(comp);
     return this;
