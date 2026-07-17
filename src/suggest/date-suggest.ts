@@ -457,6 +457,17 @@ export default class DateSuggest extends EditorSuggest<string> {
     }
 
     const includeAlias = event.shiftKey;
+    // When keeping the typed text as alias (Shift), prefer what the user
+    // actually typed over the suggestion's canonical dictionary casing
+    // (e.g. French "demain" vs the dictionary's "Demain") -- but only when
+    // they typed the complete word/phrase, just in a different casing; a
+    // partial query ("demai") would make for a broken-looking alias, so
+    // fall back to the full suggestion text in that case. Language-agnostic:
+    // this only compares the typed text to the suggestion text.
+    const typedQuery = this.context?.query;
+    const aliasText = (typedQuery && typedQuery.toLowerCase() === suggestion.toLowerCase())
+      ? typedQuery
+      : suggestion;
     let dateStr = "";
     let makeIntoLink = this.plugin.settings.autosuggestToggleLink;
 
@@ -509,7 +520,7 @@ export default class DateSuggest extends EditorSuggest<string> {
             dateStr = generateMarkdownLink(
               this.app,
               startFormatted,
-              includeAlias ? suggestion : undefined
+              includeAlias ? aliasText : undefined
             ) + ` ${toTranslation} ` + generateMarkdownLink(
               this.app,
               endFormatted
@@ -547,7 +558,7 @@ export default class DateSuggest extends EditorSuggest<string> {
             dateStr = generateMarkdownLink(
               this.app,
               datePart,
-              includeAlias ? suggestion : undefined
+              includeAlias ? aliasText : undefined
             ) + " " + timePart; // Append time as plain text
 
             // 4. Disable standard linking since we constructed it manually above
@@ -575,7 +586,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       dateStr = generateMarkdownLink(
         this.app,
         dateStr,
-        includeAlias ? suggestion : undefined
+        includeAlias ? aliasText : undefined
       );
     }
 
