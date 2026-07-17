@@ -3,10 +3,6 @@
 This is a **revived and improved version** of the popular "Natural Language Dates" plugin for Obsidian.
 It brings the plugin back to life with a modern engine, true multilingual support, and smarter time handling.
 
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for the full version history.
-
 ---
 
 ## How to Install
@@ -81,6 +77,21 @@ Go to **Settings > Natural Language Dates**:
 
 **Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to 100 most frequent entries for optimal performance.
 
+### URI Action
+Open (or create) a daily note from outside Obsidian — e.g. from a Shortcuts automation, a script, or another app:
+
+```
+obsidian://nldates?day=tomorrow&newPane=yes
+```
+
+`day` accepts any natural language expression the plugin understands. `newPane` (`yes`/`no`, default `yes`) controls whether the note opens in a new pane.
+
+---
+
+## 🔧 For Developers
+
+Building an integration against the plugin's TypeScript API? See **[API.md](API.md)** for the complete reference: accessing the plugin instance, all public methods and types, and usage examples.
+
 ---
 
 ## 🙏 Credits & Acknowledgements
@@ -95,74 +106,9 @@ Powered by the [chrono-node](https://github.com/wanasit/chrono) library.
 
 ---
 
-## 🔧 For Developers & API
+## Changelog
 
-### Complete API Documentation
-
-For complete API documentation, see **[API.md](API.md)** - a comprehensive guide with:
-- All public methods and their parameters
-- TypeScript interfaces and types
-- Code examples for common use cases
-- Advanced usage patterns
-- Integration examples
-
-### Quick Start
-
-**Accessing the Plugin:**
-```typescript
-const nldatesPlugin = app.plugins.plugins['nldates-revived'] as NaturalLanguageDates;
-```
-
-**Basic Usage:**
-```typescript
-// Parse a date
-const result = nldatesPlugin.parseDate("tomorrow");
-console.log(result.formattedString); // "2025-01-06"
-
-// Parse with custom format
-const custom = nldatesPlugin.parse("next Monday", "dddd, MMMM Do");
-console.log(custom.formattedString); // "Monday, January 6th"
-
-// Parse date ranges
-const range = nldatesPlugin.parseDateRange("from Monday to Friday");
-if (range) {
-  console.log(range.dateList?.length); // 5
-  range.dateList?.forEach(date => {
-    console.log(date.format("YYYY-MM-DD"));
-  });
-}
-
-// Check for time component
-const hasTime = nldatesPlugin.hasTimeComponent("next Monday at 3pm"); // true
-```
-
-**URI Action:** `obsidian://nldates?day=tomorrow&newPane=yes`
-
-**TypeScript Support:**
-```typescript
-import type NaturalLanguageDates from 'nldates-revived';
-import type { NLDResult, NLDRangeResult } from 'nldates-revived/src/parser';
-import type { NLDSettings } from 'nldates-revived/src/settings';
-```
-
-### Architecture
-
-The plugin uses a modular architecture with specialized components:
-
-* **`HistoryManager`** (`src/history-manager.ts`): Manages user selection history
-    * Stores frequently used date patterns (max 100 entries)
-    * Provides synchronous cache for fast suggestions
-    * Normalizes suggestions (capitalizes first letter for consistency)
-    * Persists data to `.obsidian/plugins/nldates-revived/history.json`
-
-* **`ContextAnalyzer`** (`src/context-analyzer.ts`): Analyzes document context for smart suggestions
-    * Scans ±10 lines around cursor for date patterns
-    * Uses dynamic regex patterns generated from translations (multi-language support)
-    * Implements temporary caching (5 seconds) for performance
-    * Automatically updates patterns when languages change
-    * Supports all enabled languages (French, English, Japanese, German, Spanish, Italian, Portuguese, Dutch, Russian, Ukrainian, Chinese)
-
-Both components are optimized for performance: no vault-wide scanning, only analyzes the current document, and uses efficient caching strategies.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ---
 
