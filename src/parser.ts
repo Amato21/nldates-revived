@@ -1144,8 +1144,14 @@ export default class NLDParser {
     for (const c of this.chronos) {
       try {
         const results = c.parse(text, referenceDate, option);
-        if (results && results.length > 0) {
-          const match = results[0];
+        // chrono can return several disjoint matches for one string (e.g.
+        // "today in 3 minutes" -> ["today", "in 3 minutes"], parsed as two
+        // independent candidates, neither containing the other). Comparing
+        // every candidate's score -- not just results[0] -- means the more
+        // specific/informative one wins instead of always picking whichever
+        // chrono happened to list first, which silently discarded "in 3
+        // minutes" and returned the current time unmodified.
+        for (const match of results || []) {
           if (match.text.length > bestScore) {
             bestScore = match.text.length;
             bestResult = match;

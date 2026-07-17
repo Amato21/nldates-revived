@@ -1,7 +1,7 @@
 // IMPORTANT: This file MUST import setup.ts first to define window.moment
 import './setup';
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import NLDParser from '../src/parser';
 import { DayOfWeek } from '../src/settings';
 import moment from 'moment';
@@ -1261,6 +1261,32 @@ describe('NLDParser', () => {
       expect(moment(result).month()).toBe(2); // March
       expect(moment(result).year()).toBe(2027);
     });
+
+    // Regression: chrono-node can return several disjoint matches for one
+    // string -- "today in 3 minutes" parses as two independent candidates,
+    // ["today", "in 3 minutes"], neither containing the other.
+    // getParsedDateResult() used to only ever look at the first candidate
+    // chrono listed, silently discarding "in 3 minutes" and returning the
+    // current time unmodified (reported by a user: combining a day keyword
+    // with a relative time gave the right date but the wrong -- unmodified
+    // -- time).
+    it("should advance the time for a day keyword combined with a relative time expression, not just return now", () => {
+      const singleLangParser = new NLDParser(['en']);
+      const now = new Date();
+      const result = singleLangParser.getParsedDate('today in 3 minutes', weekStartPreference);
+      const diffMinutes = (result.getTime() - now.getTime()) / 60000;
+      expect(diffMinutes).toBeGreaterThan(2);
+      expect(diffMinutes).toBeLessThan(4);
+    });
+
+    it("should advance the time for a day keyword combined with a relative time expression in French", () => {
+      const frenchParser = new NLDParser(['fr']);
+      const now = new Date();
+      const result = frenchParser.getParsedDate("aujourd'hui dans 3 minutes", weekStartPreference);
+      const diffMinutes = (result.getTime() - now.getTime()) / 60000;
+      expect(diffMinutes).toBeGreaterThan(2);
+      expect(diffMinutes).toBeLessThan(4);
+    });
   });
 
   describe('getParsedResult (raw chrono-node results, used by callers needing match metadata)', () => {
@@ -1289,6 +1315,25 @@ describe('NLDParser', () => {
       throwingParser.chronos[0].parse = () => { throw new Error('boom'); };
       expect(() => throwingParser.getParsedDateResult('tomorrow')).not.toThrow();
       expect(() => throwingParser.getParsedResult('tomorrow')).not.toThrow();
+    });
+
+    it("should not throw and should not log a spurious warning if a chrono instance's parse() returns null/undefined instead of an array", async () => {
+      // chrono-node's own type signature guarantees ParsedResult[], but
+      // that's not runtime-enforced -- guard against a misbehaving or
+      // mocked instance returning a nullish value instead. The surrounding
+      // try/catch already prevents a nullish result from throwing all the
+      // way out to the caller (iterating `for...of null` would be caught
+      // just like c.parse() itself throwing), but without a `|| []` guard
+      // it would still log a spurious "Chrono parsing error" warning for
+      // what is actually just "no matches", not a real error.
+      const { logger } = await import('../src/logger');
+      const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+      const nullishParser: any = new NLDParser(['en']);
+      nullishParser.chronos[0].parse = () => null;
+
+      expect(() => nullishParser.getParsedDateResult('tomorrow')).not.toThrow();
+      expect(nullishParser.getParsedDateResult('tomorrow')).toBeNull();
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 
