@@ -3,80 +3,27 @@
 This is a **revived and improved version** of the popular "Natural Language Dates" plugin for Obsidian.
 It brings the plugin back to life with a modern engine, true multilingual support, and smarter time handling.
 
-## New Features
+---
 
-### v0.9.7 - Bug Fixes
-* Fixed `@now`, `@in 20 minutes`, and other expressions relative to the current instant getting cached for a whole day, causing them to return the same stale timestamp on every call after the first. They're now always computed fresh (thanks @raeglan for the report!).
-* Removed leftover ES5 transpilation helpers (`__awaiter`, `__generator`, `__spreadArray`) from the build output by targeting ES2020.
+## Supported Languages
 
-### v0.9.6 - Obsidian Plugin Review Compliance
-* Removed a regex lookbehind that isn't supported on iOS/Safari before 16.4, which could break date detection on older devices.
-* Replaced runtime `<style>` element injection in the date picker with a proper `styles.css` file, per Obsidian's plugin guidelines.
-* Fixed dark-mode/theme detection to use `activeDocument` for compatibility with pop-out windows.
+Enable any combination in **Settings → Natural Language Dates → Language settings**. All examples in this README use English, but every feature below works the same way in each of these:
 
-### v0.9.5 - Security & Documentation Improvements
-* **Past Time Expressions Support:**
-    * Full support for past expressions in all languages: `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden`, `@hace 5 minutos`
-    * Suggestions now include past expressions (`minutesago`, `hoursago`) alongside future ones
-    * Works seamlessly with all 11 supported languages
-* **Smart Date Formatting:**
-    * When using short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`), only the time is displayed (e.g., `14:30`) instead of `[[2024-01-15]] 14:30`
-    * Automatically detects when a relative expression stays within today
-    * Cleaner, more intuitive output for short-term relative dates
-    * Full date still shown for dates beyond today or longer durations
-* **Input Validation & Security:**
-    * Complete input sanitization to prevent injection attacks
-    * Format validation with real-time preview in settings
-    * URI parameter validation for secure protocol handling
-    * Input length limits and character validation
-* **API Documentation:**
-    * Complete JSDoc documentation for all public methods
-    * Comprehensive API.md guide for developers
-    * TypeScript type definitions fully documented
-    * Code examples and integration guides
-* **Format Validation:**
-    * Real-time format validation in settings with preview
-    * Clear error messages for invalid formats
-    * Automatic fallback to default formats on error
-    * Protection against dangerous characters in formats
-* **Complex Date Expressions Support:**
-    * **Ordinal dates:** `@the 15th of next month`, `@le 15 du mois prochain`, `@der 15 des nächsten Monats`
-    * **Last day of month:** `@last day of month`, `@dernier jour du mois`, `@letzter Tag des Monats`
-    * **First/last weekday of month:** `@first Monday of month`, `@premier lundi du mois`, `@last Friday of next month`
-    * Works with all prefixes: `next`, `last`, `this` (and their translations in all languages)
-    * Fully multilingual support across all 11 supported languages
-    * Smart clamping: Automatically handles edge cases (e.g., 31st of a 30-day month)
+| Language | Status |
+|---|---|
+| English | Full support |
+| French | Full support |
+| Spanish | Full support |
+| Italian | Full support |
+| Russian | Full support |
+| Ukrainian | Full support |
+| Chinese (Traditional & Simplified) | Partially supported |
+| German | Partially supported |
+| Portuguese | Partially supported |
+| Japanese | Full support |
+| Dutch | Under development |
 
-
-### v0.9.0 - Advanced Multilingual Support 🚀
-* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, Italian, Russian, Ukrainian, and Chinese (Traditional and Simplified)**!
-    * Each language works **100%** with its own native words and units
-    * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch), `@en 2 minutos` (Spanish), `@tra 2 minuti` (Italian), `@через 2 минуты` (Russian), `@через 2 хвилини` (Ukrainian), `@2分鐘後` (Chinese)
-    * All time units (minutes, hours, days, weeks, months, years) are fully translated
-    * All weekdays are recognized in all languages
-    * Dynamic regex generation from translations - no hardcoded words!
-* **Advanced Relative Dates:** Support for complex date expressions!
-    * **Combined durations:** `@in 2 weeks and 3 days`, `@dans 2 semaines et 3 jours`
-    * **Weekday with time:** `@next Monday at 3pm`, `@prochain lundi à 15h`
-    * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
-    * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
-    * **Past expressions:** `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden` (all languages!)
-    * **Smart formatting:** Short relative expressions for today show only time (e.g., `@in 15 min` → `14:30` instead of `[[2024-01-15]] 14:30`)
-    * Works in all supported languages with native translations
-* **Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
-    * **History-based suggestions:** The plugin learns your frequently used date patterns and prioritizes them in suggestions
-    * **Context-aware detection:** Automatically detects dates already present in your current document (within ±10 lines) and suggests them
-    * **Multi-language context detection:** Context analysis works with all enabled languages - detects dates in French, English, Japanese, and more!
-    * **Optimized performance:** No vault-wide caching - only analyzes the current document for fast, efficient suggestions
-    * All smart features can be toggled on/off individually in settings
-
-### v0.8.0
-* **🌍 Multilingual Support:** Now supports **English, French, German, Japanese, Dutch, and Portuguese**!
-    * *Examples:* `@tomorrow`, `@in 20 minutes`, `@Next Monday`, `@next friday`.
-* **Smart Time Parsing:** The plugin intelligently detects if you included a time in your sentence.
-* **Hybrid Links:**
-    * Dates without time: `[[2024-12-30]]`
-    * Dates **with** time: `[[2024-12-30]] 23:45` (Keeps your graph clean!).
+You can enable several languages at once — the autosuggest and parser understand all of them simultaneously.
 
 ---
 
@@ -112,26 +59,31 @@ Type `@` (default trigger) followed by a natural date.
   * `@last Monday` → Monday of the previous week
   * `@next Monday` → Monday of the next week
   * Abbreviations also work: `@mon`, `@tue`, `@wed`, `@thu`, `@fri`, `@sat`, `@sun`
-* `@il y a 3 min` → `14:27` (past expressions supported!)
-* `@3 minutes ago` → `14:27` (works in all languages)
+* `@3 minutes ago` → `14:27` (past expressions, in every supported language)
+* `@2 hours ago` → `12:30`
 * `@from Monday to Friday` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]]`
 * `@next week` → `[[2025-01-06]], [[2025-01-07]], [[2025-01-08]], [[2025-01-09]], [[2025-01-10]], [[2025-01-11]], [[2025-01-12]]`
 * **Complex date expressions:**
-  * `@the 15th of next month` → `[[2025-02-15]]` (English)
-  * `@le 15 du mois prochain` → `[[2025-02-15]]` (French)
-  * `@last day of month` → Last day of current month
-  * `@dernier jour du mois prochain` → Last day of next month (French)
-  * `@first Monday of month` → First Monday of current month
-  * `@premier lundi du mois prochain` → First Monday of next month (French)
-  * `@last Friday of next month` → Last Friday of next month
-  * Works with all languages and all prefixes (`next`, `last`, `this` and their translations)
+  * `@the 15th of next month` → `[[2025-02-15]]`
+  * `@last day of month` → last day of the current month
+  * `@last day of next month` → last day of next month
+  * `@first Monday of month` → first Monday of the current month
+  * `@first Monday of next month` → first Monday of next month
+  * `@last Friday of next month` → last Friday of next month
+  * Works with all prefixes (`next`, `last`, `this`) and their translations in every supported language
 
-Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`).
+* **Time shortcuts:** type `@Time` to see quick time-adjustment suggestions:
+  * `Time:Now` → inserts the current time (e.g. `14:30`)
+  * `Time:+15 minutes` / `Time:+1 hour` → time 15 minutes / 1 hour from now
+  * `Time:-15 minutes` / `Time:-1 hour` → time 15 minutes / 1 hour ago
+  * These insert just the time, with no date or link — handy for logging timestamps
+
+Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`). If you type the full word yourself, the alias keeps your exact casing instead of the suggestion's own — handy in languages where the dictionary form is capitalized (French `Demain`, for instance) but you'd rather see it lowercase in your note. Only completing a partial word falls back to the suggestion's own spelling.
 
 ![Obsidian_ldWoN5Xnt8](https://github.com/user-attachments/assets/7a876604-7b59-40e0-acd5-8d7370c1d0d0)
 
 ### Commands (Ctrl/Cmd + P)
-* **Parse natural language date:** Replaces selected text with a link (e.g. select "demain" -> becomes `[[2024-12-31]]`).
+* **Parse natural language date:** Replaces selected text with a link (e.g. select "tomorrow" -> becomes `[[2024-12-31]]`).
 * **Insert the current date and time:** Quickly insert a timestamp with both date and time.
 * **Insert the current date:** Inserts only the current date.
 * **Insert the current time:** Inserts only the current time.
@@ -145,12 +97,27 @@ Go to **Settings > Natural Language Dates**:
 * **Separator:** Character between date and time (if used).
 * **Smart Suggestions:** Enable intelligent suggestions (enabled by default)
     * **Enable smart suggestions:** Master toggle for all intelligent features
-    * **History-based suggestions:** Learn from your frequently used date patterns
-    * **Context-based suggestions:** Detect dates from the current document context
+    * **History-based suggestions:** Learn from your frequently used date patterns. Ranking favors what you've picked *recently*, not just most often overall — something you used a lot months ago naturally fades if you haven't reached for it lately, while anything you reuse jumps back to the top.
+    * **Context-based suggestions:** Detect dates already mentioned in the current document (within ±10 lines of the cursor) and suggest them
 * **Date Formatting:**
-    * **Omit date for short relative expressions:** When enabled, short relative expressions for today (e.g., `@in 15 min`, `@dans 2 heures`) will display only the time (e.g., `14:30`) instead of `[[2024-01-15]] 14:30` (enabled by default)
+    * **Omit date for short relative expressions:** When enabled, short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`) will display only the time (e.g., `14:30`) instead of `[[2024-01-15]] 14:30` (enabled by default)
 
-**Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to 100 most frequent entries for optimal performance.
+**Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to the 100 most relevant entries for optimal performance.
+
+### URI Action
+Open (or create) a daily note from outside Obsidian — e.g. from a Shortcuts automation, a script, or another app:
+
+```
+obsidian://nldates?day=tomorrow&newPane=yes
+```
+
+`day` accepts any natural language expression the plugin understands. `newPane` (`yes`/`no`, default `yes`) controls whether the note opens in a new pane.
+
+---
+
+## 🔧 For Developers
+
+Building an integration against the plugin's TypeScript API? See **[API.md](API.md)** for the complete reference: accessing the plugin instance, all public methods and types, and usage examples.
 
 ---
 
@@ -166,74 +133,9 @@ Powered by the [chrono-node](https://github.com/wanasit/chrono) library.
 
 ---
 
-## 🔧 For Developers & API
+## Changelog
 
-### Complete API Documentation
-
-For complete API documentation, see **[API.md](API.md)** - a comprehensive guide with:
-- All public methods and their parameters
-- TypeScript interfaces and types
-- Code examples for common use cases
-- Advanced usage patterns
-- Integration examples
-
-### Quick Start
-
-**Accessing the Plugin:**
-```typescript
-const nldatesPlugin = app.plugins.plugins['nldates-revived'] as NaturalLanguageDates;
-```
-
-**Basic Usage:**
-```typescript
-// Parse a date
-const result = nldatesPlugin.parseDate("tomorrow");
-console.log(result.formattedString); // "2025-01-06"
-
-// Parse with custom format
-const custom = nldatesPlugin.parse("next Monday", "dddd, MMMM Do");
-console.log(custom.formattedString); // "Monday, January 6th"
-
-// Parse date ranges
-const range = nldatesPlugin.parseDateRange("from Monday to Friday");
-if (range) {
-  console.log(range.dateList?.length); // 5
-  range.dateList?.forEach(date => {
-    console.log(date.format("YYYY-MM-DD"));
-  });
-}
-
-// Check for time component
-const hasTime = nldatesPlugin.hasTimeComponent("next Monday at 3pm"); // true
-```
-
-**URI Action:** `obsidian://nldates?day=tomorrow&newPane=yes`
-
-**TypeScript Support:**
-```typescript
-import type NaturalLanguageDates from 'nldates-revived';
-import type { NLDResult, NLDRangeResult } from 'nldates-revived/src/parser';
-import type { NLDSettings } from 'nldates-revived/src/settings';
-```
-
-### Architecture
-
-The plugin uses a modular architecture with specialized components:
-
-* **`HistoryManager`** (`src/history-manager.ts`): Manages user selection history
-    * Stores frequently used date patterns (max 100 entries)
-    * Provides synchronous cache for fast suggestions
-    * Normalizes suggestions (capitalizes first letter for consistency)
-    * Persists data to `.obsidian/plugins/nldates-revived/history.json`
-
-* **`ContextAnalyzer`** (`src/context-analyzer.ts`): Analyzes document context for smart suggestions
-    * Scans ±10 lines around cursor for date patterns
-    * Uses dynamic regex patterns generated from translations (multi-language support)
-    * Implements temporary caching (5 seconds) for performance
-    * Automatically updates patterns when languages change
-    * Supports all enabled languages (French, English, Japanese, German, Spanish, Italian, Portuguese, Dutch, Russian, Ukrainian, Chinese)
-
-Both components are optimized for performance: no vault-wide scanning, only analyzes the current document, and uses efficient caching strategies.
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ---
 
