@@ -17,43 +17,67 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Small edit-distance calculation (Levenshtein), used only as a fallback
-// when strict prefix matching finds nothing at all -- lets a typo like
-// "tommorow" still surface "Tomorrow" instead of no suggestions whatsoever.
-function levenshteinDistance(a: string, b: string): number {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const dp: number[][] = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
-  for (let i = 0; i < rows; i++) dp[i][0] = i;
-  for (let j = 0; j < cols; j++) dp[0][j] = j;
-  for (let i = 1; i < rows; i++) {
-    for (let j = 1; j < cols; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+// Optimal String Alignment (OSA) edit distance: like Levenshtein, but also
+// treats swapping two adjacent characters as a single edit (e.g. "heir" vs
+// "hier" is distance 1, not 2) -- an adjacent-letter transposition is one of
+// the most common typing mistakes, and plain Levenshtein would otherwise
+// count it as two substitutions and push it past the threshold in
+// fuzzyMatchesQuery() below. Space is kept to three rolling rows of length
+// b.length + 1 (instead of a full (a.length+1) x (b.length+1) table) since
+// this runs on every keystroke against every candidate.
+function editDistance(a: string, b: string): number {
+  const n = b.length;
+  let twoRowsAgo = new Array<number>(n + 1).fill(0);
+  let prevRow = Array.from({ length: n + 1 }, (_, j) => j);
+  let currentRow = new Array<number>(n + 1).fill(0);
+
+  for (let i = 1; i <= a.length; i++) {
+    currentRow[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let value = Math.min(
+        prevRow[j] + 1, // deletion
+        currentRow[j - 1] + 1, // insertion
+        prevRow[j - 1] + cost // substitution
+      );
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        value = Math.min(value, twoRowsAgo[j - 2] + 1); // transposition
+      }
+      currentRow[j] = value;
     }
+    [twoRowsAgo, prevRow, currentRow] = [prevRow, currentRow, twoRowsAgo];
   }
-  return dp[rows - 1][cols - 1];
+  return prevRow[n];
 }
 
 // Prefix match if possible (fast, exact, and the only behavior for queries
 // too short to fuzzy-match reliably); otherwise tolerate a small edit
-// distance between the query and the start of the candidate, so a single
-// wrong/missing/transposed letter near the start of the query still
-// surfaces the intended suggestion instead of none at all. Only used for
-// short, fixed candidate lists (today/tomorrow, weekdays, history/context)
-// -- the multi-stage progressive-typing suggestion generators elsewhere in
-// this file keep strict prefix matching, since fuzzy matching interacts
+// distance between the query and candidate prefixes of similar length, so a
+// single wrong/missing/transposed letter near the start of the query still
+// surfaces the intended suggestion instead of none at all. Checks a window
+// of prefix lengths around the query's own length (query.length ± threshold)
+// rather than a single fixed-length slice -- comparing against a prefix
+// that's forced to be longer than the query by more than the threshold would
+// otherwise make the edit distance at least that length difference, which
+// can exceed the threshold even for an exact-prefix match (e.g. "tomur"
+// against a fixed 7-character slice of "tomorrow" is already 2 edits away
+// before accounting for the actual typo). Only used for short, fixed
+// candidate lists (today/tomorrow, weekdays, history/context) -- the
+// multi-stage progressive-typing suggestion generators elsewhere in this
+// file keep strict prefix matching, since fuzzy matching interacts
 // unpredictably with their partial-completion logic.
 function fuzzyMatchesQuery(candidate: string, query: string): boolean {
   const c = candidate.toLowerCase();
   const q = query.toLowerCase();
   if (!q || c.startsWith(q)) return true;
   if (q.length <= 2) return false; // too short to fuzzy-match without noise
-  const prefix = c.slice(0, Math.min(c.length, q.length + 2));
-  const distance = levenshteinDistance(prefix, q);
   const threshold = q.length <= 5 ? 1 : 2;
-  return distance <= threshold;
+  const minLen = Math.max(1, q.length - threshold);
+  const maxLen = Math.min(c.length, q.length + threshold);
+  for (let len = minLen; len <= maxLen; len++) {
+    if (editDistance(c.slice(0, len), q) <= threshold) return true;
+  }
+  return false;
 }
 
 export default class DateSuggest extends EditorSuggest<string> {
