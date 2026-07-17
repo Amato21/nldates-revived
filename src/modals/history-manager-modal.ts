@@ -25,13 +25,15 @@ export default class HistoryManagerModal extends Modal {
   }
 
   private async render(): Promise<void> {
+    // Fetched before touching the DOM so the modal doesn't flash an
+    // empty/header-only state while the (async) history load is in flight.
+    const entries = await this.plugin.historyManager.getEntriesForManagement();
+
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("nld-history-manager-modal");
 
     contentEl.createEl("h2", { text: "Manage suggestion history" });
-
-    const entries = await this.plugin.historyManager.getEntriesForManagement();
 
     if (entries.length === 0) {
       contentEl.createEl("p", { text: "No history yet. Suggestions you select from the autosuggest popup will appear here." });
@@ -72,6 +74,11 @@ export default class HistoryManagerModal extends Modal {
             .setIcon("trash")
             .setTooltip("Remove this entry")
             .onClick(async () => {
+              // Deleting a single entry is a different action from "Clear
+              // all" -- don't leave that button armed from an earlier click,
+              // where a later, unrelated "Clear all" click would then wipe
+              // everything without the user re-confirming that specific intent.
+              this.clearAllArmed = false;
               await this.plugin.historyManager.removeEntry(entry.key);
               await this.render();
             });

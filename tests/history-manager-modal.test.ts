@@ -111,4 +111,38 @@ describe('HistoryManagerModal', () => {
 
     expect(findSetting('Clear all history').descText).not.toContain('Click again to confirm');
   });
+
+  it('disarms "Clear all" when an individual entry is removed instead (regression: an unrelated later "Clear all" click would otherwise wipe everything unconfirmed)', async () => {
+    await modal.onOpen();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Arm "Clear all" first...
+    await findSetting('Clear all history').components[0].clickHandler();
+    expect(findSetting('Clear all history').descText).toContain('Click again to confirm');
+
+    // ...then change their mind and delete a single entry instead.
+    await findSetting('Tomorrow').components[0].clickHandler();
+
+    // "Clear all" must be back to its unarmed state, not primed to wipe
+    // everything on the next (unrelated) click.
+    expect(findSetting('Clear all history').descText).not.toContain('Click again to confirm');
+    expect(plugin.historyManager.clearHistory).not.toHaveBeenCalled();
+  });
+
+  it('fetches entries before touching the DOM, so the modal never flashes an empty/header-only state (regression)', async () => {
+    const callOrder: string[] = [];
+    plugin.historyManager.getEntriesForManagement = vi.fn(async () => {
+      callOrder.push('fetch');
+      return [{ key: 'tomorrow', display: 'Tomorrow', count: 1, lastUsed: Date.now() }];
+    });
+    const emptySpy = vi.spyOn((modal as any).contentEl, 'empty').mockImplementation(() => {
+      callOrder.push('empty');
+    });
+
+    await modal.onOpen();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(callOrder).toEqual(['fetch', 'empty']);
+    emptySpy.mockRestore();
+  });
 });
