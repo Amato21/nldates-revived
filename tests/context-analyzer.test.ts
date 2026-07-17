@@ -278,4 +278,44 @@ describe("ContextAnalyzer", () => {
     expect(normalizeDate("")).toBe("");
     expect(normalizeDate("   ")).toBe("");
   });
+
+  it("normalizeDate() title-cases every word instead of lowercasing the rest of the whole string (regression)", () => {
+    // "next Friday" (from the prefix+weekday pattern) used to come out as
+    // "Next friday" -- only the very first character of the whole match was
+    // capitalized, forcibly lowercasing the weekday name's own capital.
+    const { app, plugin } = createApp("tomorrow", ["en"]);
+    analyzer = new ContextAnalyzer(app, plugin);
+    const normalizeDate = (analyzer as any).normalizeDate.bind(analyzer);
+    expect(normalizeDate("next Friday")).toBe("Next Friday");
+    expect(normalizeDate("NEXT FRIDAY")).toBe("Next Friday");
+  });
+
+  it("extracts \"next Friday\" with the weekday correctly capitalized (regression)", () => {
+    const { app, plugin, editor } = createApp("Meeting tomorrow, then next Friday.", ["en"]);
+    analyzer = new ContextAnalyzer(app, plugin);
+    const result = analyzer.analyzeContextSync(editor, 0);
+    expect(result.datesInContext).toContain("Next Friday");
+    expect(result.datesInContext).not.toContain("Next friday");
+  });
+
+  it("does not serve a stale cached result when content changes within the scanned window but the cursor line does not (regression)", () => {
+    const file = { path: "note.md" };
+    let content = "line0\nline1\nline2\nMonday meeting\nline4";
+    const app = {
+      workspace: { getActiveViewOfType: vi.fn(() => ({ file })) },
+      metadataCache: { getFileCache: vi.fn(() => ({ tags: [], frontmatter: undefined, headings: [] })) },
+    } as any;
+    const plugin = { settings: { languages: ["en"] } } as any;
+    const editor = { getValue: () => content } as any;
+    analyzer = new ContextAnalyzer(app, plugin);
+
+    const first = analyzer.analyzeContextSync(editor, 3);
+    expect(first.datesInContext.map(d => d.toLowerCase())).not.toContain("next friday");
+
+    // Edit content within the ±CONTEXT_LINES window without moving the
+    // cursor line, then re-query at the same line within CACHE_TIMEOUT.
+    content = "line0\nline1\nline2\nMonday meeting\nnext Friday too";
+    const second = analyzer.analyzeContextSync(editor, 3);
+    expect(second.datesInContext.map(d => d.toLowerCase())).toContain("next friday");
+  });
 });
