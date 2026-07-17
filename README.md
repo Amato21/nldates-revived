@@ -3,80 +3,9 @@
 This is a **revived and improved version** of the popular "Natural Language Dates" plugin for Obsidian.
 It brings the plugin back to life with a modern engine, true multilingual support, and smarter time handling.
 
-## New Features
+## Changelog
 
-### v0.9.7 - Bug Fixes
-* Fixed `@now`, `@in 20 minutes`, and other expressions relative to the current instant getting cached for a whole day, causing them to return the same stale timestamp on every call after the first. They're now always computed fresh (thanks @raeglan for the report!).
-* Removed leftover ES5 transpilation helpers (`__awaiter`, `__generator`, `__spreadArray`) from the build output by targeting ES2020.
-
-### v0.9.6 - Obsidian Plugin Review Compliance
-* Removed a regex lookbehind that isn't supported on iOS/Safari before 16.4, which could break date detection on older devices.
-* Replaced runtime `<style>` element injection in the date picker with a proper `styles.css` file, per Obsidian's plugin guidelines.
-* Fixed dark-mode/theme detection to use `activeDocument` for compatibility with pop-out windows.
-
-### v0.9.5 - Security & Documentation Improvements
-* **Past Time Expressions Support:**
-    * Full support for past expressions in all languages: `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden`, `@hace 5 minutos`
-    * Suggestions now include past expressions (`minutesago`, `hoursago`) alongside future ones
-    * Works seamlessly with all 11 supported languages
-* **Smart Date Formatting:**
-    * When using short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`), only the time is displayed (e.g., `14:30`) instead of `[[2024-01-15]] 14:30`
-    * Automatically detects when a relative expression stays within today
-    * Cleaner, more intuitive output for short-term relative dates
-    * Full date still shown for dates beyond today or longer durations
-* **Input Validation & Security:**
-    * Complete input sanitization to prevent injection attacks
-    * Format validation with real-time preview in settings
-    * URI parameter validation for secure protocol handling
-    * Input length limits and character validation
-* **API Documentation:**
-    * Complete JSDoc documentation for all public methods
-    * Comprehensive API.md guide for developers
-    * TypeScript type definitions fully documented
-    * Code examples and integration guides
-* **Format Validation:**
-    * Real-time format validation in settings with preview
-    * Clear error messages for invalid formats
-    * Automatic fallback to default formats on error
-    * Protection against dangerous characters in formats
-* **Complex Date Expressions Support:**
-    * **Ordinal dates:** `@the 15th of next month`, `@le 15 du mois prochain`, `@der 15 des nächsten Monats`
-    * **Last day of month:** `@last day of month`, `@dernier jour du mois`, `@letzter Tag des Monats`
-    * **First/last weekday of month:** `@first Monday of month`, `@premier lundi du mois`, `@last Friday of next month`
-    * Works with all prefixes: `next`, `last`, `this` (and their translations in all languages)
-    * Fully multilingual support across all 11 supported languages
-    * Smart clamping: Automatically handles edge cases (e.g., 31st of a 30-day month)
-
-
-### v0.9.0 - Advanced Multilingual Support 🚀
-* **🌍 Complete Multilingual Engine:** Full support for **English, French, German, Japanese, Dutch, Portuguese, Spanish, Italian, Russian, Ukrainian, and Chinese (Traditional and Simplified)**!
-    * Each language works **100%** with its own native words and units
-    * *Examples:* `@ato 2 fun` (Japanese), `@in 2 Minuten` (German), `@dans 2 min` (French), `@over 2 minuten` (Dutch), `@en 2 minutos` (Spanish), `@tra 2 minuti` (Italian), `@через 2 минуты` (Russian), `@через 2 хвилини` (Ukrainian), `@2分鐘後` (Chinese)
-    * All time units (minutes, hours, days, weeks, months, years) are fully translated
-    * All weekdays are recognized in all languages
-    * Dynamic regex generation from translations - no hardcoded words!
-* **Advanced Relative Dates:** Support for complex date expressions!
-    * **Combined durations:** `@in 2 weeks and 3 days`, `@dans 2 semaines et 3 jours`
-    * **Weekday with time:** `@next Monday at 3pm`, `@prochain lundi à 15h`
-    * **Date ranges:** `@from Monday to Friday`, `@de lundi à vendredi`
-    * **Week ranges:** `@next week` (returns Monday to Sunday of next week)
-    * **Past expressions:** `@il y a 3 min`, `@3 minutes ago`, `@vor 2 Stunden` (all languages!)
-    * **Smart formatting:** Short relative expressions for today show only time (e.g., `@in 15 min` → `14:30` instead of `[[2024-01-15]] 14:30`)
-    * Works in all supported languages with native translations
-* **Smart Contextual Suggestions:** Intelligent suggestions that learn from you!
-    * **History-based suggestions:** The plugin learns your frequently used date patterns and prioritizes them in suggestions
-    * **Context-aware detection:** Automatically detects dates already present in your current document (within ±10 lines) and suggests them
-    * **Multi-language context detection:** Context analysis works with all enabled languages - detects dates in French, English, Japanese, and more!
-    * **Optimized performance:** No vault-wide caching - only analyzes the current document for fast, efficient suggestions
-    * All smart features can be toggled on/off individually in settings
-
-### v0.8.0
-* **🌍 Multilingual Support:** Now supports **English, French, German, Japanese, Dutch, and Portuguese**!
-    * *Examples:* `@tomorrow`, `@in 20 minutes`, `@Next Monday`, `@next friday`.
-* **Smart Time Parsing:** The plugin intelligently detects if you included a time in your sentence.
-* **Hybrid Links:**
-    * Dates without time: `[[2024-12-30]]`
-    * Dates **with** time: `[[2024-12-30]] 23:45` (Keeps your graph clean!).
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ---
 
