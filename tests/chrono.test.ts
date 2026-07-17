@@ -71,6 +71,22 @@ describe("getChronos", () => {
     );
   });
 
+  it("resolves an ordinal-only date like \"15th\" to the reference month, not one month off", async () => {
+    // Regression guard: the custom ordinal-date parser used to pass
+    // moment().month() (0-indexed) directly as chrono-node's month
+    // component (1-indexed), always resolving to the wrong month --
+    // and, via forwardDate, sometimes the wrong year too.
+    const getChronos = (await import("../src/chrono")).default;
+    const chronos = getChronos(["en"]);
+    const refDate = new Date(2026, 6, 10); // July 10, 2026 (JS Date month is 0-indexed)
+    const results = chronos[0].parse("15th", refDate, { forwardDate: true });
+    expect(results.length).toBeGreaterThan(0);
+    const parsed = results[0].start.date();
+    expect(parsed.getFullYear()).toBe(2026);
+    expect(parsed.getMonth()).toBe(6); // July
+    expect(parsed.getDate()).toBe(15);
+  });
+
   it("uses the GB Chrono instance when the locale is en-gb and GB is available", async () => {
     const realLocale = window.moment.locale;
     (window.moment as any).locale = () => 'en-gb';

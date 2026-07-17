@@ -2,6 +2,41 @@ export function normalizePath(path: string): string {
   return path;
 }
 
+// Minimal Plugin base class: enough for `class X extends Plugin` to work
+// when a test needs to import a Plugin subclass module (e.g. to reach a
+// method on its prototype) without instantiating it via `new`.
+export class Plugin {
+  app: any;
+  manifest: any;
+  constructor(app?: any, manifest?: any) {
+    this.app = app;
+    this.manifest = manifest;
+  }
+  addCommand(): void {}
+  addSettingTab(): void {}
+  addRibbonIcon(): any { return {}; }
+  registerObsidianProtocolHandler(): void {}
+  registerEditorSuggest(): void {}
+  registerInterval(): void {}
+  registerEvent(): void {}
+  loadData(): Promise<any> { return Promise.resolve({}); }
+  saveData(): Promise<void> { return Promise.resolve(); }
+  onload(): void {}
+  onunload(): void {}
+}
+
+export class Notice {
+  message: string;
+  duration?: number;
+  static instances: Notice[] = [];
+  static resetInstances(): void { Notice.instances = []; }
+  constructor(message: string, duration?: number) {
+    this.message = message;
+    this.duration = duration;
+    Notice.instances.push(this);
+  }
+}
+
 // Mock pour les tests d'intégration
 export class Modal {
   app: any;
@@ -74,6 +109,11 @@ function makeTextComponent() {
     placeholder: "",
     defaultFormat: "",
     onChangeHandler: null as ((value: string) => void | Promise<void>) | null,
+    // Real Obsidian's TextComponent exposes the backing <input> element as
+    // .inputEl (e.g. date-picker.ts reads/focuses it directly). Kept as a
+    // minimal object rather than sharing state with comp.value: code under
+    // test always goes through setValue()/onChange(), never reads inputEl.value.
+    inputEl: { value: "", focus() {} },
     setValue(v: string) { comp.value = v; return comp; },
     setPlaceholder(p: string) { comp.placeholder = p; return comp; },
     setDefaultFormat(f: string) { comp.defaultFormat = f; return comp; },
@@ -146,7 +186,7 @@ export class Setting {
     callback(comp);
     return this;
   }
-  descEl: HTMLElement = {} as any;
+  descEl: HTMLElement = { setText: () => {} } as any;
 }
 
 function makeFakeContainerEl(): any {

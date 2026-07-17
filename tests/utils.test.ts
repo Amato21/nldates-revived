@@ -73,6 +73,23 @@ describe("getWordBoundaries", () => {
     expect(range.from).toEqual({ line: 0, ch: 2 });
     expect(range.to).toEqual({ line: 0, ch: 8 });
   });
+
+  it("falls back to a zero-width range at the cursor instead of throwing when wordAt() returns null", () => {
+    // CodeMirror 6's wordAt() returns null when the cursor isn't inside/adjacent
+    // to a word (empty line, whitespace, punctuation-only text).
+    const editor = makeEditor({
+      cm: { state: { wordAt: vi.fn(() => null) } },
+    });
+    expect(() => getWordBoundaries(editor)).not.toThrow();
+    const range = getWordBoundaries(editor);
+    expect(range.from).toEqual({ line: 0, ch: 5 });
+    expect(range.to).toEqual({ line: 0, ch: 5 });
+  });
+
+  it("falls back to a zero-width range at the cursor when the editor has no cm property at all", () => {
+    const editor = makeEditor({ cm: undefined });
+    expect(() => getWordBoundaries(editor)).not.toThrow();
+  });
 });
 
 describe("getSelectedText", () => {

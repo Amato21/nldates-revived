@@ -200,6 +200,17 @@ describe('DateSuggest', () => {
     it('returns undefined for a query that is not a time query', () => {
       expect((suggest as any).getTimeSuggestions('tomorrow', 'en')).toBeUndefined();
     });
+
+    it('produces well-formed suggestions for a language whose "time"/"now" translations have pipe-separated variants (regression)', () => {
+      // Chinese "time"/"now" list Simplified+Traditional variants
+      // ("時間|时间" / "現在|现在"). Only the first variant should be used
+      // for display and matching -- previously the raw multi-variant string
+      // was embedded as-is, garbling the suggestion text.
+      const suggestions = (suggest as any).getTimeSuggestions('時間', 'zh.hant');
+      expect(suggestions).toBeDefined();
+      expect(suggestions).toContain('時間:現在');
+      expect(suggestions.some((s: string) => s.includes('|'))).toBe(false);
+    });
   });
 
   describe('getImmediateSuggestions', () => {
@@ -215,6 +226,21 @@ describe('DateSuggest', () => {
 
     it('returns undefined when there is no next/last/this reference', () => {
       expect((suggest as any).getImmediateSuggestions('xyz', 'en')).toBeUndefined();
+    });
+
+    it('does not match a bare substring inside unrelated text (regression: unanchored regex)', () => {
+      // Chinese "next" lists a single bare character as its shortest variant
+      // ("下一個|下一个|下"), which used to match anywhere in the input --
+      // e.g. inside "下午" (afternoon), unrelated to "next" -- because the
+      // regex had no "^" anchor.
+      expect((suggest as any).getImmediateSuggestions('下午', 'zh.hant')).toBeUndefined();
+      expect((suggest as any).getImmediateSuggestions('下雨', 'zh.hant')).toBeUndefined();
+    });
+
+    it('still matches the single-character variant when used as an actual prefix', () => {
+      const suggestions = (suggest as any).getImmediateSuggestions('下', 'zh.hant');
+      expect(suggestions).toBeDefined();
+      expect(suggestions.length).toBeGreaterThan(0);
     });
   });
 
@@ -358,6 +384,26 @@ describe('DateSuggest', () => {
     it('recognizes a suggestion starting with the "time" word as a time suggestion', () => {
       expect((suggest as any).suggestionIsTime('Time:Now')).toBe(true);
       expect((suggest as any).suggestionIsTime('Tomorrow')).toBe(false);
+    });
+
+    it('computes the exact "<Time>:" prefix length instead of a hardcoded 5 (regression)', () => {
+      // "Time:" is 5 characters only in English (and a few others) by
+      // coincidence -- French "heure:" is 6, Italian "ora:" is 4, Chinese
+      // "時間:" (first variant only) is 3.
+      expect((suggest as any).getTimePrefixLength('Time:Now')).toBe(5);
+      plugin.settings.languages = ['fr'];
+      expect((suggest as any).getTimePrefixLength('heure:maintenant')).toBe(6);
+      expect('heure:maintenant'.substring((suggest as any).getTimePrefixLength('heure:maintenant'))).toBe('maintenant');
+      plugin.settings.languages = ['it'];
+      expect((suggest as any).getTimePrefixLength('ora:adesso')).toBe(4);
+      expect('ora:adesso'.substring((suggest as any).getTimePrefixLength('ora:adesso'))).toBe('adesso');
+      plugin.settings.languages = ['zh.hant'];
+      expect((suggest as any).getTimePrefixLength('時間:現在')).toBe(3);
+      expect('時間:現在'.substring((suggest as any).getTimePrefixLength('時間:現在'))).toBe('現在');
+    });
+
+    it('returns 0 for a suggestion that is not a time suggestion', () => {
+      expect((suggest as any).getTimePrefixLength('Tomorrow')).toBe(0);
     });
 
     it('deduplicates an array of strings', () => {

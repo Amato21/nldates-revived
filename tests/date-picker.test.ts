@@ -2,6 +2,7 @@
 import './setup';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Setting } from 'obsidian';
 import DatePickerModal from '../src/modals/date-picker';
 import NaturalLanguageDates from '../src/main';
 import { DEFAULT_SETTINGS } from '../src/settings';
@@ -283,6 +284,80 @@ describe('DatePickerModal Integration Tests', () => {
       (modal as any).insertDate('2024-01-15');
 
       expect(modal.close).toHaveBeenCalled();
+    });
+  });
+
+  describe('Manual date input (regression: onChange used to overwrite itself while typing)', () => {
+    // Generic recursive fake DOM element: every DOM method returns another
+    // instance of itself (or invokes an optional trailing callback with
+    // itself, matching Obsidian's createDiv(cls, cb) overload), so onOpen()
+    // can run for real -- including the actual textEl.onChange() closure --
+    // without needing to model the full calendar grid, month/year <select>
+    // population, etc. in detail.
+    function fakeEl(): any {
+      const el: any = {
+        empty: () => {},
+        addClass: () => {},
+        removeClass: () => {},
+        addEventListener: () => {},
+        setText: () => {},
+        selected: false,
+        value: '',
+        createDiv: (_cls?: unknown, cb?: (e: unknown) => void) => {
+          const child = fakeEl();
+          if (typeof cb === 'function') cb(child);
+          return child;
+        },
+        createEl: (_tag?: unknown, _opts?: unknown, cb?: (e: unknown) => void) => {
+          const child = fakeEl();
+          if (typeof cb === 'function') cb(child);
+          return child;
+        },
+        createSpan: (_opts?: unknown, cb?: (e: unknown) => void) => {
+          const child = fakeEl();
+          if (typeof cb === 'function') cb(child);
+          return child;
+        },
+      };
+      return el;
+    }
+
+    it('does not overwrite the date input field while the user is still typing a valid partial date', () => {
+      Setting.resetInstances();
+      (modal as any).contentEl = fakeEl();
+      // The test environment runs under Node, not a browser/jsdom, so
+      // browser-only globals onOpen() relies on (setTimeout on the window
+      // mock, MutationObserver for the theme observer) aren't provided.
+      (window as any).setTimeout = (fn: () => void) => fn();
+      (globalThis as any).MutationObserver = class {
+        observe() {}
+        disconnect() {}
+      };
+      modal.onOpen();
+
+      const dateSetting = Setting.instances.find((s: any) => s.nameText === 'Date');
+      expect(dateSetting).toBeDefined();
+      const textComponent = dateSetting.components[0];
+      const inputElBefore = (modal as any).dateInputEl;
+      // Sanity: dateInputEl is the same fake element the "Date" Setting's
+      // addText() produced -- overwriting .value on it is exactly what the
+      // bug did.
+      const valueBefore = inputElBefore.value;
+
+      // Simulate the actual parser resolving "friday" to a real, valid date
+      // (the beforeEach mock's plain moment("friday") would be Invalid Date
+      // and never reach the code path being tested here).
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-07-24',
+        date: moment('2026-07-24').toDate(),
+        moment: moment('2026-07-24'),
+      })) as any;
+
+      textComponent.onChangeHandler('friday');
+
+      // The raw input the user is typing must be left alone; getDateStr()/
+      // updatePreview() already surface the live-parsed result separately.
+      expect(inputElBefore.value).toBe(valueBefore);
     });
   });
 });

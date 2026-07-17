@@ -93,6 +93,34 @@ describe('Commands Integration Tests', () => {
       expect(mockEditor.focus).toHaveBeenCalled();
     });
 
+    it('positions the cursor at the end of the auto-expanded word, not the pre-expansion cursor position', () => {
+      // Cursor placed mid-word ("tom|orrow", ch=3) with nothing selected --
+      // getSelectedText() expands the selection to the full word (ch 0-8)
+      // before replaceSelection() runs. The cursor used for adjustCursor()'s
+      // offset math must reflect that expanded selection's end, not the
+      // original mid-word position.
+      let selectionEnd = { line: 0, ch: 3 };
+      mockEditor.somethingSelected = vi.fn(() => false);
+      mockEditor.posToOffset = vi.fn((pos: any) => pos.ch);
+      mockEditor.offsetToPos = vi.fn((offset: number) => ({ line: 0, ch: offset }));
+      mockEditor.cm = { state: { wordAt: vi.fn(() => ({ from: 0, to: 8 })) } };
+      mockEditor.setSelection = vi.fn((_from: any, to: any) => { selectionEnd = to; });
+      mockEditor.getSelection = vi.fn(() => 'tomorrow');
+      mockEditor.getCursor = vi.fn((which?: string) => (which === 'to' ? selectionEnd : { line: 0, ch: 3 }));
+      plugin.hasTimeComponent = vi.fn(() => false);
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2024-01-02',
+        date: moment('2024-01-02').toDate(),
+        moment: moment('2024-01-02'),
+      }));
+
+      getParseCommand(plugin, 'replace');
+
+      // newStr "[[2024-01-02]]" (14 chars) - oldStr "tomorrow" (8 chars) = +6 offset,
+      // applied to the expanded word's end (ch 8), not the original ch 3.
+      expect(mockEditor.setCursor).toHaveBeenCalledWith({ line: 0, ch: 14 });
+    });
+
     it('should create markdown link in link mode', () => {
       mockEditor.getSelection.mockReturnValue('tomorrow');
       plugin.parseDate = vi.fn(() => ({

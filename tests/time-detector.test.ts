@@ -7,7 +7,6 @@ function makeDetector(overrides: Partial<TimeDetectorDependencies> = {}): TimeDe
   const deps: TimeDetectorDependencies = {
     languages: ["en"],
     chronos: [chrono.en.casual.clone()],
-    immediateKeywords: new Set(["now"]),
     regexRelative: /^in (\d+) (\w+)$/i,
     regexRelativeCombined: /^in (\d+) (\w+) and (\d+) (\w+)$/i,
     regexWeekday: /^(next|last|this) (\w+)$/i,
@@ -21,6 +20,19 @@ describe("TimeDetector.hasTimeComponent", () => {
   it("returns true for 'now' in the configured language", () => {
     const detector = makeDetector();
     expect(detector.hasTimeComponent("now")).toBe(true);
+  });
+
+  it("returns true for every pipe-separated variant of a language's 'now' translation", () => {
+    // Regression guard: Italian's "now" translation lists two variants
+    // ("adesso|ora"). The old check compared already-split immediateKeywords
+    // entries against the raw, unsplit translation string, so neither
+    // variant could ever match.
+    const detector = makeDetector({
+      languages: ["it"],
+      chronos: [chrono.it.casual.clone()],
+    });
+    expect(detector.hasTimeComponent("adesso")).toBe(true);
+    expect(detector.hasTimeComponent("ora")).toBe(true);
   });
 
   it("returns true for a combined relative expression with an hour/minute unit", () => {

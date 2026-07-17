@@ -13,6 +13,10 @@ import { generateMarkdownLink, shouldOmitDateForShortRelative, getActiveEditor }
 import { logger } from "../logger";
 import moment from "../window-moment";
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
 
@@ -135,27 +139,47 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   private getTimeSuggestions(inputStr: string, lang: string): string[] {
-    if (inputStr.match(new RegExp(`^${t("time", lang)}`, "i"))) {
-      return [
-        t("now", lang),
+    // Only the first variant of a pipe-separated translation (e.g. Chinese
+    // "時間|时间") is used for display/matching -- embedding the raw
+    // multi-variant string would both garble the suggestion text and, since
+    // "|" is a regex metacharacter, silently break the "^" anchor below.
+    const timeWord = t("time", lang).split('|')[0];
+    const nowWord = t("now", lang).split('|')[0];
+    if (inputStr.match(new RegExp(`^${escapeRegex(timeWord)}`, "i"))) {
+      const suggestions = [
+        nowWord,
         t("plusminutes", lang, { timeDelta: "15" }),
         t("plushour", lang, { timeDelta: "1" }),
         t("minusminutes", lang, { timeDelta: "15" }),
         t("minushour", lang, { timeDelta: "1" }),
       ]
-        .map(val => `${t("time", lang)}:${val}`)
+        .map(val => `${timeWord}:${val}`)
         .filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
+      return suggestions.length > 0 ? suggestions : undefined;
     }
   }
 
   private getImmediateSuggestions(inputStr: string, lang: string): string[] {
-    const regexp = new RegExp(`(${t("next", lang)}|${t("last", lang)}|${t("this", lang)})`, "i")
+    // Escape each translation's variants individually before joining into
+    // an alternation: a language's own "|"-separated variants stay
+    // meaningful alternation, but any other regex metacharacter one might
+    // contain can't corrupt the pattern. Anchored with "^" like the other
+    // suggestion generators in this file -- otherwise a short, common
+    // substring (e.g. Chinese "next": "下一個|下一个|下", the last variant
+    // being a single bare character) can match in the middle of unrelated
+    // input.
+    const buildPattern = (translation: string) =>
+      translation.split('|').map(v => escapeRegex(v.trim())).filter(Boolean).join('|');
+    const prefixPattern = [t("next", lang), t("last", lang), t("this", lang)]
+      .map(buildPattern)
+      .join('|');
+    const regexp = new RegExp(`^(${prefixPattern})`, "i");
     const match = inputStr.match(regexp)
     if (match) {
       const reference = match[1]
       // Prendre seulement la première variante (avant le |) pour les suggestions
       const getFirstVariant = (val: string) => val.split('|')[0];
-      return [
+      const suggestions = [
         t("week", lang),
         t("month", lang),
         t("year", lang),
@@ -174,6 +198,7 @@ export default class DateSuggest extends EditorSuggest<string> {
         })
         .map(val => `${reference} ${val}`)
         .filter(items => items.toLowerCase().startsWith(inputStr.toLowerCase()));
+      return suggestions.length > 0 ? suggestions : undefined;
     }
   }
 
@@ -453,7 +478,7 @@ export default class DateSuggest extends EditorSuggest<string> {
     // -----------------------------
 
     if (this.suggestionIsTime(suggestion)) {
-      const timePart = suggestion.substring(5);
+      const timePart = suggestion.substring(this.getTimePrefixLength(suggestion));
       dateStr = this.plugin.parseTime(timePart).formattedString;
       makeIntoLink = false;
     } else {
@@ -613,7 +638,26 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   protected suggestionIsTime(suggestion: string): boolean {
-    return this.plugin.settings.languages.some(lang => suggestion.startsWith(t("time", lang)))
+    return this.plugin.settings.languages.some(lang => {
+      const timeWord = t("time", lang).split('|')[0];
+      return suggestion.startsWith(`${timeWord}:`);
+    });
+  }
+
+  // Length of the "<TimeWord>:" prefix that getTimeSuggestions() builds its
+  // suggestions with, so callers can strip exactly that many characters
+  // instead of a hardcoded length -- "Time:" is 5 chars only in English and
+  // a few others by coincidence (e.g. French "heure:" is 6, Italian "ora:"
+  // is 4, Chinese "時間:" is 3 UTF-16 code units).
+  protected getTimePrefixLength(suggestion: string): number {
+    for (const lang of this.plugin.settings.languages) {
+      const timeWord = t("time", lang).split('|')[0];
+      const prefix = `${timeWord}:`;
+      if (suggestion.startsWith(prefix)) {
+        return prefix.length;
+      }
+    }
+    return 0;
   }
 
   protected unique(suggestions: string[]) : string[] {

@@ -204,6 +204,15 @@ describe('NLDSettingsTab', () => {
       expect(setting.components[0].value).toBe('@');
     });
 
+    it('rejects an empty trigger phrase and restores the previous value (regression: would make autosuggest fire on nearly every keystroke)', async () => {
+      tab.display();
+      const setting = findSetting('Trigger phrase');
+      const previous = plugin.settings.autocompleteTriggerPhrase;
+      await setting.components[0].onChangeHandler('   ');
+      expect(plugin.settings.autocompleteTriggerPhrase).toBe(previous);
+      expect(setting.descText).toContain('cannot be empty');
+    });
+
     it('saves the smart-suggestions toggles', async () => {
       tab.display();
       await findSetting('Enable smart suggestions').components[0].onChangeHandler(false);

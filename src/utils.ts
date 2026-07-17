@@ -28,15 +28,21 @@ const daysOfWeek: Omit<DayOfWeek, "locale-default">[] = [
 export default function getWordBoundaries(editor: Editor): EditorRange {
   const cursor = editor.getCursor();
 
-    const pos = editor.posToOffset(cursor);
-    const editorWithCM = editor as Editor & { cm: { state: { wordAt: (pos: number) => { from: number; to: number } } } };
-    const word = editorWithCM.cm.state.wordAt(pos);
-    const wordStart = editor.offsetToPos(word.from);
-    const wordEnd = editor.offsetToPos(word.to);
-    return {
-      from: wordStart,
-      to: wordEnd,
-    };
+  const pos = editor.posToOffset(cursor);
+  const editorWithCM = editor as Editor & { cm?: { state: { wordAt: (pos: number) => { from: number; to: number } | null } } };
+  // wordAt() returns null when the cursor isn't inside/adjacent to a word
+  // (empty line, whitespace, punctuation-only text) -- fall back to a
+  // zero-width range at the cursor instead of crashing.
+  const word = editorWithCM.cm?.state.wordAt(pos);
+  if (!word) {
+    return { from: cursor, to: cursor };
+  }
+  const wordStart = editor.offsetToPos(word.from);
+  const wordEnd = editor.offsetToPos(word.to);
+  return {
+    from: wordStart,
+    to: wordEnd,
+  };
 }
 
 export function getSelectedText(editor: Editor): string {

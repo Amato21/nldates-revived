@@ -81,9 +81,15 @@ export default class DatePickerModal extends Modal {
       }
     };
 
-    const updateSelectedDate = (date: Moment) => {
+    // syncInput controls whether the raw text field gets overwritten with
+    // the formatted date. Calendar clicks/quick buttons/keyboard nav want
+    // that (it's how the field reflects the selection), but the field's own
+    // onChange handler must NOT sync itself while the user is still typing
+    // into it -- getDateStr()/updatePreview() already show a live preview
+    // of the parsed result separately, without touching what's being typed.
+    const updateSelectedDate = (date: Moment, syncInput = true) => {
       this.selectedDate = date.clone();
-      if (this.dateInputEl) {
+      if (syncInput && this.dateInputEl) {
         this.dateInputEl.value = date.format("YYYY-MM-DD");
       }
       updatePreview();
@@ -184,7 +190,7 @@ export default class DatePickerModal extends Modal {
           if (value) {
             const parsed = this.plugin.parseDate(value);
             if (parsed.moment.isValid()) {
-              updateSelectedDate(parsed.moment);
+              updateSelectedDate(parsed.moment, false);
             }
           }
           updatePreview();

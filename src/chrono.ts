@@ -18,7 +18,12 @@ function getOrdinalDateParser() {
     extract: (_context: unknown, match: RegExpMatchArray) => {
       return {
         day: parseOrdinalNumberPattern(match[0]),
-        month: moment().month(),
+        // moment().month() is 0-indexed (Jan=0), but chrono-node's
+        // ParsingComponents.month is 1-indexed (Jan=1) -- verified against
+        // chrono-node's own locale constants. Without the +1 this always
+        // resolved to the wrong month (and, via forwardDate, sometimes the
+        // wrong year too).
+        month: moment().month() + 1,
       };
     },
   } as Parser);
