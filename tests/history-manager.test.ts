@@ -76,3 +76,33 @@ describe('HistoryManager.loadHistory', () => {
     expect((manager as any).history).toEqual({ tomorrow: 3 });
   });
 });
+
+describe('HistoryManager suggestion capitalization (regression)', () => {
+  let manager: HistoryManager | undefined;
+
+  afterEach(() => {
+    manager?.stopPeriodicCleanup();
+    manager = undefined;
+  });
+
+  it('normalizeSuggestion() title-cases every word instead of only the first character of the whole string', () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+    const normalizeSuggestion = (manager as any).normalizeSuggestion.bind(manager);
+    // History keys are stored fully lowercase (recordSelection()), so this
+    // used to produce "Next friday" -- only the first letter capitalized --
+    // inconsistent with what other suggestion sources show for the same
+    // phrase in the same dropdown ("Next Friday").
+    expect(normalizeSuggestion('next friday')).toBe('Next Friday');
+    expect(normalizeSuggestion('tomorrow')).toBe('Tomorrow');
+  });
+
+  it('getTopSuggestionsSync() returns properly title-cased multi-word suggestions after recordSelection()', async () => {
+    const plugin = makePlugin({ exists: vi.fn(async () => false) });
+    manager = new HistoryManager(plugin);
+    await manager.recordSelection('Next Friday');
+    const suggestions = manager.getTopSuggestionsSync(10);
+    expect(suggestions).toContain('Next Friday');
+    expect(suggestions).not.toContain('Next friday');
+  });
+});

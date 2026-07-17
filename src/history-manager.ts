@@ -125,14 +125,23 @@ export default class HistoryManager {
     if (!suggestion || suggestion.length === 0) {
       return suggestion;
     }
-    
+
     const trimmed = suggestion.trim();
     if (trimmed.length === 0) {
       return trimmed;
     }
-    
-    // Capitaliser la première lettre (gère les caractères Unicode)
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+
+    // Capitalize each word individually, not just the first character of
+    // the whole string: history keys are stored fully lowercase (see
+    // recordSelection()), so a multi-word suggestion like "next friday"
+    // would otherwise display as "Next friday" -- only the very first
+    // letter capitalized -- inconsistent with the "Next Friday" that other
+    // suggestion sources (e.g. date-suggest.ts's getImmediateSuggestions)
+    // show for the exact same phrase in the same dropdown.
+    return trimmed
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   }
 
   /**
