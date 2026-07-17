@@ -4,6 +4,17 @@ import { LRUCache } from "./lru-cache";
 import { logger } from "./logger";
 import { TranslationCollector } from "./translation-collector";
 
+// Cheap, non-cryptographic string hash (djb2 variant) used to fingerprint
+// the scanned context window for cache keys -- fast enough to run on every
+// keystroke while still distinguishing different content reliably.
+function simpleHash(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
 const CONTEXT_LINES = 10; // Nombre de lignes à analyser avant et après le curseur
 const MAX_DATES_TO_EXTRACT = 10; // Nombre maximum de dates à extraire du contexte
 const MAX_CACHE_SIZE = 200; // Limite de taille du cache de contexte
@@ -173,20 +184,6 @@ export default class ContextAnalyzer {
       return { datesInContext: [], tags: [], timestamp: Date.now() };
     }
 
-    // Vérifier le cache (avec timeout)
-    const cacheKey = `${file.path}-${cursorLine}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      // Vérifier si l'entrée n'est pas expirée
-      const now = Date.now();
-      if (cached.timestamp && (now - cached.timestamp) <= CACHE_TIMEOUT) {
-        return cached;
-      } else {
-        // Entrée expirée, la supprimer
-        this.cache.delete(cacheKey);
-      }
-    }
-
     const context: ContextInfo = {
       datesInContext: [],
       tags: [],
@@ -194,6 +191,35 @@ export default class ContextAnalyzer {
     };
 
     try {
+      // Analyser le contexte autour du curseur
+      const content = editor.getValue();
+      const lines = content.split("\n");
+
+      const startLine = Math.max(0, cursorLine - CONTEXT_LINES);
+      const endLine = Math.min(lines.length - 1, cursorLine + CONTEXT_LINES);
+
+      const contextLines = lines.slice(startLine, endLine + 1);
+      const contextText = contextLines.join("\n");
+
+      // Vérifier le cache (avec timeout). The key includes a cheap hash of
+      // the actual scanned window, not just file+line: without it, editing
+      // content within the ±CONTEXT_LINES window (without moving the cursor
+      // to a different line) would keep serving a stale cached result until
+      // CACHE_TIMEOUT expires, since file+line alone doesn't change when
+      // nearby content does.
+      const cacheKey = `${file.path}-${cursorLine}-${simpleHash(contextText)}`;
+      const cached = this.cache.get(cacheKey);
+      if (cached) {
+        // Vérifier si l'entrée n'est pas expirée
+        const now = Date.now();
+        if (cached.timestamp && (now - cached.timestamp) <= CACHE_TIMEOUT) {
+          return cached;
+        } else {
+          // Entrée expirée, la supprimer
+          this.cache.delete(cacheKey);
+        }
+      }
+
       // Extraire les tags depuis les métadonnées
       const metadata = this.app.metadataCache.getFileCache(file);
       if (metadata) {
@@ -210,16 +236,6 @@ export default class ContextAnalyzer {
           context.title = metadata.headings[0].heading;
         }
       }
-
-      // Analyser le contexte autour du curseur
-      const content = editor.getValue();
-      const lines = content.split("\n");
-      
-      const startLine = Math.max(0, cursorLine - CONTEXT_LINES);
-      const endLine = Math.min(lines.length - 1, cursorLine + CONTEXT_LINES);
-      
-      const contextLines = lines.slice(startLine, endLine + 1);
-      const contextText = contextLines.join("\n");
 
       // Extraire les dates du contexte
       context.datesInContext = this.extractDatesFromContext(contextText);
@@ -249,14 +265,21 @@ export default class ContextAnalyzer {
     if (!dateStr || dateStr.length === 0) {
       return dateStr;
     }
-    
+
     const trimmed = dateStr.trim();
     if (trimmed.length === 0) {
       return trimmed;
     }
-    
-    // Capitaliser la première lettre (gère les caractères Unicode)
-    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+
+    // Capitalize each word individually, not just the first character of
+    // the whole string: multi-word matches from the prefix+weekday/prefix+
+    // unit patterns (e.g. "next Friday") would otherwise have their second
+    // word forced to lowercase ("Next friday"), incorrectly mangling
+    // capitalized weekday/month names the user actually typed.
+    return trimmed
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   }
 
   /**
