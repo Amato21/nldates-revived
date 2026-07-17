@@ -165,12 +165,12 @@ export default class ContextAnalyzer {
   analyzeContextSync(editor: Editor, cursorLine: number): ContextInfo {
     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!activeView) {
-      return { datesInContext: [], tags: [] };
+      return { datesInContext: [], tags: [], timestamp: Date.now() };
     }
 
     const file = activeView.file;
     if (!file) {
-      return { datesInContext: [], tags: [] };
+      return { datesInContext: [], tags: [], timestamp: Date.now() };
     }
 
     // Vérifier le cache (avec timeout)
