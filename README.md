@@ -72,11 +72,12 @@ Type `@` (default trigger) followed by a natural date.
   * `@last Friday of next month` → last Friday of next month
   * Works with all prefixes (`next`, `last`, `this`) and their translations in every supported language
 
-* **Time shortcuts:** type `@Time` to see quick time-adjustment suggestions:
+* **Time shortcuts:** type the word for "time" in one of your **enabled** languages to see quick time-adjustment suggestions — `@Time` in English, `@heure` in French, and so on for each language:
   * `Time:Now` → inserts the current time (e.g. `14:30`)
   * `Time:+15 minutes` / `Time:+1 hour` → time 15 minutes / 1 hour from now
   * `Time:-15 minutes` / `Time:-1 hour` → time 15 minutes / 1 hour ago
   * These insert just the time, with no date or link — handy for logging timestamps
+  * Only works for a language you've actually enabled in settings — `@Time` won't trigger anything if only French is enabled, only `@heure` will
 
 Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`). If you type the full word yourself, the alias keeps your exact casing instead of the suggestion's own — handy in languages where the dictionary form is capitalized (French `Demain`, for instance) but you'd rather see it lowercase in your note. Only completing a partial word falls back to the suggestion's own spelling.
 

@@ -1261,6 +1261,32 @@ describe('NLDParser', () => {
       expect(moment(result).month()).toBe(2); // March
       expect(moment(result).year()).toBe(2027);
     });
+
+    // Regression: chrono-node can return several disjoint matches for one
+    // string -- "today in 3 minutes" parses as two independent candidates,
+    // ["today", "in 3 minutes"], neither containing the other.
+    // getParsedDateResult() used to only ever look at the first candidate
+    // chrono listed, silently discarding "in 3 minutes" and returning the
+    // current time unmodified (reported by a user: combining a day keyword
+    // with a relative time gave the right date but the wrong -- unmodified
+    // -- time).
+    it("should advance the time for a day keyword combined with a relative time expression, not just return now", () => {
+      const singleLangParser = new NLDParser(['en']);
+      const now = new Date();
+      const result = singleLangParser.getParsedDate('today in 3 minutes', weekStartPreference);
+      const diffMinutes = (result.getTime() - now.getTime()) / 60000;
+      expect(diffMinutes).toBeGreaterThan(2);
+      expect(diffMinutes).toBeLessThan(4);
+    });
+
+    it("should advance the time for a day keyword combined with a relative time expression in French", () => {
+      const frenchParser = new NLDParser(['fr']);
+      const now = new Date();
+      const result = frenchParser.getParsedDate("aujourd'hui dans 3 minutes", weekStartPreference);
+      const diffMinutes = (result.getTime() - now.getTime()) / 60000;
+      expect(diffMinutes).toBeGreaterThan(2);
+      expect(diffMinutes).toBeLessThan(4);
+    });
   });
 
   describe('getParsedResult (raw chrono-node results, used by callers needing match metadata)', () => {
