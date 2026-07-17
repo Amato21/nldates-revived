@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.71] - 2026-07-17
+
 ### Added
 - Autosuggest now tolerates a small typo (a wrong, missing, or transposed letter) when typing today/tomorrow/yesterday, a weekday's full name, or a history/context suggestion, instead of showing no suggestions at all. Verified across every Latin- and Cyrillic-script supported language; Japanese and Chinese are unaffected by design, since their short CJK words aren't typed letter-by-letter.
 - Settings → Smart suggestions → **Manage history**: view your suggestion history (most relevant first) and remove individual entries, or clear the whole history at once.
