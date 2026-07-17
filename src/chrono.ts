@@ -1,6 +1,6 @@
 // CHANGEMENT ICI : On utilise "import * as chrono" car la version 2.x n'a plus d'export par défaut
 import * as chrono from "chrono-node";
-import { Chrono, Parser, Refiner } from "chrono-node";
+import { Chrono, Parser, ParsingContext, Refiner } from "chrono-node";
 import { ORDINAL_NUMBER_PATTERN, parseOrdinalNumberPattern, describeError } from "./utils";
 import { logger } from "./logger";
 import moment from "./window-moment";
@@ -15,15 +15,19 @@ interface ChronoConfiguration {
 function getOrdinalDateParser() {
   return ({
     pattern: () => new RegExp(ORDINAL_NUMBER_PATTERN),
-    extract: (_context: unknown, match: RegExpMatchArray) => {
+    extract: (context: ParsingContext, match: RegExpMatchArray) => {
       return {
         day: parseOrdinalNumberPattern(match[0]),
-        // moment().month() is 0-indexed (Jan=0), but chrono-node's
+        // moment(...).month() is 0-indexed (Jan=0), but chrono-node's
         // ParsingComponents.month is 1-indexed (Jan=1) -- verified against
         // chrono-node's own locale constants. Without the +1 this always
         // resolved to the wrong month (and, via forwardDate, sometimes the
         // wrong year too).
-        month: moment().month() + 1,
+        // Must use context.refDate (the date chrono was asked to parse
+        // relative to), not moment() (the real current wall-clock time):
+        // callers can and do pass an explicit reference date, e.g. tests, or
+        // getParsedDateResult()'s callers in parser.ts.
+        month: moment(context.refDate).month() + 1,
       };
     },
   } as Parser);

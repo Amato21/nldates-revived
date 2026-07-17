@@ -47,7 +47,10 @@ export class TimeDetector {
     const nowWords = this.languages.flatMap(lang =>
       t('now', lang).toLowerCase().split('|').map(w => w.trim()).filter(w => w)
     );
-    if (nowWords.some(w => new RegExp(`^${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i').test(text))) {
+    // Exact, case-insensitive match against the whole string -- no need to
+    // compile a RegExp per word per call for that, a plain lowercase +
+    // includes() does the same thing more simply and more cheaply.
+    if (nowWords.includes(text.toLowerCase().trim())) {
       return true;
     }
 
