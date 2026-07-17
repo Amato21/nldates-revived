@@ -17,6 +17,45 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Small edit-distance calculation (Levenshtein), used only as a fallback
+// when strict prefix matching finds nothing at all -- lets a typo like
+// "tommorow" still surface "Tomorrow" instead of no suggestions whatsoever.
+function levenshteinDistance(a: string, b: string): number {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const dp: number[][] = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+  for (let i = 0; i < rows; i++) dp[i][0] = i;
+  for (let j = 0; j < cols; j++) dp[0][j] = j;
+  for (let i = 1; i < rows; i++) {
+    for (let j = 1; j < cols; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[rows - 1][cols - 1];
+}
+
+// Prefix match if possible (fast, exact, and the only behavior for queries
+// too short to fuzzy-match reliably); otherwise tolerate a small edit
+// distance between the query and the start of the candidate, so a single
+// wrong/missing/transposed letter near the start of the query still
+// surfaces the intended suggestion instead of none at all. Only used for
+// short, fixed candidate lists (today/tomorrow, weekdays, history/context)
+// -- the multi-stage progressive-typing suggestion generators elsewhere in
+// this file keep strict prefix matching, since fuzzy matching interacts
+// unpredictably with their partial-completion logic.
+function fuzzyMatchesQuery(candidate: string, query: string): boolean {
+  const c = candidate.toLowerCase();
+  const q = query.toLowerCase();
+  if (!q || c.startsWith(q)) return true;
+  if (q.length <= 2) return false; // too short to fuzzy-match without noise
+  const prefix = c.slice(0, Math.min(c.length, q.length + 2));
+  const distance = levenshteinDistance(prefix, q);
+  const threshold = q.length <= 5 ? 1 : 2;
+  return distance <= threshold;
+}
+
 export default class DateSuggest extends EditorSuggest<string> {
   private plugin: NaturalLanguageDates;
 
@@ -106,8 +145,8 @@ export default class DateSuggest extends EditorSuggest<string> {
       try {
         const historySuggestions = this.plugin.historyManager.getTopSuggestionsSync(15);
         for (const suggestion of historySuggestions) {
-          // Vérifier que la suggestion correspond à la requête
-          if (suggestion.toLowerCase().startsWith(query) && !smartSuggestions.includes(suggestion)) {
+          // Vérifier que la suggestion correspond à la requête (tolère une petite faute de frappe)
+          if (fuzzyMatchesQuery(suggestion, query) && !smartSuggestions.includes(suggestion)) {
             smartSuggestions.push(suggestion);
           }
         }
@@ -124,9 +163,9 @@ export default class DateSuggest extends EditorSuggest<string> {
           context.start.line
         );
         
-        // Ajouter les dates trouvées dans le contexte
+        // Ajouter les dates trouvées dans le contexte (tolère une petite faute de frappe)
         for (const dateStr of contextInfo.datesInContext) {
-          if (dateStr.toLowerCase().startsWith(query) && !smartSuggestions.includes(dateStr)) {
+          if (fuzzyMatchesQuery(dateStr, query) && !smartSuggestions.includes(dateStr)) {
             smartSuggestions.push(dateStr);
           }
         }
@@ -403,8 +442,8 @@ export default class DateSuggest extends EditorSuggest<string> {
       const firstVariant = dayName.split('|')[0].trim();
       const dayNameLower = firstVariant.toLowerCase();
 
-      // Vérifier si le nom complet commence par l'input
-      if (dayNameLower.startsWith(inputLower)) {
+      // Vérifier si le nom complet commence par l'input (tolère une petite faute de frappe)
+      if (fuzzyMatchesQuery(dayNameLower, inputLower)) {
         const capitalized = firstVariant.charAt(0).toUpperCase() + firstVariant.slice(1);
         if (!suggestions.includes(capitalized)) {
           suggestions.push(capitalized);
@@ -436,7 +475,7 @@ export default class DateSuggest extends EditorSuggest<string> {
       t("today", lang),
       t("yesterday", lang),
       t("tomorrow", lang),
-    ].filter(item => item.toLowerCase().startsWith(inputStr.toLowerCase()));
+    ].filter(item => fuzzyMatchesQuery(item, inputStr));
   }
 
   renderSuggestion(suggestion: string, el: HTMLElement): void {

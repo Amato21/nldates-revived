@@ -183,6 +183,22 @@ describe('DateSuggest', () => {
       const suggestions = (suggest as any).getDateSuggestions(ctx('mon'));
       expect(suggestions).toContain('Monday');
     });
+
+    it('still surfaces a history suggestion for a small typo, instead of returning nothing (regression)', () => {
+      plugin.settings.enableSmartSuggestions = true;
+      plugin.settings.enableHistorySuggestions = true;
+      mockHistoryManager.getTopSuggestionsSync = vi.fn(() => ['Tomorrow']);
+      const suggestions = (suggest as any).getSmartSuggestions(ctx('tommorow'), []);
+      expect(suggestions).toContain('Tomorrow');
+    });
+
+    it('still surfaces a context suggestion for a small typo, instead of returning nothing (regression)', () => {
+      plugin.settings.enableSmartSuggestions = true;
+      plugin.settings.enableContextSuggestions = true;
+      mockContextAnalyzer.analyzeContextSync = vi.fn(() => ({ datesInContext: ['Tomorrow'], tags: [] }));
+      const suggestions = (suggest as any).getSmartSuggestions(ctx('tommorow'), []);
+      expect(suggestions).toContain('Tomorrow');
+    });
   });
 
   describe('getTimeSuggestions', () => {
@@ -371,12 +387,39 @@ describe('DateSuggest', () => {
       const suggestions = (suggest as any).getWeekdaySuggestions('mon', 'fr');
       expect(suggestions).toEqual(['Lundi']);
     });
+
+    it('still suggests "Wednesday" for a small typo on the full name, instead of returning nothing (regression)', () => {
+      const suggestions = (suggest as any).getWeekdaySuggestions('wednsday', 'en');
+      expect(suggestions).toContain('Wednesday');
+    });
+
+    it('does not fuzzy-match a short weekday abbreviation typo (abbreviations stay strict prefix)', () => {
+      // "tue" typo'd as "tve" is only 3 characters -- too short to
+      // fuzzy-match reliably, so it should find nothing rather than guess.
+      expect((suggest as any).getWeekdaySuggestions('tve', 'en')).toBeUndefined();
+    });
   });
 
   describe('defaultSuggestions', () => {
     it('matches today/tomorrow/yesterday case-insensitively', () => {
       expect((suggest as any).defaultSuggestions('tod', 'en')).toContain('Today');
       expect((suggest as any).defaultSuggestions('Tod', 'en')).toContain('Today');
+    });
+
+    it('still suggests "Tomorrow" for a small typo, instead of returning nothing (regression)', () => {
+      expect((suggest as any).defaultSuggestions('tommorow', 'en')).toContain('Tomorrow');
+    });
+
+    it('still suggests "Yesterday" for a transposed-letters typo (regression)', () => {
+      expect((suggest as any).defaultSuggestions('yestreday', 'en')).toContain('Yesterday');
+    });
+
+    it('does not fuzzy-match a short, unrelated query', () => {
+      expect((suggest as any).defaultSuggestions('zz', 'en')).toEqual([]);
+    });
+
+    it('does not fuzzy-match a longer but genuinely unrelated query', () => {
+      expect((suggest as any).defaultSuggestions('banana', 'en')).toEqual([]);
     });
   });
 
