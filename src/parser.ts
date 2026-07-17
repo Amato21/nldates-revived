@@ -1151,7 +1151,7 @@ export default class NLDParser {
         // specific/informative one wins instead of always picking whichever
         // chrono happened to list first, which silently discarded "in 3
         // minutes" and returned the current time unmodified.
-        for (const match of results) {
+        for (const match of results || []) {
           if (match.text.length > bestScore) {
             bestScore = match.text.length;
             bestResult = match;
