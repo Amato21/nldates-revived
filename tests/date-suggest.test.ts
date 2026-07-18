@@ -798,7 +798,11 @@ describe('DateSuggest', () => {
       const el: any = {
         classes: [] as string[],
         spans: [] as { cls?: string; text?: string }[],
+        emptyCalledBeforeFirstSpan: false,
         setText: vi.fn(),
+        empty: vi.fn(() => {
+          if (el.spans.length === 0) el.emptyCalledBeforeFirstSpan = true;
+        }),
         addClass: vi.fn((c: string) => { el.classes.push(c); }),
         createSpan: vi.fn((opts: { cls?: string; text?: string } = {}) => {
           el.spans.push(opts);
@@ -808,15 +812,42 @@ describe('DateSuggest', () => {
       return el;
     }
 
-    it('falls back to plain setText when there is nothing to preview (e.g. an unparseable fallback query)', () => {
-      plugin.parseDate = vi.fn(() => { throw new Error('boom'); });
+    it('falls back to plain setText when the suggestion is unparseable (parseDate returns an invalid moment, not a thrown error)', () => {
+      // parseDate()/parseTime() never throw on unparseable input -- they
+      // return an NLDResult with an invalid moment (see src/main.ts). A
+      // fallback query like "xyz123" would take this path in production.
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: 'Invalid date',
+        date: new Date(NaN),
+        moment: moment(new Date(NaN)),
+      }));
       const el = makeFakeEl();
       suggest.renderSuggestion('xyz123', el);
       expect(el.setText).toHaveBeenCalledWith('xyz123');
       expect(el.createSpan).not.toHaveBeenCalled();
     });
 
-    it('shows a date preview next to a plain date suggestion', () => {
+    it('falls back to plain setText when resolution throws an unexpected error (defense in depth)', () => {
+      plugin.parseDate = vi.fn(() => { throw new Error('boom'); });
+      const el = makeFakeEl();
+      expect(() => suggest.renderSuggestion('xyz123', el)).not.toThrow();
+      expect(el.setText).toHaveBeenCalledWith('xyz123');
+      expect(el.createSpan).not.toHaveBeenCalled();
+    });
+
+    it('falls back to plain setText when parseTime returns an invalid moment for a "Time:" suggestion', () => {
+      plugin.parseTime = vi.fn(() => ({
+        formattedString: 'Invalid date',
+        date: new Date(NaN),
+        moment: moment(new Date(NaN)),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('Time:Now', el);
+      expect(el.setText).toHaveBeenCalledWith('Time:Now');
+      expect(el.createSpan).not.toHaveBeenCalled();
+    });
+
+    it('shows a date preview next to a plain date suggestion, clearing the (possibly reused) element first', () => {
       plugin.parseDate = vi.fn(() => ({
         formattedString: '2026-07-18',
         date: moment('2026-07-18').toDate(),
@@ -824,6 +855,8 @@ describe('DateSuggest', () => {
       }));
       const el = makeFakeEl();
       suggest.renderSuggestion('Tomorrow', el);
+      expect(el.empty).toHaveBeenCalled();
+      expect(el.emptyCalledBeforeFirstSpan).toBe(true);
       expect(el.classes).toContain('nld-suggestion-item');
       expect(el.spans).toEqual([
         { cls: 'nld-suggestion-text', text: 'Tomorrow' },

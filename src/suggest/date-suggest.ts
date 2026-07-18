@@ -508,6 +508,11 @@ export default class DateSuggest extends EditorSuggest<string> {
       el.setText(suggestion);
       return;
     }
+    // Obsidian recycles suggestion-row elements across renders (virtualized
+    // list), so a stale previous render's content must be cleared before
+    // appending new spans -- otherwise old text/spans stack up on top of
+    // each other on the reused element.
+    el.empty();
     el.addClass("nld-suggestion-item");
     el.createSpan({ cls: "nld-suggestion-text", text: suggestion });
     el.createSpan({ cls: "nld-suggestion-preview", text: preview });
@@ -526,7 +531,16 @@ export default class DateSuggest extends EditorSuggest<string> {
     try {
       if (this.suggestionIsTime(suggestion)) {
         const timePart = suggestion.substring(this.getTimePrefixLength(suggestion));
-        return this.plugin.parseTime(timePart).formattedString;
+        const parsedTime = this.plugin.parseTime(timePart);
+        // parseDate()/parseTime() never throw -- on unparseable input they
+        // return an NLDResult with formattedString "Invalid date" and an
+        // invalid moment, not an exception. Checking isValid() explicitly is
+        // what actually catches that case (the try/catch below is only a
+        // safety net for genuinely unexpected errors elsewhere in this method).
+        if (!parsedTime.moment.isValid()) {
+          return null;
+        }
+        return parsedTime.formattedString;
       }
 
       const dateRange = this.plugin.parseDateRange(suggestion);
@@ -550,6 +564,9 @@ export default class DateSuggest extends EditorSuggest<string> {
       }
 
       const parsedResult = this.plugin.parseDate(suggestion);
+      if (!parsedResult.moment.isValid()) {
+        return null;
+      }
       if (hasTime) {
         const isToday = parsedResult.moment.isSame(moment(), 'day');
         const isRelativeShortTerm = shouldOmitDateForShortRelative(suggestion, this.plugin.settings.languages);
