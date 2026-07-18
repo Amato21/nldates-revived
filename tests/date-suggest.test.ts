@@ -794,10 +794,136 @@ describe('DateSuggest', () => {
   });
 
   describe('renderSuggestion', () => {
-    it('sets the suggestion text on the element', () => {
-      const el = { setText: vi.fn() } as any;
+    function makeFakeEl() {
+      const el: any = {
+        classes: [] as string[],
+        spans: [] as { cls?: string; text?: string }[],
+        emptyCalledBeforeFirstSpan: false,
+        setText: vi.fn(),
+        empty: vi.fn(() => {
+          if (el.spans.length === 0) el.emptyCalledBeforeFirstSpan = true;
+        }),
+        addClass: vi.fn((c: string) => { el.classes.push(c); }),
+        createSpan: vi.fn((opts: { cls?: string; text?: string } = {}) => {
+          el.spans.push(opts);
+          return {};
+        }),
+      };
+      return el;
+    }
+
+    it('falls back to plain setText when the suggestion is unparseable (parseDate returns an invalid moment, not a thrown error)', () => {
+      // parseDate()/parseTime() never throw on unparseable input -- they
+      // return an NLDResult with an invalid moment (see src/main.ts). A
+      // fallback query like "xyz123" would take this path in production.
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: 'Invalid date',
+        date: new Date(NaN),
+        moment: moment(new Date(NaN)),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('xyz123', el);
+      expect(el.setText).toHaveBeenCalledWith('xyz123');
+      expect(el.createSpan).not.toHaveBeenCalled();
+    });
+
+    it('falls back to plain setText when resolution throws an unexpected error (defense in depth)', () => {
+      plugin.parseDate = vi.fn(() => { throw new Error('boom'); });
+      const el = makeFakeEl();
+      expect(() => suggest.renderSuggestion('xyz123', el)).not.toThrow();
+      expect(el.setText).toHaveBeenCalledWith('xyz123');
+      expect(el.createSpan).not.toHaveBeenCalled();
+    });
+
+    it('falls back to plain setText when parseTime returns an invalid moment for a "Time:" suggestion', () => {
+      plugin.parseTime = vi.fn(() => ({
+        formattedString: 'Invalid date',
+        date: new Date(NaN),
+        moment: moment(new Date(NaN)),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('Time:Now', el);
+      expect(el.setText).toHaveBeenCalledWith('Time:Now');
+      expect(el.createSpan).not.toHaveBeenCalled();
+    });
+
+    it('shows a date preview next to a plain date suggestion, clearing the (possibly reused) element first', () => {
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-07-18',
+        date: moment('2026-07-18').toDate(),
+        moment: moment('2026-07-18'),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('Tomorrow', el);
+      expect(el.empty).toHaveBeenCalled();
+      expect(el.emptyCalledBeforeFirstSpan).toBe(true);
+      expect(el.classes).toContain('nld-suggestion-item');
+      expect(el.spans).toEqual([
+        { cls: 'nld-suggestion-text', text: 'Tomorrow' },
+        { cls: 'nld-suggestion-preview', text: '2026-07-18' },
+      ]);
+    });
+
+    it('shows a time-only preview for a "Time:" suggestion', () => {
+      plugin.parseTime = vi.fn(() => ({ formattedString: '14:30', date: new Date(), moment: moment() }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('Time:Now', el);
+      expect(el.spans).toEqual([
+        { cls: 'nld-suggestion-text', text: 'Time:Now' },
+        { cls: 'nld-suggestion-preview', text: '14:30' },
+      ]);
+    });
+
+    it('shows a date+time preview when the suggestion has a time component, matching what selectSuggestion would insert', () => {
+      plugin.settings.format = 'YYYY-MM-DD';
+      plugin.settings.timeFormat = 'HH:mm';
+      plugin.settings.omitDateForShortRelative = false;
+      plugin.hasTimeComponent = vi.fn(() => true);
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-07-20 15:00',
+        date: moment('2026-07-20 15:00').toDate(),
+        moment: moment('2026-07-20 15:00'),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('next Monday at 3pm', el);
+      const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
+      expect(previewSpan?.text).toBe('2026-07-20 15:00');
+    });
+
+    it('omits the date from the preview for a short relative expression today, mirroring the actual insertion', () => {
+      plugin.settings.omitDateForShortRelative = true;
+      plugin.settings.timeFormat = 'HH:mm';
+      plugin.hasTimeComponent = vi.fn(() => true);
+      const today = moment().add(15, 'minutes');
+      plugin.parseDate = vi.fn(() => ({ formattedString: today.format('YYYY-MM-DD'), date: today.toDate(), moment: today }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('in 15 min', el);
+      const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
+      expect(previewSpan?.text).toBe(today.format('HH:mm'));
+    });
+
+    it('shows a joined-date-list preview for a date range with a dateList', () => {
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2026-07-20 to 2026-07-21',
+        startDate: moment('2026-07-20').toDate(),
+        endDate: moment('2026-07-21').toDate(),
+        startMoment: moment('2026-07-20'),
+        endMoment: moment('2026-07-21'),
+        isRange: true,
+        dateList: [moment('2026-07-20'), moment('2026-07-21')],
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('from Monday to Tuesday', el);
+      const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
+      expect(previewSpan?.text).toBe('2026-07-20, 2026-07-21');
+    });
+
+    it('does not show a preview identical to the suggestion text', () => {
+      plugin.parseDate = vi.fn(() => ({ formattedString: 'Tomorrow', date: new Date(), moment: moment() }));
+      const el = makeFakeEl();
       suggest.renderSuggestion('Tomorrow', el);
       expect(el.setText).toHaveBeenCalledWith('Tomorrow');
+      expect(el.createSpan).not.toHaveBeenCalled();
     });
   });
 });

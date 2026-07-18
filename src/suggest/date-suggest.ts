@@ -503,7 +503,86 @@ export default class DateSuggest extends EditorSuggest<string> {
   }
 
   renderSuggestion(suggestion: string, el: HTMLElement): void {
-    el.setText(suggestion);
+    const preview = this.resolvePreviewText(suggestion);
+    if (!preview || preview === suggestion) {
+      el.setText(suggestion);
+      return;
+    }
+    // Obsidian recycles suggestion-row elements across renders (virtualized
+    // list), so a stale previous render's content must be cleared before
+    // appending new spans -- otherwise old text/spans stack up on top of
+    // each other on the reused element.
+    el.empty();
+    el.addClass("nld-suggestion-item");
+    el.createSpan({ cls: "nld-suggestion-text", text: suggestion });
+    el.createSpan({ cls: "nld-suggestion-preview", text: preview });
+  }
+
+  // Resolves a suggestion to the plain-text date/time it would actually
+  // insert (no [[links]], no alias) -- shown next to the suggestion in the
+  // dropdown so the user can see the resolved value before picking one.
+  // Deliberately mirrors selectSuggestion()'s own date/time resolution
+  // (time-suggestion / date-range / hybrid-date-time branches) so the
+  // preview can never show something different from what selecting the
+  // suggestion actually produces -- and, unlike selectSuggestion(), never
+  // touches the editor or history and can't throw: a parsing failure here
+  // just means no preview is shown, not a broken suggestion list.
+  private resolvePreviewText(suggestion: string): string | null {
+    try {
+      if (this.suggestionIsTime(suggestion)) {
+        const timePart = suggestion.substring(this.getTimePrefixLength(suggestion));
+        const parsedTime = this.plugin.parseTime(timePart);
+        // parseDate()/parseTime() never throw -- on unparseable input they
+        // return an NLDResult with formattedString "Invalid date" and an
+        // invalid moment, not an exception. Checking isValid() explicitly is
+        // what actually catches that case (the try/catch below is only a
+        // safety net for genuinely unexpected errors elsewhere in this method).
+        if (!parsedTime.moment.isValid()) {
+          return null;
+        }
+        return parsedTime.formattedString;
+      }
+
+      const dateRange = this.plugin.parseDateRange(suggestion);
+      if (dateRange) {
+        if (dateRange.dateList && dateRange.dateList.length > 0) {
+          return dateRange.dateList.map(m => m.format(this.plugin.settings.format)).join(', ');
+        }
+        const startFormatted = dateRange.startMoment.format(this.plugin.settings.format);
+        const endFormatted = dateRange.endMoment.format(this.plugin.settings.format);
+        const primaryLang = this.plugin.settings.languages[0] || 'en';
+        const toTranslation = t("to", primaryLang).split('|')[0];
+        return `${startFormatted} ${toTranslation} ${endFormatted}`;
+      }
+
+      let hasTime = this.plugin.hasTimeComponent(suggestion);
+      if (!hasTime) {
+        const explicitTimeRegex = /\d+\s*(min|mins|minute|minutes|h|hour|hours|heure|heures|sec|second|seconds)(?![a-z])/i;
+        if (suggestion.match(explicitTimeRegex)) {
+          hasTime = true;
+        }
+      }
+
+      const parsedResult = this.plugin.parseDate(suggestion);
+      if (!parsedResult.moment.isValid()) {
+        return null;
+      }
+      if (hasTime) {
+        const isToday = parsedResult.moment.isSame(moment(), 'day');
+        const isRelativeShortTerm = shouldOmitDateForShortRelative(suggestion, this.plugin.settings.languages);
+        const shouldOmitDate = this.plugin.settings.omitDateForShortRelative && isToday && isRelativeShortTerm;
+        const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+        if (shouldOmitDate) {
+          return timePart;
+        }
+        const datePart = parsedResult.moment.format(this.plugin.settings.format);
+        return `${datePart} ${timePart}`;
+      }
+      return parsedResult.formattedString;
+    } catch (error) {
+      logger.warn('DateSuggest: failed to resolve autosuggest preview', { suggestion, error });
+      return null;
+    }
   }
 
   selectSuggestion(suggestion: string, event: KeyboardEvent | MouseEvent): void {

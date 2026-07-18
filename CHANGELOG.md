@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- The autosuggest dropdown now shows a preview of the resolved date/time next to each suggestion (e.g. `Next Monday` — `2025-01-06`), so you can see what will actually be inserted before picking one.
+
 ## [0.9.71] - 2026-07-17
 
 ### Added

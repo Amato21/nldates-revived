@@ -79,6 +79,8 @@ Type `@` (default trigger) followed by a natural date.
   * These insert just the time, with no date or link — handy for logging timestamps
   * Only works for a language you've actually enabled in settings — `@Time` won't trigger anything if only French is enabled, only `@heure` will
 
+Each suggestion in the dropdown shows a preview of the resolved date or time next to it (e.g. typing `@next monday` shows "Next Monday" with `2025-01-06` beside it), so you can see exactly what will be inserted before you pick one.
+
 Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias (e.g. `[[2024-12-30|today]]`). If you type the full word yourself, the alias keeps your exact casing instead of the suggestion's own — handy in languages where the dictionary form is capitalized (French `Demain`, for instance) but you'd rather see it lowercase in your note. Only completing a partial word falls back to the suggestion's own spelling.
 
 ![Obsidian_ldWoN5Xnt8](https://github.com/user-attachments/assets/7a876604-7b59-40e0-acd5-8d7370c1d0d0)
