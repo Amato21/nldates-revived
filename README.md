@@ -21,9 +21,12 @@ Enable any combination in **Settings → Natural Language Dates → Language set
 | German | Partially supported |
 | Portuguese | Partially supported |
 | Japanese | Full support |
+| Korean | Partially supported |
 | Dutch | Under development |
 
 You can enable several languages at once — the autosuggest and parser understand all of them simultaneously.
+
+Korean support (`오늘`, `내일`, `다음 주 월요일`, `3일 후`...) reuses vocabulary from [CreamNuts' nldates-obsidian-korean](https://github.com/CreamNuts/nldates-obsidian-korean) — many thanks for that work. As with the other "partially supported" languages, chrono-node has no Korean parser to fall back on, so some combined phrasings (e.g. a weekday together with a specific time, or date ranges) aren't recognized yet ([#40](https://github.com/Amato21/nldates-revived/issues/40)).
 
 ---
 
@@ -131,6 +134,7 @@ This project stands on the shoulders of giants. Huge thanks to:
 
 * **[Argentina Ortega Sainz (argenos)](https://github.com/argenos):** The original creator of this plugin. This revival is based on their excellent work.
 * **[RensOliemans](https://github.com/RensOliemans):** For the major contributions and foundational work on the multilingual support.
+* **[CreamNuts](https://github.com/CreamNuts):** For [nldates-obsidian-korean](https://github.com/CreamNuts/nldates-obsidian-korean), whose vocabulary this plugin's Korean support is built on.
 * **Amato21:** Maintainer of this "Revived" version.
 
 Powered by the [chrono-node](https://github.com/wanasit/chrono) library.

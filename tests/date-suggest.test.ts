@@ -461,16 +461,18 @@ describe('DateSuggest', () => {
       expect(suggestions).toContain(expected);
     });
 
-    // Japanese and Chinese "tomorrow" are 2-character CJK words (明日 / 明天).
-    // Fuzzy matching deliberately excludes queries of 2 characters or fewer
-    // to avoid noisy matches, so these are never fuzzy-matched -- documented
-    // as the actual, intentional behavior rather than a gap to fix, since a
-    // single-character-level "typo" doesn't map onto CJK input the way it
-    // does for Latin/Cyrillic scripts (characters are typically chosen from
-    // an IME candidate list, not typed letter-by-letter).
-    it('does not fuzzy-match Japanese/Chinese short CJK words (by design, queries this short skip the fuzzy fallback)', () => {
+    // Japanese, Chinese, and Korean "tomorrow" are all 2-character words
+    // (明日 / 明天 / 내일). Fuzzy matching deliberately excludes queries of 2
+    // characters or fewer to avoid noisy matches, so these are never
+    // fuzzy-matched -- documented as the actual, intentional behavior rather
+    // than a gap to fix, since a single-character-level "typo" doesn't map
+    // onto CJK/Korean input the way it does for Latin/Cyrillic scripts
+    // (characters are typically chosen from an IME candidate list, not
+    // typed letter-by-letter).
+    it('does not fuzzy-match Japanese/Chinese/Korean short words (by design, queries this short skip the fuzzy fallback)', () => {
       expect((suggest as any).defaultSuggestions('明後', 'ja')).toEqual([]);
       expect((suggest as any).defaultSuggestions('明后', 'zh.hant')).toEqual([]);
+      expect((suggest as any).defaultSuggestions('일내', 'ko')).toEqual([]);
     });
   });
 

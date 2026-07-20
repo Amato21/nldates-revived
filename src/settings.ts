@@ -44,6 +44,7 @@ export interface NLDSettings {
   russian: boolean;
   ukrainian: boolean;
   chinese: boolean;
+  korean: boolean;
 
   modalToggleTime: boolean;
   modalToggleLink: boolean;
@@ -80,6 +81,7 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   russian: false,
   ukrainian: false,
   chinese: false,
+  korean: false,
 
   modalToggleTime: false,
   modalToggleLink: false,
@@ -185,6 +187,7 @@ export class NLDSettingsTab extends PluginSettingTab {
     this.createLanguageSetting(containerEl, "Russian", "russian", "ru");
     this.createLanguageSetting(containerEl, "Ukrainian", "ukrainian", "uk");
     this.createLanguageSetting(containerEl, "Chinese (Traditional)", "chinese", "zh.hant", "partially supported");
+    this.createLanguageSetting(containerEl, "Korean", "korean", "ko", "partially supported");
 
     new Setting(containerEl).setHeading().setName("Hotkey formatting settings");
 

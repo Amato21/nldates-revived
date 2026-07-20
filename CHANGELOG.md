@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - The autosuggest dropdown now shows a preview of the resolved date/time next to each suggestion (e.g. `Next Monday` — `2025-01-06`), so you can see what will actually be inserted before picking one.
+- **Korean support** (partial): `오늘`/`내일`/`어제`, weekdays, `이번`/`다음`/`지난` prefixes, and suffix-style relative expressions (`3일 후`, `2주 전`). Vocabulary based on [CreamNuts' nldates-obsidian-korean](https://github.com/CreamNuts/nldates-obsidian-korean) (MIT), with thanks. Like the other partially-supported languages, chrono-node has no Korean parser to fall back on, so some combined phrasings (weekday + specific time, date ranges) aren't recognized yet — tracked in [#40](https://github.com/Amato21/nldates-revived/issues/40).
 
 ## [0.9.71] - 2026-07-17
 
