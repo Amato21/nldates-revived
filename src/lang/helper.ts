@@ -11,6 +11,7 @@ import it from './it';
 import ru from './ru';
 import uk from './uk';
 import zh from './zh';
+import ko from './ko';
 
 const notFoundDefault = "NOTFOUND" as const;
 
@@ -39,6 +40,7 @@ const languageModules: Record<string, LangDict> = {
   ru,
   uk,
   'zh.hant': zh,
+  ko,
 };
 
 /**

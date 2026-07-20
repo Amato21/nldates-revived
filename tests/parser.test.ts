@@ -22,7 +22,7 @@ describe('NLDParser', () => {
     });
     
     // Reset parser with all languages
-    parser = new NLDParser(['en', 'fr', 'de', 'pt', 'nl', 'es', 'it', 'ja', 'ru', 'uk', 'zh.hant']);
+    parser = new NLDParser(['en', 'fr', 'de', 'pt', 'nl', 'es', 'it', 'ja', 'ru', 'uk', 'zh.hant', 'ko']);
   });
 
   describe('Priority 1: Basic expressions (today, tomorrow, yesterday, now)', () => {
@@ -258,6 +258,36 @@ describe('NLDParser', () => {
         expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
       });
     });
+
+    // Korean has no chrono-node locale at all (verified: chrono-node ships
+    // de/en/es/fi/fr/it/ja/nl/pt/ru/sv/uk/zh, no ko), so -- like Chinese --
+    // these rely entirely on the plugin's own regex patterns with no
+    // chrono-node fallback if a pattern doesn't match.
+    describe('Korean', () => {
+      it("should parse '오늘'", () => {
+        const result = parser.getParsedDate('오늘', weekStartPreference);
+        const today = moment().startOf('day');
+        expectSameDate(result, today, 'day');
+      });
+
+      it("should parse '내일'", () => {
+        const result = parser.getParsedDate('내일', weekStartPreference);
+        const tomorrow = moment().add(1, 'days').startOf('day');
+        expectSameDate(result, tomorrow, 'day');
+      });
+
+      it("should parse '어제'", () => {
+        const result = parser.getParsedDate('어제', weekStartPreference);
+        const yesterday = moment().subtract(1, 'days').startOf('day');
+        expectSameDate(result, yesterday, 'day');
+      });
+
+      it("should parse '지금'", () => {
+        const result = parser.getParsedDate('지금', weekStartPreference);
+        const now = new Date();
+        expect(Math.abs(result.getTime() - now.getTime())).toBeLessThan(1000);
+      });
+    });
   });
 
   describe('Priority 1: Simple relative expressions (in 2 days, in 2 weeks)', () => {
@@ -433,6 +463,35 @@ describe('NLDParser', () => {
       it("should parse '30分鐘後'", () => {
         const result = parser.getParsedDate('30分鐘後', weekStartPreference);
         const expected = moment().add(30, 'minutes');
+        expectSameDate(result, expected, 'minute', 60);
+      });
+    });
+
+    // Korean phrases relative time in suffix position too (number + unit +
+    // 후/뒤 "later"), same mechanism as Chinese's 後/后 above -- vocabulary
+    // verified against CreamNuts' nldates-obsidian-korean (MIT).
+    describe('Korean', () => {
+      it("should parse '3일 후'", () => {
+        const result = parser.getParsedDate('3일 후', weekStartPreference);
+        const expected = moment().add(3, 'days');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse '2주 후'", () => {
+        const result = parser.getParsedDate('2주 후', weekStartPreference);
+        const expected = moment().add(2, 'weeks');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse '3개월 후'", () => {
+        const result = parser.getParsedDate('3개월 후', weekStartPreference);
+        const expected = moment().add(3, 'months');
+        expectSameDate(result, expected, 'day');
+      });
+
+      it("should parse '5분 후'", () => {
+        const result = parser.getParsedDate('5분 후', weekStartPreference);
+        const expected = moment().add(5, 'minutes');
         expectSameDate(result, expected, 'minute', 60);
       });
     });
@@ -792,6 +851,31 @@ describe('NLDParser', () => {
         expect(moment(result).isSame(expected, 'day')).toBe(true);
       });
     });
+
+    // Unlike the suffix-style relative expressions above, Korean's this/
+    // next/last prefixes ("이번"/"다음"/"지난") come *before* the weekday,
+    // the same word order as English -- so this uses the same prefix
+    // mechanism as every other language here, not the suffix one.
+    describe('Korean', () => {
+      it("should parse '다음 월요일'", () => {
+        const result = parser.getParsedDate('다음 월요일', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+      });
+
+      it("should parse '이번 월요일' as Monday of the current week", () => {
+        const result = parser.getParsedDate('이번 월요일', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1);
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+
+      it("should parse '지난 월요일' as Monday of the previous week", () => {
+        const result = parser.getParsedDate('지난 월요일', weekStartPreference);
+        expect(moment(result).day()).toBe(1); // Monday
+        const expected = moment().day(1).subtract(1, 'week');
+        expect(moment(result).isSame(expected, 'day')).toBe(true);
+      });
+    });
   });
 
   describe('Date ranges (from Monday to Friday, next week)', () => {
@@ -1093,6 +1177,12 @@ describe('NLDParser', () => {
     it("should parse Chinese '前' suffix expressions, which have no chrono-node fallback", () => {
       expectSameDate(parser.getParsedDate('3天前', weekStartPreference), moment().subtract(3, 'days'), 'day');
       expectSameDate(parser.getParsedDate('30分鐘前', weekStartPreference), moment().subtract(30, 'minutes'), 'minute', 2);
+    });
+
+    it("should parse Korean '전' suffix expressions, which have no chrono-node fallback either", () => {
+      expectSameDate(parser.getParsedDate('3일 전', weekStartPreference), moment().subtract(3, 'days'), 'day');
+      expectSameDate(parser.getParsedDate('2주 전', weekStartPreference), moment().subtract(2, 'weeks'), 'day');
+      expectSameDate(parser.getParsedDate('30분 전', weekStartPreference), moment().subtract(30, 'minutes'), 'minute', 2);
     });
 
     it("should parse Portuguese 'há' prefix expressions", () => {
