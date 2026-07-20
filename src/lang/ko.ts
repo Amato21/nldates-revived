@@ -29,7 +29,7 @@ const dict = {
   next: "다음",
   last: "지난",
   this: "이번",
-  in: "이내",
+  in: "앞으로",
   sunday: "일요일",
   monday: "월요일",
   tuesday: "화요일",
@@ -50,7 +50,7 @@ const dict = {
   // Suffix markers for "N unit" + marker (e.g. "3일 후" = "in 3 days",
   // "2주 전" = "2 weeks ago") -- verified against CreamNuts' handleNativeDateExpressions()/processNumberPattern().
   later: "후|뒤",
-  agosuffix: "전|앞",
+  agosuffix: "전",
   time: "시간",
   now: "지금",
   plusminutes: "+%{timeDelta}분",
