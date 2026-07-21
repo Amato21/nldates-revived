@@ -83,19 +83,21 @@ export default class DatePickerModal extends Modal {
       const formatToUse = formatValidation.valid ? momentFormat : DEFAULT_SETTINGS.modalMomentFormat;
 
       // Only round-trip through the NLP parser when the user actually typed
-      // something in the manual field -- that's free-form text that may
-      // genuinely include a time (e.g. "today at 3pm") and needs parsing.
-      // this.selectedDate (calendar clicks, quick-select buttons) is
-      // already a resolved, correctly-timed moment with nothing left to
-      // parse: re-deriving it by formatting to a bare "YYYY-MM-DD" string
-      // and feeding that back into the NLP parser silently lost whatever
-      // time-of-day this.selectedDate actually had, and chrono-node defaults
-      // a date given with no time component to noon -- so every calendar
-      // click or quick-button pick previously inserted "12:00" regardless
-      // of the actual selection.
-      const momentToFormat = cleanDateInput
+      // something in the manual field (e.g. "next friday") -- this.selectedDate
+      // (calendar clicks, quick-select buttons) is already a resolved moment
+      // with nothing left to parse.
+      const parsedMoment = cleanDateInput
         ? parseManualInput(cleanDateInput)
         : this.selectedDate;
+
+      // This is a date picker, not a time picker -- there's no time-of-day
+      // control anywhere in this modal's UI, so any time the NLP parser
+      // might have inferred from typed text (e.g. "today at 3pm") is
+      // deliberately discarded here, not just left at whatever default
+      // chrono-node happened to produce. Cloned first: parsedMoment may be
+      // the cached result from parseManualInput(), and moment's mutating
+      // .startOf() would otherwise corrupt that cache entry.
+      const momentToFormat = parsedMoment.isValid() ? parsedMoment.clone().startOf("day") : parsedMoment;
 
       let parsedDateString = momentToFormat.isValid()
         ? momentToFormat.format(formatToUse)
@@ -248,12 +250,12 @@ export default class DatePickerModal extends Modal {
       .setName("Date format")
       .setDesc("Moment format to be used")
       .addMomentFormat((momentEl) => {
-        momentEl.setPlaceholder("YYYY-MM-DD HH:mm");
+        momentEl.setPlaceholder("YYYY-MM-DD");
         momentEl.setValue(momentFormat);
         momentEl.onChange((value) => {
-          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD HH:mm");
+          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD");
           if (validated.valid) {
-            momentFormat = value.trim() || "YYYY-MM-DD HH:mm";
+            momentFormat = value.trim() || "YYYY-MM-DD";
             this.plugin.settings.modalMomentFormat = momentFormat;
             void this.plugin.saveSettings();
             updatePreview();

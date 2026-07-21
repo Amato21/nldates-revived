@@ -46,8 +46,13 @@ export interface NLDSettings {
   chinese: boolean;
   korean: boolean;
 
-  modalToggleTime: boolean;
   modalToggleLink: boolean;
+  // Date-only: the Date Picker deliberately never surfaces a time -- there's
+  // no time-of-day control anywhere in that modal's UI, so a format
+  // including time tokens would only ever display a meaningless constant
+  // (the picked date normalized to midnight). Use the "Insert the current
+  // date and time" command, or type a full expression into the autosuggest,
+  // for anything that actually needs a time.
   modalMomentFormat: string;
 
   // Smart suggestions
@@ -83,9 +88,8 @@ export const DEFAULT_SETTINGS: NLDSettings = {
   chinese: false,
   korean: false,
 
-  modalToggleTime: false,
   modalToggleLink: false,
-  modalMomentFormat: "YYYY-MM-DD HH:mm",
+  modalMomentFormat: "YYYY-MM-DD",
 
   // Smart suggestions
   enableSmartSuggestions: true,

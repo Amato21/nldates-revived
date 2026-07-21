@@ -369,7 +369,8 @@ describe('DatePickerModal Integration Tests', () => {
     // and feeding that back into plugin.parseDate() -- discarding whatever
     // time this.selectedDate actually had. chrono-node defaults a date given
     // with no time component to noon, so that round-trip always produced
-    // 12:00 once formatted with modalMomentFormat's default "HH:mm".
+    // 12:00 once formatted with modalMomentFormat's format at the time,
+    // which included "HH:mm" (the format is now date-only, see below).
     //
     // This mock reproduces that exact real-world chrono behavior (unlike
     // this file's default beforeEach mock, which uses plain moment(text) --
@@ -440,7 +441,7 @@ describe('DatePickerModal Integration Tests', () => {
       expect(plugin.parseDate).not.toHaveBeenCalled();
       const lastPreview = previewSpy.mock.calls.at(-1)?.[0];
       expect(lastPreview).not.toContain('12:00');
-      expect(lastPreview).toContain('00:00');
+      expect(lastPreview).toContain('2026-07-20');
     });
 
     it('does not show noon for a quick-select button pick either', () => {
@@ -457,7 +458,12 @@ describe('DatePickerModal Integration Tests', () => {
       expect(lastPreview).not.toContain('12:00');
     });
 
-    it('still parses typed free-form text through the NLP parser (e.g. an explicit time)', () => {
+    it('still parses typed free-form text through the NLP parser, but discards any time it carries (this is a date picker, not a time picker)', () => {
+      // A custom format that *would* reveal a leaked time if one weren't
+      // discarded -- the default "YYYY-MM-DD" can't tell HH:mm leaking
+      // through apart from HH:mm being correctly stripped, since neither
+      // token is in the format string either way.
+      plugin.settings.modalMomentFormat = 'YYYY-MM-DD HH:mm';
       plugin.parseDate = vi.fn(() => ({
         formattedString: '2026-07-24 15:00',
         date: moment('2026-07-24 15:00').toDate(),
@@ -471,7 +477,9 @@ describe('DatePickerModal Integration Tests', () => {
 
       expect(plugin.parseDate).toHaveBeenCalledWith('friday at 3pm');
       const lastPreview = previewSpy.mock.calls.at(-1)?.[0];
-      expect(lastPreview).toContain('15:00');
+      expect(lastPreview).not.toContain('15:00');
+      expect(lastPreview).toContain('2026-07-24');
+      expect(lastPreview).toContain('00:00');
     });
 
     it('defaults selectedDate to midnight on construction, not the real current time', () => {
