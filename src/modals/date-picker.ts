@@ -49,14 +49,34 @@ export default class DatePickerModal extends Modal {
     let insertAsLink = this.plugin.settings.modalToggleLink;
     let dateInput = "";
 
-    const getDateStr = () => {
-      let cleanDateInput = dateInput;
-      let shouldIncludeAlias = false;
+    // Strips the trailing "|" that marks "keep as alias" (see shouldIncludeAlias
+    // below) -- shared so the input's onChange handler and getDateStr() agree
+    // on exactly what text gets parsed/cached.
+    const stripAliasSuffix = (text: string): string =>
+      text.endsWith("|") ? text.slice(0, -1) : text;
 
-      if (dateInput.endsWith("|")) {
-        shouldIncludeAlias = true;
-        cleanDateInput = dateInput.slice(0, -1);
+    let cachedManualParse: { input: string; moment: Moment } | null = null;
+
+    // Parses manually-typed text via the NLP parser, caching the result.
+    // Called from both the input's onChange handler (to validate/update the
+    // calendar selection) and getDateStr() (to build the preview/output) --
+    // without the cache, typing a single character invoked
+    // plugin.parseDate() 2-3 times (onChange's own validation call, then
+    // updateSelectedDate -> updatePreview -> getDateStr, plus onChange's
+    // trailing updatePreview() call), which matters since NLP parsing isn't
+    // free.
+    const parseManualInput = (cleanText: string): Moment => {
+      if (cachedManualParse && cachedManualParse.input === cleanText) {
+        return cachedManualParse.moment;
       }
+      const parsedMoment = this.plugin.parseDate(cleanText).moment;
+      cachedManualParse = { input: cleanText, moment: parsedMoment };
+      return parsedMoment;
+    };
+
+    const getDateStr = () => {
+      const shouldIncludeAlias = dateInput.endsWith("|");
+      const cleanDateInput = stripAliasSuffix(dateInput);
 
       // Valider le format avant utilisation
       const formatValidation = validateMomentFormat(momentFormat);
@@ -74,7 +94,7 @@ export default class DatePickerModal extends Modal {
       // click or quick-button pick previously inserted "12:00" regardless
       // of the actual selection.
       const momentToFormat = cleanDateInput
-        ? this.plugin.parseDate(cleanDateInput).moment
+        ? parseManualInput(cleanDateInput)
         : this.selectedDate;
 
       let parsedDateString = momentToFormat.isValid()
@@ -205,9 +225,14 @@ export default class DatePickerModal extends Modal {
         textEl.onChange((value) => {
           dateInput = value;
           if (value) {
-            const parsed = this.plugin.parseDate(value);
-            if (parsed.moment.isValid()) {
-              updateSelectedDate(parsed.moment, false);
+            const parsedMoment = parseManualInput(stripAliasSuffix(value));
+            if (parsedMoment.isValid()) {
+              // updateSelectedDate() already calls updatePreview() itself;
+              // an unconditional call below on top of this would just
+              // re-run getDateStr() (and, before parseManualInput()'s
+              // caching, re-invoke the NLP parser) for no reason.
+              updateSelectedDate(parsedMoment, false);
+              return;
             }
           }
           updatePreview();

@@ -479,6 +479,21 @@ describe('DatePickerModal Integration Tests', () => {
       expect(fresh.selectedDate.hour()).toBe(0);
       expect(fresh.selectedDate.minute()).toBe(0);
     });
+
+    it('parses typed input through the NLP parser only once per keystroke, not 2-3 times (regression)', () => {
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-07-24',
+        date: moment('2026-07-24').toDate(),
+        moment: moment('2026-07-24'),
+      })) as any;
+      openModalWithPreviewSpy();
+
+      const dateSetting = Setting.instances.find((s: any) => s.nameText === 'Date');
+      const textComponent = dateSetting.components[0];
+      textComponent.onChangeHandler('friday');
+
+      expect(plugin.parseDate).toHaveBeenCalledTimes(1);
+    });
   });
 });
 
