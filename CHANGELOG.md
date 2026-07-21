@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The autosuggest dropdown now shows a preview of the resolved date/time next to each suggestion (e.g. `Next Monday` — `2025-01-06`), so you can see what will actually be inserted before picking one.
 - **Korean support** (partial): `오늘`/`내일`/`어제`, weekdays, `이번`/`다음`/`지난` prefixes, and suffix-style relative expressions (`3일 후`, `2주 전`). Vocabulary based on [CreamNuts' nldates-obsidian-korean](https://github.com/CreamNuts/nldates-obsidian-korean) (MIT), with thanks. Like the other partially-supported languages, chrono-node has no Korean parser to fall back on, so some combined phrasings (weekday + specific time, date ranges) aren't recognized yet — tracked in [#40](https://github.com/Amato21/nldates-revived/issues/40).
 
+### Fixed
+- Date Picker: picking a date via the calendar grid or a quick-select button (Today/Tomorrow/Next week/...) always inserted `12:00` as the time, regardless of what was actually selected. The modal was reformatting the selection down to a bare date string and re-parsing it through the NLP engine to build the preview/output, which discarded the actual time and let chrono-node's "no time specified" default (noon) leak through. Quick-select buttons had a related issue: they carried the real current wall-clock time instead of a clean date. Manually typed input (e.g. "today at 3pm") is unaffected and still parses correctly.
+
 ## [0.9.71] - 2026-07-17
 
 ### Added

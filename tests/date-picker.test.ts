@@ -360,5 +360,125 @@ describe('DatePickerModal Integration Tests', () => {
       expect(inputElBefore.value).toBe(valueBefore);
     });
   });
+
+  describe('Calendar/quick-button selections must not insert a spurious noon time (regression)', () => {
+    // Reported: picking a date via the calendar or a quick-select button
+    // always inserted "12:00" as the time, regardless of what was actually
+    // selected. Root cause: getDateStr() used to re-derive the date from
+    // this.selectedDate by formatting it down to a bare "YYYY-MM-DD" string
+    // and feeding that back into plugin.parseDate() -- discarding whatever
+    // time this.selectedDate actually had. chrono-node defaults a date given
+    // with no time component to noon, so that round-trip always produced
+    // 12:00 once formatted with modalMomentFormat's default "HH:mm".
+    //
+    // This mock reproduces that exact real-world chrono behavior (unlike
+    // this file's default beforeEach mock, which uses plain moment(text) --
+    // moment("2026-07-20") parses to midnight, not noon, so it would never
+    // have caught this bug).
+    function mockParseDateAlwaysNoon() {
+      return vi.fn((text: string) => {
+        const withNoon = moment(text || 'today').startOf('day').add(12, 'hours');
+        return {
+          formattedString: withNoon.format('YYYY-MM-DD'),
+          date: withNoon.toDate(),
+          moment: withNoon,
+        };
+      });
+    }
+
+    function fakeEl(): any {
+      const el: any = {
+        empty: () => {},
+        addClass: () => {},
+        removeClass: () => {},
+        addEventListener: () => {},
+        setText: () => {},
+        selected: false,
+        value: '',
+        createDiv: (_cls?: unknown, cb?: (e: unknown) => void) => {
+          const child = fakeEl();
+          if (typeof cb === 'function') cb(child);
+          return child;
+        },
+        createEl: (_tag?: unknown, _opts?: unknown, cb?: (e: unknown) => void) => {
+          const child = fakeEl();
+          if (typeof cb === 'function') cb(child);
+          return child;
+        },
+        createSpan: (_opts?: unknown, cb?: (e: unknown) => void) => {
+          const child = fakeEl();
+          if (typeof cb === 'function') cb(child);
+          return child;
+        },
+      };
+      return el;
+    }
+
+    function openModalWithPreviewSpy() {
+      Setting.resetInstances();
+      (modal as any).contentEl = fakeEl();
+      (window as any).setTimeout = (fn: () => void) => fn();
+      (globalThis as any).MutationObserver = class {
+        observe() {}
+        disconnect() {}
+      };
+      modal.onOpen();
+
+      const dateSetting = Setting.instances.find((s: any) => s.nameText === 'Date');
+      const previewSpy = vi.fn();
+      dateSetting.descEl.setText = previewSpy;
+      return previewSpy;
+    }
+
+    it('does not call plugin.parseDate (and does not show noon) when a calendar day is clicked', () => {
+      plugin.parseDate = mockParseDateAlwaysNoon();
+      const previewSpy = openModalWithPreviewSpy();
+
+      const clickedDay = moment('2026-07-20').startOf('day'); // calendar cells are midnight-based
+      (modal as any).updateSelectedDateFn(clickedDay);
+
+      expect(plugin.parseDate).not.toHaveBeenCalled();
+      const lastPreview = previewSpy.mock.calls.at(-1)?.[0];
+      expect(lastPreview).not.toContain('12:00');
+      expect(lastPreview).toContain('00:00');
+    });
+
+    it('does not show noon for a quick-select button pick either', () => {
+      plugin.parseDate = mockParseDateAlwaysNoon();
+      const previewSpy = openModalWithPreviewSpy();
+
+      // Simulates the "Tomorrow" quick button: startOf("day") applied, no
+      // real wall-clock time leaking through.
+      const tomorrow = moment().add(1, 'day').startOf('day');
+      (modal as any).updateSelectedDateFn(tomorrow);
+
+      expect(plugin.parseDate).not.toHaveBeenCalled();
+      const lastPreview = previewSpy.mock.calls.at(-1)?.[0];
+      expect(lastPreview).not.toContain('12:00');
+    });
+
+    it('still parses typed free-form text through the NLP parser (e.g. an explicit time)', () => {
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-07-24 15:00',
+        date: moment('2026-07-24 15:00').toDate(),
+        moment: moment('2026-07-24 15:00'),
+      })) as any;
+      const previewSpy = openModalWithPreviewSpy();
+
+      const dateSetting = Setting.instances.find((s: any) => s.nameText === 'Date');
+      const textComponent = dateSetting.components[0];
+      textComponent.onChangeHandler('friday at 3pm');
+
+      expect(plugin.parseDate).toHaveBeenCalledWith('friday at 3pm');
+      const lastPreview = previewSpy.mock.calls.at(-1)?.[0];
+      expect(lastPreview).toContain('15:00');
+    });
+
+    it('defaults selectedDate to midnight on construction, not the real current time', () => {
+      const fresh = new (modal.constructor as any)(mockApp, plugin);
+      expect(fresh.selectedDate.hour()).toBe(0);
+      expect(fresh.selectedDate.minute()).toBe(0);
+    });
+  });
 });
 

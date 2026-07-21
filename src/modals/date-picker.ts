@@ -23,7 +23,13 @@ export default class DatePickerModal extends Modal {
   constructor(app: App, plugin: NaturalLanguageDates) {
     super(app);
     this.plugin = plugin;
-    this.selectedDate = moment();
+    // Normalized to midnight: this is a date picker, not a time picker, and
+    // nothing in the UI lets the user set a time-of-day. Carrying the real
+    // current wall-clock time here (moment()) meant that opening the modal
+    // and immediately inserting produced whatever the clock happened to
+    // read, not a clean date -- and getDateStr() below formats *some*
+    // moment with a format string that includes "HH:mm" by default.
+    this.selectedDate = moment().startOf("day");
     this.currentMonth = moment();
     // Détecter le mode sombre
     this.isDarkMode = activeDocument.body.classList.contains("theme-dark");
@@ -52,16 +58,27 @@ export default class DatePickerModal extends Modal {
         cleanDateInput = dateInput.slice(0, -1);
       }
 
-      // Utiliser la date sélectionnée dans le calendrier si disponible
-      const dateToParse = cleanDateInput || this.selectedDate.format("YYYY-MM-DD");
-      const parsedDate = this.plugin.parseDate(dateToParse);
-      
       // Valider le format avant utilisation
       const formatValidation = validateMomentFormat(momentFormat);
       const formatToUse = formatValidation.valid ? momentFormat : DEFAULT_SETTINGS.modalMomentFormat;
-      
-      let parsedDateString = parsedDate.moment.isValid()
-        ? parsedDate.moment.format(formatToUse)
+
+      // Only round-trip through the NLP parser when the user actually typed
+      // something in the manual field -- that's free-form text that may
+      // genuinely include a time (e.g. "today at 3pm") and needs parsing.
+      // this.selectedDate (calendar clicks, quick-select buttons) is
+      // already a resolved, correctly-timed moment with nothing left to
+      // parse: re-deriving it by formatting to a bare "YYYY-MM-DD" string
+      // and feeding that back into the NLP parser silently lost whatever
+      // time-of-day this.selectedDate actually had, and chrono-node defaults
+      // a date given with no time component to noon -- so every calendar
+      // click or quick-button pick previously inserted "12:00" regardless
+      // of the actual selection.
+      const momentToFormat = cleanDateInput
+        ? this.plugin.parseDate(cleanDateInput).moment
+        : this.selectedDate;
+
+      let parsedDateString = momentToFormat.isValid()
+        ? momentToFormat.format(formatToUse)
         : "";
 
       if (insertAsLink) {
@@ -283,30 +300,35 @@ export default class DatePickerModal extends Modal {
       return translation.split("|")[0].trim();
     };
 
+    // .startOf("day") on every option: without it these carried the real
+    // current wall-clock time (e.g. clicking "Tomorrow" at 14:32 selected
+    // tomorrow at 14:32, not a clean date), inconsistent with calendar-grid
+    // clicks (already midnight-based) and liable to the same "unexpected
+    // time baked into the output" confusion as the getDateStr() bug above.
     const quickOptions = [
-      { 
-        label: getFirstVariant("today"), 
-        moment: moment() 
+      {
+        label: getFirstVariant("today"),
+        moment: moment().startOf("day")
       },
-      { 
-        label: getFirstVariant("tomorrow"), 
-        moment: moment().add(1, "day") 
+      {
+        label: getFirstVariant("tomorrow"),
+        moment: moment().add(1, "day").startOf("day")
       },
-      { 
-        label: getFirstVariant("yesterday"), 
-        moment: moment().subtract(1, "day") 
+      {
+        label: getFirstVariant("yesterday"),
+        moment: moment().subtract(1, "day").startOf("day")
       },
-      { 
-        label: `${getFirstVariant("next")} ${getFirstVariant("week")}`, 
-        moment: moment().add(1, "week") 
+      {
+        label: `${getFirstVariant("next")} ${getFirstVariant("week")}`,
+        moment: moment().add(1, "week").startOf("day")
       },
-      { 
-        label: `${getFirstVariant("next")} ${getFirstVariant("month")}`, 
-        moment: moment().add(1, "month") 
+      {
+        label: `${getFirstVariant("next")} ${getFirstVariant("month")}`,
+        moment: moment().add(1, "month").startOf("day")
       },
-      { 
-        label: `${getFirstVariant("next")} ${getFirstVariant("year")}`, 
-        moment: moment().add(1, "year") 
+      {
+        label: `${getFirstVariant("next")} ${getFirstVariant("year")}`,
+        moment: moment().add(1, "year").startOf("day")
       },
     ];
 
@@ -451,7 +473,7 @@ export default class DatePickerModal extends Modal {
           break;
         case "Home":
           e.preventDefault();
-          updateSelectedDate(moment());
+          updateSelectedDate(moment().startOf("day"));
           this.currentMonth = moment();
           this.renderCalendar();
           break;
