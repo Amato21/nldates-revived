@@ -23,7 +23,13 @@ export default class DatePickerModal extends Modal {
   constructor(app: App, plugin: NaturalLanguageDates) {
     super(app);
     this.plugin = plugin;
-    this.selectedDate = moment();
+    // Normalized to midnight: this is a date picker, not a time picker, and
+    // nothing in the UI lets the user set a time-of-day. Carrying the real
+    // current wall-clock time here (moment()) meant that opening the modal
+    // and immediately inserting produced whatever the clock happened to
+    // read, not a clean date -- and getDateStr() below formats *some*
+    // moment with a format string that includes "HH:mm" by default.
+    this.selectedDate = moment().startOf("day");
     this.currentMonth = moment();
     // Détecter le mode sombre
     this.isDarkMode = activeDocument.body.classList.contains("theme-dark");
@@ -43,25 +49,58 @@ export default class DatePickerModal extends Modal {
     let insertAsLink = this.plugin.settings.modalToggleLink;
     let dateInput = "";
 
-    const getDateStr = () => {
-      let cleanDateInput = dateInput;
-      let shouldIncludeAlias = false;
+    // Strips the trailing "|" that marks "keep as alias" (see shouldIncludeAlias
+    // below) -- shared so the input's onChange handler and getDateStr() agree
+    // on exactly what text gets parsed/cached.
+    const stripAliasSuffix = (text: string): string =>
+      text.endsWith("|") ? text.slice(0, -1) : text;
 
-      if (dateInput.endsWith("|")) {
-        shouldIncludeAlias = true;
-        cleanDateInput = dateInput.slice(0, -1);
+    let cachedManualParse: { input: string; moment: Moment } | null = null;
+
+    // Parses manually-typed text via the NLP parser, caching the result.
+    // Called from both the input's onChange handler (to validate/update the
+    // calendar selection) and getDateStr() (to build the preview/output) --
+    // without the cache, typing a single character invoked
+    // plugin.parseDate() 2-3 times (onChange's own validation call, then
+    // updateSelectedDate -> updatePreview -> getDateStr, plus onChange's
+    // trailing updatePreview() call), which matters since NLP parsing isn't
+    // free.
+    const parseManualInput = (cleanText: string): Moment => {
+      if (cachedManualParse && cachedManualParse.input === cleanText) {
+        return cachedManualParse.moment;
       }
+      const parsedMoment = this.plugin.parseDate(cleanText).moment;
+      cachedManualParse = { input: cleanText, moment: parsedMoment };
+      return parsedMoment;
+    };
 
-      // Utiliser la date sélectionnée dans le calendrier si disponible
-      const dateToParse = cleanDateInput || this.selectedDate.format("YYYY-MM-DD");
-      const parsedDate = this.plugin.parseDate(dateToParse);
-      
+    const getDateStr = () => {
+      const shouldIncludeAlias = dateInput.endsWith("|");
+      const cleanDateInput = stripAliasSuffix(dateInput);
+
       // Valider le format avant utilisation
       const formatValidation = validateMomentFormat(momentFormat);
       const formatToUse = formatValidation.valid ? momentFormat : DEFAULT_SETTINGS.modalMomentFormat;
-      
-      let parsedDateString = parsedDate.moment.isValid()
-        ? parsedDate.moment.format(formatToUse)
+
+      // Only round-trip through the NLP parser when the user actually typed
+      // something in the manual field (e.g. "next friday") -- this.selectedDate
+      // (calendar clicks, quick-select buttons) is already a resolved moment
+      // with nothing left to parse.
+      const parsedMoment = cleanDateInput
+        ? parseManualInput(cleanDateInput)
+        : this.selectedDate;
+
+      // This is a date picker, not a time picker -- there's no time-of-day
+      // control anywhere in this modal's UI, so any time the NLP parser
+      // might have inferred from typed text (e.g. "today at 3pm") is
+      // deliberately discarded here, not just left at whatever default
+      // chrono-node happened to produce. Cloned first: parsedMoment may be
+      // the cached result from parseManualInput(), and moment's mutating
+      // .startOf() would otherwise corrupt that cache entry.
+      const momentToFormat = parsedMoment.isValid() ? parsedMoment.clone().startOf("day") : parsedMoment;
+
+      let parsedDateString = momentToFormat.isValid()
+        ? momentToFormat.format(formatToUse)
         : "";
 
       if (insertAsLink) {
@@ -188,9 +227,14 @@ export default class DatePickerModal extends Modal {
         textEl.onChange((value) => {
           dateInput = value;
           if (value) {
-            const parsed = this.plugin.parseDate(value);
-            if (parsed.moment.isValid()) {
-              updateSelectedDate(parsed.moment, false);
+            const parsedMoment = parseManualInput(stripAliasSuffix(value));
+            if (parsedMoment.isValid()) {
+              // updateSelectedDate() already calls updatePreview() itself;
+              // an unconditional call below on top of this would just
+              // re-run getDateStr() (and, before parseManualInput()'s
+              // caching, re-invoke the NLP parser) for no reason.
+              updateSelectedDate(parsedMoment, false);
+              return;
             }
           }
           updatePreview();
@@ -206,12 +250,12 @@ export default class DatePickerModal extends Modal {
       .setName("Date format")
       .setDesc("Moment format to be used")
       .addMomentFormat((momentEl) => {
-        momentEl.setPlaceholder("YYYY-MM-DD HH:mm");
+        momentEl.setPlaceholder("YYYY-MM-DD");
         momentEl.setValue(momentFormat);
         momentEl.onChange((value) => {
-          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD HH:mm");
+          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD");
           if (validated.valid) {
-            momentFormat = value.trim() || "YYYY-MM-DD HH:mm";
+            momentFormat = value.trim() || "YYYY-MM-DD";
             this.plugin.settings.modalMomentFormat = momentFormat;
             void this.plugin.saveSettings();
             updatePreview();
@@ -283,30 +327,35 @@ export default class DatePickerModal extends Modal {
       return translation.split("|")[0].trim();
     };
 
+    // .startOf("day") on every option: without it these carried the real
+    // current wall-clock time (e.g. clicking "Tomorrow" at 14:32 selected
+    // tomorrow at 14:32, not a clean date), inconsistent with calendar-grid
+    // clicks (already midnight-based) and liable to the same "unexpected
+    // time baked into the output" confusion as the getDateStr() bug above.
     const quickOptions = [
-      { 
-        label: getFirstVariant("today"), 
-        moment: moment() 
+      {
+        label: getFirstVariant("today"),
+        moment: moment().startOf("day")
       },
-      { 
-        label: getFirstVariant("tomorrow"), 
-        moment: moment().add(1, "day") 
+      {
+        label: getFirstVariant("tomorrow"),
+        moment: moment().add(1, "day").startOf("day")
       },
-      { 
-        label: getFirstVariant("yesterday"), 
-        moment: moment().subtract(1, "day") 
+      {
+        label: getFirstVariant("yesterday"),
+        moment: moment().subtract(1, "day").startOf("day")
       },
-      { 
-        label: `${getFirstVariant("next")} ${getFirstVariant("week")}`, 
-        moment: moment().add(1, "week") 
+      {
+        label: `${getFirstVariant("next")} ${getFirstVariant("week")}`,
+        moment: moment().add(1, "week").startOf("day")
       },
-      { 
-        label: `${getFirstVariant("next")} ${getFirstVariant("month")}`, 
-        moment: moment().add(1, "month") 
+      {
+        label: `${getFirstVariant("next")} ${getFirstVariant("month")}`,
+        moment: moment().add(1, "month").startOf("day")
       },
-      { 
-        label: `${getFirstVariant("next")} ${getFirstVariant("year")}`, 
-        moment: moment().add(1, "year") 
+      {
+        label: `${getFirstVariant("next")} ${getFirstVariant("year")}`,
+        moment: moment().add(1, "year").startOf("day")
       },
     ];
 
@@ -451,7 +500,7 @@ export default class DatePickerModal extends Modal {
           break;
         case "Home":
           e.preventDefault();
-          updateSelectedDate(moment());
+          updateSelectedDate(moment().startOf("day"));
           this.currentMonth = moment();
           this.renderCalendar();
           break;

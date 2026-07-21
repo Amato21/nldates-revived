@@ -335,9 +335,8 @@ interface NLDSettings {
   dutch: boolean;
   spanish: boolean;
   italian: boolean;
-  modalToggleTime: boolean;
   modalToggleLink: boolean;
-  modalMomentFormat: string;
+  modalMomentFormat: string; // Moment.js format for the Date Picker, date-only (default: "YYYY-MM-DD")
   // Smart suggestions
   enableSmartSuggestions: boolean;
   enableHistorySuggestions: boolean;
