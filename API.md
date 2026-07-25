@@ -38,7 +38,7 @@ The plugin is written in TypeScript and exports all necessary types. Import them
 
 ```typescript
 import type NaturalLanguageDates from 'nldates-revived';
-import type { NLDResult, NLDRangeResult } from 'nldates-revived/src/parser';
+import type { NLDResult, NLDRangeResult, NLDPeriodResult, DateGranularity } from 'nldates-revived/src/parser';
 import type { NLDSettings, DayOfWeek } from 'nldates-revived/src/settings';
 ```
 
@@ -138,6 +138,19 @@ console.log(result2.formattedString); // "2025-01-06 15:00"
 
 **Note:** This method uses the format from `plugin.settings.format` and automatically appends time format if a time component is detected.
 
+**Periodic-note formats:** If the input resolves to a whole week/month/quarter/year (e.g. "next week", "Q3", "next quarter") and the corresponding `weekFormat`/`monthFormat`/`quarterFormat`/`yearFormat` setting is non-empty, that format is used instead:
+
+```typescript
+// If settings.quarterFormat is "YYYY-[Q]Q"
+const result = plugin.parseDate("next quarter");
+console.log(result.formattedString); // "2025-Q2"
+
+const result2 = plugin.parseDate("Q3 2026");
+console.log(result2.formattedString); // "2026-Q3"
+```
+
+See `parser.getParsedPeriod()` below for the underlying granularity detection.
+
 ---
 
 ### `parseDateRange(dateString: string): NLDRangeResult | null`
@@ -173,6 +186,8 @@ if (weekRange) {
 **Supported Range Expressions:**
 - Weekday ranges: "from Monday to Friday" / "de lundi à vendredi"
 - Week ranges: "next week" / "semaine prochaine" (returns all days of the week)
+
+**Note:** A week-range result (`granularity: "week"`) is only produced by `plugin.parseDateRange()` directly. The higher-level `getParseCommand()` used by the plugin's commands skips this multi-day list in favor of `plugin.parseDate()`'s single `weekFormat` value whenever `settings.weekFormat` is configured -- see `parseDate()` above.
 
 ---
 
@@ -272,6 +287,34 @@ Low-level time component detection.
 
 ---
 
+### `parser.getParsedPeriod(selectedText: string, weekStartPreference: DayOfWeek): NLDPeriodResult`
+
+Like `getParsedDate()`, but also reports the calendar granularity ("day"/"week"/"month"/"quarter"/"year") the input expression referred to. Falls back to `getParsedDate()` (granularity `"day"`) for anything that isn't a whole-period reference.
+
+**Parameters:**
+- `selectedText` (string): Natural language date string (e.g., "next quarter", "Q3 2026", "2026-W02", "tomorrow")
+- `weekStartPreference` (DayOfWeek): Day of week to consider as week start
+
+**Returns:** `NLDPeriodResult` object (`{ date: Date; granularity: DateGranularity }`)
+
+**Example:**
+```typescript
+const parser = plugin.parser;
+const { date, granularity } = parser.getParsedPeriod("next quarter", "monday");
+console.log(granularity); // "quarter"
+
+parser.getParsedPeriod("Q3", "monday").granularity; // "quarter"
+parser.getParsedPeriod("2026-W02", "monday").granularity; // "week"
+parser.getParsedPeriod("tomorrow", "monday").granularity; // "day"
+```
+
+**Recognized period expressions (all 12 supported languages):**
+- "this/next/last week|month|quarter|year" (e.g. "next quarter", "semaine prochaine", "来月", "다음 분기")
+- Explicit quarter: "Q3", "Q3 2026", "2026 Q3", "2026-Q3" (language-neutral)
+- Explicit ISO week: "2026-W02" (language-neutral)
+
+---
+
 ## Types and Interfaces
 
 ### `NLDResult`
@@ -309,6 +352,29 @@ interface NLDRangeResult {
   isRange: true;
   /** Optional list of all dates in the range as Moment objects */
   dateList?: Moment[];
+  /** Set to "week" for a whole-week period reference (e.g. "next week"), as opposed to an explicit weekday-to-weekday range. */
+  granularity?: "week";
+}
+```
+
+### `DateGranularity`
+
+The calendar granularity a parsed expression resolves to, as reported by `parser.getParsedPeriod()`.
+
+```typescript
+type DateGranularity = "day" | "week" | "month" | "quarter" | "year";
+```
+
+### `NLDPeriodResult`
+
+Result object returned by `parser.getParsedPeriod()`.
+
+```typescript
+interface NLDPeriodResult {
+  /** A date that falls within the resolved period (e.g. any day of the target week). */
+  date: Date;
+  /** The calendar granularity detected from the input text. */
+  granularity: DateGranularity;
 }
 ```
 
@@ -337,6 +403,13 @@ interface NLDSettings {
   italian: boolean;
   modalToggleLink: boolean;
   modalMomentFormat: string; // Moment.js format for the Date Picker, date-only (default: "YYYY-MM-DD")
+  // Periodic-note formats (all default to ""/disabled): used instead of `format`
+  // when an expression resolves to a whole week/month/quarter/year (e.g. "next
+  // week", "Q3") -- for linking to Periodic Notes-style notes.
+  weekFormat: string; // e.g. "GGGG-[W]WW"
+  monthFormat: string; // e.g. "YYYY-MM"
+  quarterFormat: string; // e.g. "YYYY-[Q]Q"
+  yearFormat: string; // e.g. "YYYY"
   // Smart suggestions
   enableSmartSuggestions: boolean;
   enableHistorySuggestions: boolean;

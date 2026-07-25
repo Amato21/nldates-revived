@@ -241,6 +241,55 @@ describe('NLDSettingsTab', () => {
       expect(openSpy).toHaveBeenCalledTimes(1);
       openSpy.mockRestore();
     });
+
+    describe('Periodic notes formats (weekFormat/monthFormat/quarterFormat/yearFormat)', () => {
+      const cases: { label: string; settingsKey: 'weekFormat' | 'monthFormat' | 'quarterFormat' | 'yearFormat' }[] = [
+        { label: 'Week format', settingsKey: 'weekFormat' },
+        { label: 'Month format', settingsKey: 'monthFormat' },
+        { label: 'Quarter format', settingsKey: 'quarterFormat' },
+        { label: 'Year format', settingsKey: 'yearFormat' },
+      ];
+
+      cases.forEach(({ label, settingsKey }) => {
+        it(`creates a "${label}" setting reflecting the current (empty by default) value`, () => {
+          tab.display();
+          const setting = findSetting(label);
+          expect(setting.components[0].value).toBe('');
+        });
+
+        it(`saves a valid new "${label}" value`, async () => {
+          tab.display();
+          const setting = findSetting(label);
+          await setting.components[0].onChangeHandler('YYYY-MM');
+          expect(plugin.settings[settingsKey]).toBe('YYYY-MM');
+          expect(plugin.saveSettings).toHaveBeenCalled();
+        });
+
+        it(`rejects an invalid "${label}" value and restores the previous one`, async () => {
+          tab.display();
+          const setting = findSetting(label);
+          plugin.settings[settingsKey] = 'YYYY-MM';
+          await setting.components[0].onChangeHandler('@@@');
+          expect(plugin.settings[settingsKey]).toBe('YYYY-MM');
+          expect(setting.components[0].value).toBe('YYYY-MM');
+        });
+
+        it(`clears "${label}" (back to disabled) when emptied, without an error`, async () => {
+          tab.display();
+          const setting = findSetting(label);
+          plugin.settings[settingsKey] = 'YYYY-MM';
+          await setting.components[0].onChangeHandler('   ');
+          expect(plugin.settings[settingsKey]).toBe('');
+          expect(plugin.saveSettings).toHaveBeenCalled();
+        });
+
+        it(`shows no initial preview when "${label}" is left at its empty default`, () => {
+          tab.display();
+          const setting = findSetting(label);
+          expect(setting.descText).not.toContain('Preview');
+        });
+      });
+    });
   });
 
   describe('editLanguages (direct)', () => {

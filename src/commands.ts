@@ -19,9 +19,15 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
   // the edge of the text that's about to be replaced.
   const cursor = editor.getCursor("to");
 
-  // Vérifier d'abord si c'est une plage de dates
+  // Vérifier d'abord si c'est une plage de dates. A "next week"-style period
+  // reference (dateRange.granularity === "week") is skipped here when a week
+  // periodic-note format is configured -- it falls through to plugin.parseDate()
+  // below instead, which resolves it to a single week-format value (e.g.
+  // "2026-W03") rather than a 7-day link list. An explicit weekday-to-weekday
+  // range (e.g. "from Monday to Friday", no granularity tag) always keeps the
+  // list behavior regardless of that setting.
   const dateRange = plugin.parseDateRange(selectedText);
-  if (dateRange) {
+  if (dateRange && !(dateRange.granularity === "week" && plugin.settings.weekFormat)) {
     // C'est une plage de dates
     let newStr = "";
     

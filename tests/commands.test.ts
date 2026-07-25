@@ -189,6 +189,74 @@ describe('Commands Integration Tests', () => {
       expect(callArgs).toContain('2024-01-05');
     });
 
+    it("keeps the 7-day link list for 'next week' when weekFormat is not configured (default, unchanged)", () => {
+      mockEditor.getSelection.mockReturnValue('next week');
+      plugin.settings.weekFormat = '';
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2026-01-05 to 2026-01-11',
+        startDate: moment('2026-01-05').toDate(),
+        endDate: moment('2026-01-11').toDate(),
+        startMoment: moment('2026-01-05'),
+        endMoment: moment('2026-01-11'),
+        isRange: true,
+        dateList: [moment('2026-01-05'), moment('2026-01-06')],
+        granularity: 'week',
+      }));
+
+      getParseCommand(plugin, 'replace');
+
+      const callArgs = mockEditor.replaceSelection.mock.calls[0][0];
+      expect(callArgs).toBe('[[2026-01-05]], [[2026-01-06]]');
+      expect(plugin.parseDate).not.toHaveBeenCalled();
+    });
+
+    it("uses weekFormat via plugin.parseDate() for 'next week' instead of the 7-day link list, when weekFormat is configured", () => {
+      mockEditor.getSelection.mockReturnValue('next week');
+      plugin.settings.weekFormat = 'GGGG-[W]WW';
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2026-01-05 to 2026-01-11',
+        startDate: moment('2026-01-05').toDate(),
+        endDate: moment('2026-01-11').toDate(),
+        startMoment: moment('2026-01-05'),
+        endMoment: moment('2026-01-11'),
+        isRange: true,
+        dateList: [moment('2026-01-05'), moment('2026-01-06')],
+        granularity: 'week',
+      }));
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-W02',
+        date: moment('2026-01-05').toDate(),
+        moment: moment('2026-01-05'),
+      }));
+
+      getParseCommand(plugin, 'replace');
+
+      expect(plugin.parseDate).toHaveBeenCalledWith('next week');
+      const callArgs = mockEditor.replaceSelection.mock.calls[0][0];
+      expect(callArgs).toBe('[[2026-W02]]');
+    });
+
+    it("still uses the explicit weekday-to-weekday range list even when weekFormat is configured (no granularity tag)", () => {
+      mockEditor.getSelection.mockReturnValue('from Monday to Friday');
+      plugin.settings.weekFormat = 'GGGG-[W]WW';
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2024-01-01 to 2024-01-05',
+        startDate: moment('2024-01-01').toDate(),
+        endDate: moment('2024-01-05').toDate(),
+        startMoment: moment('2024-01-01'),
+        endMoment: moment('2024-01-05'),
+        isRange: true,
+        dateList: [moment('2024-01-01'), moment('2024-01-02')],
+        // No granularity tag: an explicit range, not a period reference.
+      }));
+
+      getParseCommand(plugin, 'replace');
+
+      const callArgs = mockEditor.replaceSelection.mock.calls[0][0];
+      expect(callArgs).toBe('[[2024-01-01]], [[2024-01-02]]');
+      expect(plugin.parseDate).not.toHaveBeenCalled();
+    });
+
     it('should do nothing if no active view', () => {
       mockApp.workspace.getActiveViewOfType.mockReturnValue(null);
 

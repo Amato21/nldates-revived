@@ -2024,5 +2024,115 @@ describe('NLDParser', () => {
       });
     });
   });
+
+  describe('Period granularity (getParsedPeriod: this/next/last week/month/quarter/year, explicit Q3/2026-Q3/2026-W02)', () => {
+    describe('Explicit language-neutral forms', () => {
+      it("parses 'Q3' as this year's Q3, granularity quarter", () => {
+        const result = parser.getParsedPeriod('Q3', weekStartPreference);
+        expect(result.granularity).toBe('quarter');
+        const expected = moment().quarter(3).startOf('quarter');
+        expectSameDate(result.date, expected, 'day');
+      });
+
+      it("parses 'Q3 2026' with an explicit year, granularity quarter", () => {
+        const result = parser.getParsedPeriod('Q3 2026', weekStartPreference);
+        expect(result.granularity).toBe('quarter');
+        const expected = moment().year(2026).quarter(3).startOf('quarter');
+        expectSameDate(result.date, expected, 'day');
+      });
+
+      it("parses '2026-Q3' (year-first), granularity quarter", () => {
+        const result = parser.getParsedPeriod('2026-Q3', weekStartPreference);
+        expect(result.granularity).toBe('quarter');
+        const expected = moment().year(2026).quarter(3).startOf('quarter');
+        expectSameDate(result.date, expected, 'day');
+      });
+
+      it("parses '2026 Q3' (year-first, space), granularity quarter", () => {
+        const result = parser.getParsedPeriod('2026 Q3', weekStartPreference);
+        expect(result.granularity).toBe('quarter');
+        const expected = moment().year(2026).quarter(3).startOf('quarter');
+        expectSameDate(result.date, expected, 'day');
+      });
+
+      it("parses '2026-W02' as an explicit ISO week, granularity week", () => {
+        const result = parser.getParsedPeriod('2026-W02', weekStartPreference);
+        expect(result.granularity).toBe('week');
+        const expected = moment().isoWeekYear(2026).isoWeek(2).startOf('isoWeek');
+        expectSameDate(result.date, expected, 'day');
+      });
+
+      it("rejects an out-of-range quarter number ('Q5')", () => {
+        const result = parser.getParsedPeriod('Q5', weekStartPreference);
+        expect(result.granularity).toBe('day');
+      });
+    });
+
+    describe('getParsedDate (day-granularity path) is untouched by period detection', () => {
+      it("'next month' via getParsedDate still returns start of next month directly (no getParsedPeriod involved)", () => {
+        const result = parser.getParsedDate('next month', weekStartPreference);
+        const expected = moment().add(1, 'months').startOf('month');
+        expectSameDate(result, expected, 'day');
+      });
+    });
+
+    // Per-language verification (this/next/last week/month/quarter/year),
+    // each using a single-language parser instance so a match can't be
+    // accidentally satisfied by some other active language's vocabulary --
+    // required by this project's "verify empirically per language, not just
+    // combined" rule for anything touching parsing across the 12 supported
+    // languages.
+    const perLanguagePeriodPhrases: Record<string, { next: Record<'week' | 'month' | 'quarter' | 'year', string>; last: Record<'week' | 'month' | 'quarter' | 'year', string> }> = {
+      en: { next: { week: 'next week', month: 'next month', quarter: 'next quarter', year: 'next year' }, last: { week: 'last week', month: 'last month', quarter: 'last quarter', year: 'last year' } },
+      fr: { next: { week: 'semaine prochaine', month: 'mois prochain', quarter: 'trimestre prochain', year: 'année prochaine' }, last: { week: 'semaine dernière', month: 'mois dernier', quarter: 'trimestre dernier', year: 'année dernière' } },
+      es: { next: { week: 'próxima semana', month: 'próximo mes', quarter: 'próximo trimestre', year: 'próximo año' }, last: { week: 'última semana', month: 'último mes', quarter: 'último trimestre', year: 'último año' } },
+      it: { next: { week: 'prossima settimana', month: 'prossimo mese', quarter: 'prossimo trimestre', year: 'prossimo anno' }, last: { week: 'ultima settimana', month: 'ultimo mese', quarter: 'ultimo trimestre', year: 'ultimo anno' } },
+      de: { next: { week: 'nächste Woche', month: 'nächster Monat', quarter: 'nächstes Quartal', year: 'nächstes Jahr' }, last: { week: 'letzte Woche', month: 'letzter Monat', quarter: 'letztes Quartal', year: 'letztes Jahr' } },
+      pt: { next: { week: 'próxima semana', month: 'próximo mês', quarter: 'próximo trimestre', year: 'próximo ano' }, last: { week: 'última semana', month: 'último mês', quarter: 'último trimestre', year: 'último ano' } },
+      ru: { next: { week: 'следующая неделя', month: 'следующий месяц', quarter: 'следующий квартал', year: 'следующий год' }, last: { week: 'последняя неделя', month: 'последний месяц', quarter: 'последний квартал', year: 'последний год' } },
+      uk: { next: { week: 'наступний тиждень', month: 'наступний місяць', quarter: 'наступний квартал', year: 'наступний рік' }, last: { week: 'останній тиждень', month: 'останній місяць', quarter: 'останній квартал', year: 'останній рік' } },
+      nl: { next: { week: 'volgende week', month: 'volgende maand', quarter: 'volgend kwartaal', year: 'volgend jaar' }, last: { week: 'vorige week', month: 'vorige maand', quarter: 'vorig kwartaal', year: 'vorig jaar' } },
+      ja: { next: { week: '来週', month: '来月', quarter: '来四半期', year: '来年' }, last: { week: '先週', month: '先月', quarter: '先四半期', year: '去年' } },
+      // Note: "下年"/"上年" here are the compositional short-prefix forms this
+      // dictionary already supports (see zh.ts's "下"/"上" short-prefix
+      // comments), not the more idiomatic standalone words "明年"/"去年" --
+      // those aren't generic "next/last" + noun compositions and aren't in
+      // the dictionary as such.
+      'zh.hant': { next: { week: '下週', month: '下個月', quarter: '下季度', year: '下年' }, last: { week: '上週', month: '上個月', quarter: '上季度', year: '上年' } },
+      ko: { next: { week: '다음 주', month: '다음 달', quarter: '다음 분기', year: '다음 년' }, last: { week: '지난 주', month: '지난 달', quarter: '지난 분기', year: '지난 년' } },
+    };
+
+    for (const [lang, phrases] of Object.entries(perLanguagePeriodPhrases)) {
+      describe(`Language: ${lang}`, () => {
+        const singleLangParser = new NLDParser([lang]);
+
+        (['week', 'month', 'quarter', 'year'] as const).forEach((granularity) => {
+          it(`"${phrases.next[granularity]}" (next ${granularity}) resolves to granularity "${granularity}", in the future`, () => {
+            const result = singleLangParser.getParsedPeriod(phrases.next[granularity], weekStartPreference);
+            expect(result.granularity).toBe(granularity);
+            expectFutureDate(result.date, moment().subtract(1, 'day').toDate());
+          });
+
+          it(`"${phrases.last[granularity]}" (last ${granularity}) resolves to granularity "${granularity}", in the past`, () => {
+            const result = singleLangParser.getParsedPeriod(phrases.last[granularity], weekStartPreference);
+            expect(result.granularity).toBe(granularity);
+            expectPastDate(result.date, moment().add(1, 'day').toDate());
+          });
+        });
+      });
+    }
+
+    describe('getParsedDateRange tags "next week" with granularity: "week"', () => {
+      it("English 'next week'", () => {
+        const result = parser.getParsedDateRange('next week', weekStartPreference);
+        expect(result?.granularity).toBe('week');
+      });
+
+      it("'from Monday to Friday' is not tagged (explicit range, not a period reference)", () => {
+        const result = parser.getParsedDateRange('from Monday to Friday', weekStartPreference);
+        expect(result?.granularity).toBeUndefined();
+      });
+    });
+  });
 });
 

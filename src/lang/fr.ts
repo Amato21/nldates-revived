@@ -35,6 +35,7 @@ const dict = {
   week: "semaine|semaines|s|w",
   month: "mois|M|mo",
   year: "année|années|an|ans|a|y",
+  quarter: "trimestre|trimestres",
   and: "et",
   at: "à|a",
   from: "de|depuis|du",

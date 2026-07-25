@@ -2,8 +2,11 @@ const dict = {
   today: "Vandaag",
   tomorrow: "Morgen",
   yesterday: "Gisteren",
-  next: "volgende",
-  last: "vorige|laatste",
+  // "volgende"/"vorige" agree with common-gender ("de") nouns like "week"/"maand";
+  // neuter ("het") nouns like "jaar"/"kwartaal" drop the final "-e" ("volgend jaar", not
+  // "volgende jaar"), so both forms are listed here.
+  next: "volgende|volgend",
+  last: "vorige|vorig|laatste",
   this: "deze|dit",
   in: "over",
   sunday: "zondag",
@@ -35,6 +38,7 @@ const dict = {
   week: "week|weken|w",
   month: "maand|maanden|M|mo",
   year: "jaar|jaren|j|y",
+  quarter: "kwartaal|kwartalen",
   and: "en",
   at: "om",
   from: "van|vanaf",
