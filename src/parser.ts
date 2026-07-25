@@ -73,6 +73,32 @@ export interface NLDRangeResult {
   isRange: true;
   /** Optional list of all dates in the range as Moment objects */
   dateList?: Moment[];
+  /**
+   * Set to "week" when this range represents a whole-week period reference
+   * (e.g. "next week"), as opposed to an explicit weekday-to-weekday range
+   * (e.g. "from Monday to Friday"). Callers that offer a periodic-note-style
+   * week format use this to tell the two apart -- an explicit range should
+   * never collapse into a single week-note link, but a period reference can.
+   */
+  granularity?: "week";
+}
+
+/**
+ * The calendar granularity a parsed expression resolves to. "day" is the
+ * default for anything that isn't a whole-period reference (a single date,
+ * a weekday, a time, etc).
+ */
+export type DateGranularity = "day" | "week" | "month" | "quarter" | "year";
+
+/**
+ * Result of {@link NLDParser.getParsedPeriod}: a resolved date plus the
+ * calendar granularity the input expression referred to.
+ */
+export interface NLDPeriodResult {
+  /** A date that falls within the resolved period (e.g. any day of the target week). */
+  date: Date;
+  /** The calendar granularity detected from the input text. */
+  granularity: DateGranularity;
 }
 
 export default class NLDParser {
@@ -96,11 +122,25 @@ export default class NLDParser {
   // Mirror of regexRelativeSuffix for the PAST direction (e.g. Portuguese
   // "3 dias atrás" = "3 days" + "atrás" = "ago").
   regexAgoSuffix: RegExp | null;
-  
+
+  // For "this/next/last week|month|quarter|year" (period-granularity shortcuts).
+  regexPeriodPrefix: RegExp;
+  // Mirror of regexPeriodPrefix for languages that postpose the prefix
+  // (e.g. French "le trimestre prochain", noun before "prochain").
+  regexPeriodSuffix: RegExp;
+  // Language-neutral explicit forms: "Q3", "Q3 2026", "2026 Q3", "2026-Q3".
+  regexQuarterExplicit: RegExp;
+  regexQuarterExplicitYearFirst: RegExp;
+  // Language-neutral explicit ISO week: "2026-W02".
+  regexWeekExplicit: RegExp;
+
   // Keywords for all languages
   immediateKeywords: Set<string>;
   prefixKeywords: { this: Set<string>; next: Set<string>; last: Set<string> };
   timeUnitMap: Map<string, TimeUnit>;
+  // Per-language word sets for period-granularity detection (week/month/quarter/year),
+  // separate from timeUnitMap since "in 2 quarters"-style relative durations aren't supported.
+  periodWords: { week: Set<string>; month: Set<string>; quarter: Set<string>; year: Set<string> };
   
   // Cache for parsed dates (LRU avec limite de 500 entrées)
   private cache: LRUCache<string, Date>;
@@ -315,6 +355,33 @@ export default class NLDParser {
     } else {
       this.regexAgoSuffix = null;
     }
+
+    // Period-granularity shortcuts: "this/next/last week|month|quarter|year",
+    // e.g. "next quarter", "cette semaine", "来月", "다음 분기". Both word
+    // orders are needed -- most languages put the prefix first ("next
+    // quarter"), but French postposes "prochain"/"dernier" after the noun
+    // ("le trimestre prochain", "l'année prochaine", never "prochain
+    // trimestre"), the same inversion the ordinal-of-month/next-week-range
+    // patterns elsewhere in this file already account for. Verified
+    // empirically per language in tests/parser.test.ts.
+    const periodOnlyKeys = ['week', 'month', 'year'];
+    const periodOnlyWords = periodOnlyKeys.flatMap(key => this.tc.collectWords(key));
+    const quarterWords = this.tc.collectWords("quarter");
+    const periodPatternWithQuarter = this.tc.buildAlternation([...periodOnlyWords, ...quarterWords]);
+    this.regexPeriodPrefix = new RegExp(
+      `^\\s*(${prefixPattern})\\s*(${periodPatternWithQuarter})\\s*$`,
+      'i'
+    );
+    this.regexPeriodSuffix = new RegExp(
+      `^\\s*(${periodPatternWithQuarter})\\s*(${prefixPattern})\\s*$`,
+      'i'
+    );
+
+    // Language-neutral explicit forms -- "Q3"/"q3" works regardless of active
+    // language, the same way a bare ISO date string does.
+    this.regexQuarterExplicit = /^\s*q\s*([1-4])(?:\s+(\d{4}))?\s*$/i;
+    this.regexQuarterExplicitYearFirst = /^\s*(\d{4})\s*[-\s]\s*q\s*([1-4])\s*$/i;
+    this.regexWeekExplicit = /^\s*(\d{4})-w(\d{1,2})\s*$/i;
   }
 
   // Initializes keywords for fast detection
@@ -343,6 +410,13 @@ export default class NLDParser {
         this.timeUnitMap.set(word, mapping.momentUnit);
       }
     }
+
+    this.periodWords = {
+      week: new Set(this.tc.collectWords("week", { lowercase: true })),
+      month: new Set(this.tc.collectWords("month", { lowercase: true })),
+      quarter: new Set(this.tc.collectWords("quarter", { lowercase: true })),
+      year: new Set(this.tc.collectWords("year", { lowercase: true })),
+    };
   }
 
   // --- UTILITY FUNCTION: DAY NAME → NUMERIC INDEX CONVERSION ---
@@ -1123,12 +1197,136 @@ export default class NLDParser {
           endMoment: endMoment.clone(),
           isRange: true as const,
           dateList: dateList,
+          granularity: "week",
         };
         return result;
       }
     }
 
     return null;
+  }
+
+  // ============================================================
+  // PERIOD GRANULARITY: "this/next/last week|month|quarter|year", explicit
+  // "Q3"/"2026-Q3"/"2026-W02" -- resolves to a representative date within the
+  // period, for callers that want to format the whole period (e.g. a
+  // Periodic-Notes-style weekly/monthly/quarterly/yearly note link) instead
+  // of a single day.
+  // ============================================================
+  private tryPeriod(cleanedText: string): { date: Moment; granularity: DateGranularity } | null {
+    // Explicit quarter: "Q3", "Q3 2026", "2026 Q3", "2026-Q3".
+    const quarterMatch = cleanedText.match(this.regexQuarterExplicit) ?? cleanedText.match(this.regexQuarterExplicitYearFirst);
+    if (quarterMatch) {
+      // regexQuarterExplicit captures [quarter, year?]; regexQuarterExplicitYearFirst
+      // captures [year, quarter] -- tell them apart by which group is 1-4 digits long.
+      const [g1, g2] = [quarterMatch[1], quarterMatch[2]];
+      const isYearFirst = g1.length === 4;
+      const quarterNum = parseInt(isYearFirst ? g2 : g1, 10);
+      const year = isYearFirst ? parseInt(g1, 10) : (g2 ? parseInt(g2, 10) : moment().year());
+      const target = moment().year(year).quarter(quarterNum).startOf('quarter');
+      return { date: target, granularity: 'quarter' };
+    }
+
+    // Explicit ISO week: "2026-W02".
+    const weekMatch = cleanedText.match(this.regexWeekExplicit);
+    if (weekMatch) {
+      const year = parseInt(weekMatch[1], 10);
+      const week = parseInt(weekMatch[2], 10);
+      const target = moment().isoWeekYear(year).isoWeek(week).startOf('isoWeek');
+      return { date: target, granularity: 'week' };
+    }
+
+    // "this/next/last week|month|quarter|year" (most languages), or the
+    // postposed order "week|month|quarter|year this/next/last" (French).
+    const prefixMatch = cleanedText.match(this.regexPeriodPrefix);
+    const suffixMatch = prefixMatch ? null : cleanedText.match(this.regexPeriodSuffix);
+    const periodMatch = prefixMatch
+      ? { prefix: prefixMatch[1], period: prefixMatch[2] }
+      : suffixMatch
+        ? { prefix: suffixMatch[2], period: suffixMatch[1] }
+        : null;
+    if (periodMatch) {
+      const prefix = periodMatch.prefix.toLowerCase();
+      const period = periodMatch.period.toLowerCase();
+
+      const direction: 'next' | 'last' | 'this' =
+        this.prefixKeywords.next.has(prefix) ? 'next' :
+        this.prefixKeywords.last.has(prefix) ? 'last' :
+        'this';
+
+      // Duration units ("week" is fine here -- a week is 7 days regardless
+      // of ISO-ness, this only affects arithmetic, not day-of-week anchoring).
+      const addUnitByGranularity: Record<Exclude<DateGranularity, 'day'>, moment.unitOfTime.DurationConstructor> = {
+        week: 'week',
+        month: 'month',
+        quarter: 'quarter',
+        year: 'year',
+      };
+      // startOf() units: "isoWeek" (not "week") for week granularity --
+      // startOf('week') uses the locale week start (Sunday by default),
+      // which can land on the wrong side of an ISO week boundary near the
+      // edges of a week, mismatching the ISO GGGG-WW format callers use for
+      // week-format output.
+      const startOfUnitByGranularity: Record<Exclude<DateGranularity, 'day'>, moment.unitOfTime.StartOf> = {
+        week: 'isoWeek',
+        month: 'month',
+        quarter: 'quarter',
+        year: 'year',
+      };
+
+      const granularity: DateGranularity | null =
+        this.periodWords.week.has(period) ? 'week' :
+        this.periodWords.month.has(period) ? 'month' :
+        this.periodWords.quarter.has(period) ? 'quarter' :
+        this.periodWords.year.has(period) ? 'year' :
+        null;
+      if (!granularity) return null;
+
+      const addUnit = addUnitByGranularity[granularity];
+      const startOfUnit = startOfUnitByGranularity[granularity];
+      const target = moment();
+      if (direction === 'next') {
+        target.add(1, addUnit).startOf(startOfUnit);
+      } else if (direction === 'last') {
+        target.subtract(1, addUnit).startOf(startOfUnit);
+      } else if (granularity !== 'week') {
+        // "this week" stays on today (any day within the current week is
+        // fine for week-format output); "this month/quarter/year" normalizes
+        // to the start of the period for consistency with next/last.
+        target.startOf(startOfUnit);
+      }
+
+      return { date: target, granularity };
+    }
+
+    return null;
+  }
+
+  /**
+   * Parses a natural language date string, additionally reporting the
+   * calendar granularity the expression referred to (day/week/month/quarter/year).
+   *
+   * Falls back to {@link getParsedDate} (granularity "day") for anything
+   * that isn't a whole-period reference.
+   *
+   * @param selectedText - Natural language date string (e.g., "next quarter", "Q3 2026", "tomorrow")
+   * @param weekStartPreference - Day of week to consider as week start
+   * @returns The resolved date plus its granularity
+   *
+   * @example
+   * ```typescript
+   * const parser = new NLDParser(['en']);
+   * const { date, granularity } = parser.getParsedPeriod("next quarter", "monday");
+   * console.log(granularity); // "quarter"
+   * ```
+   */
+  getParsedPeriod(selectedText: string, weekStartPreference: DayOfWeek): NLDPeriodResult {
+    const cleanedText = selectedText.trim().replace(/[!?.]+$/, '');
+    const periodResult = this.tryPeriod(cleanedText);
+    if (periodResult) {
+      return { date: periodResult.date.toDate(), granularity: periodResult.granularity };
+    }
+    return { date: this.getParsedDate(selectedText, weekStartPreference), granularity: 'day' };
   }
 
   // --- UTILITY FUNCTION: WHO HAS THE BEST SCORE? ---

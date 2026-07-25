@@ -55,6 +55,18 @@ export interface NLDSettings {
   // for anything that actually needs a time.
   modalMomentFormat: string;
 
+  // Periodic-note formats (optional, all default to ""): when an expression
+  // resolves to a whole week/month/quarter/year (e.g. "next week", "Q3",
+  // "this quarter") instead of a single day, use this format instead of the
+  // daily "format" setting above -- for linking to Periodic Notes-style
+  // weekly/monthly/quarterly/yearly notes. Leave empty to keep using the
+  // daily format (and, for weeks specifically, the existing "next week"
+  // multi-day-link behavior) unchanged.
+  weekFormat: string;
+  monthFormat: string;
+  quarterFormat: string;
+  yearFormat: string;
+
   // Smart suggestions
   enableSmartSuggestions: boolean;
   enableHistorySuggestions: boolean;
@@ -90,6 +102,11 @@ export const DEFAULT_SETTINGS: NLDSettings = {
 
   modalToggleLink: false,
   modalMomentFormat: "YYYY-MM-DD",
+
+  weekFormat: "",
+  monthFormat: "",
+  quarterFormat: "",
+  yearFormat: "",
 
   // Smart suggestions
   enableSmartSuggestions: true,
@@ -367,6 +384,59 @@ export class NLDSettingsTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl).setHeading().setName("Periodic notes");
+
+    this.createPeriodicFormatSetting(containerEl, "Week format", "weekFormat", "GGGG-[W]WW", "next week");
+    this.createPeriodicFormatSetting(containerEl, "Month format", "monthFormat", "YYYY-MM", "next month");
+    this.createPeriodicFormatSetting(containerEl, "Quarter format", "quarterFormat", "YYYY-[Q]Q", "next quarter, Q3");
+    this.createPeriodicFormatSetting(containerEl, "Year format", "yearFormat", "YYYY", "next year");
+  }
+
+  protected createPeriodicFormatSetting(
+    containerEl: HTMLElement,
+    name: string,
+    settingKey: "weekFormat" | "monthFormat" | "quarterFormat" | "yearFormat",
+    placeholder: string,
+    examples: string
+  ): Setting {
+    const baseDesc = `Used instead of the daily Date format when an expression resolves to a whole period (e.g. "${examples}"). Leave empty to keep using the daily Date format for these too.`;
+
+    const setting = new Setting(containerEl)
+      .setName(name)
+      .setDesc(baseDesc)
+      .addMomentFormat((text) =>
+        text
+          .setPlaceholder(placeholder)
+          .setValue(this.plugin.settings[settingKey])
+          .onChange(async (value) => {
+            const trimmed = value.trim();
+            if (!trimmed) {
+              this.plugin.settings[settingKey] = "";
+              await this.plugin.saveSettings();
+              setting.setDesc(baseDesc);
+              return;
+            }
+            const validated = validateMomentFormat(trimmed);
+            if (validated.valid) {
+              this.plugin.settings[settingKey] = trimmed;
+              await this.plugin.saveSettings();
+              setting.setDesc(`${baseDesc}${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+            } else {
+              setting.setDesc(`${baseDesc} - ⚠️ ${validated.error || "Format invalide"}`);
+              text.setValue(this.plugin.settings[settingKey]);
+            }
+          })
+      );
+
+    if (this.plugin.settings[settingKey]) {
+      const initialValidation = validateMomentFormat(this.plugin.settings[settingKey]);
+      if (initialValidation.valid && initialValidation.preview) {
+        setting.setDesc(`${baseDesc} (Preview: ${initialValidation.preview})`);
+      }
+    }
+
+    return setting;
   }
 
   protected createLanguageSetting(containerEl: HTMLElement, text: string, settingKey: keyof NLDSettings, code: string, note?: string) : Setting {

@@ -376,6 +376,28 @@ export default class NaturalLanguageDates extends Plugin {
       };
     }
 
+    if (!this.parser) {
+      this.resetParser();
+    }
+
+    // If this expression resolves to a whole week/month/quarter/year (e.g.
+    // "next quarter", "Q3 2026") and a periodic-note format is configured for
+    // that granularity, use it in place of the daily format -- skip the
+    // "Ask the parser if time is detected" dance entirely below, since a
+    // period reference has no time-of-day to carry.
+    const { date: periodDate, granularity } = this.parser.getParsedPeriod(sanitizedInput, this.settings.weekStart);
+    const granularityFormat = this.getPeriodicFormat(granularity);
+    if (granularityFormat) {
+      const granularityFormatValidation = validateMomentFormat(granularityFormat);
+      const formatToUse = granularityFormatValidation.valid ? granularityFormat : this.settings.format;
+      const formattedString = DateFormatter.format(periodDate, formatToUse);
+      return {
+        formattedString,
+        date: periodDate,
+        moment: moment(periodDate),
+      };
+    }
+
     // Valider le format de date
     const dateFormatValidation = validateMomentFormat(this.settings.format);
     if (!dateFormatValidation.valid) {
@@ -391,7 +413,7 @@ export default class NaturalLanguageDates extends Plugin {
     // 2. If time is detected...
     if (hasTime) {
       const timeFormat = this.settings.timeFormat || "HH:mm";
-      
+
       // Valider le format de temps
       const timeFormatValidation = validateMomentFormat(timeFormat);
       if (!timeFormatValidation.valid) {
@@ -403,13 +425,27 @@ export default class NaturalLanguageDates extends Plugin {
         // But BEWARE: it is the "date-suggest.ts" file that will add the [[ ]].
         // If we don't touch date-suggest, it will make [[Date Time]].
         // To make [[Date]] Time, we have to be clever.
-        
+
         formatToUse = `${formatToUse} ${timeFormat}`;
       }
     }
 
     const result = this.parse(sanitizedInput, formatToUse);
     return result;
+  }
+
+  /**
+   * Returns the configured periodic-note format for a given granularity
+   * (week/month/quarter/year), or "" if unset or the granularity is "day".
+   */
+  private getPeriodicFormat(granularity: "day" | "week" | "month" | "quarter" | "year"): string {
+    switch (granularity) {
+      case "week": return this.settings.weekFormat;
+      case "month": return this.settings.monthFormat;
+      case "quarter": return this.settings.quarterFormat;
+      case "year": return this.settings.yearFormat;
+      default: return "";
+    }
   }
 
   /**

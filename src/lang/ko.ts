@@ -63,6 +63,7 @@ const dict = {
   week: "주",
   month: "개월|달",
   year: "년",
+  quarter: "분기",
   and: "그리고",
   at: "에",
   from: "부터",

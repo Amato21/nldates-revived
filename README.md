@@ -108,6 +108,10 @@ Go to **Settings > Natural Language Dates**:
     * **Manage history:** Opens a list of everything in your suggestion history (most relevant first), with a button to remove any single entry, plus a "Clear all" option (armed on the first click, applied on the second, so it can't be triggered by accident)
 * **Date Formatting:**
     * **Omit date for short relative expressions:** When enabled, short relative expressions for today (e.g., `@in 15 min`, `@in 2 hours`) will display only the time (e.g., `14:30`) instead of `[[2024-01-15]] 14:30` (enabled by default)
+* **Periodic Notes:** Optional formats for linking to weekly/monthly/quarterly/yearly notes (e.g. used by the [Periodic Notes](https://github.com/liamcain/obsidian-periodic-notes) plugin), each empty/disabled by default:
+    * **Week format** (e.g. `GGGG-[W]WW`), **Month format** (e.g. `YYYY-MM`), **Quarter format** (e.g. `YYYY-[Q]Q`), **Year format** (e.g. `YYYY`)
+    * When set, an expression that resolves to a whole period instead of a single day — `@next week`, `@this quarter`, `@Q3`, `@Q3 2026`, `@2026-W02` — uses that format instead of the daily Date format. Leave a field empty to keep using the daily format for that granularity (and, for weeks specifically, the existing behavior of inserting a link for every day of the week).
+    * Recognized in all 12 supported languages: `@next week`/`@semaine prochaine`/`@来週`/`@다음 주`, etc.
 
 **Note:** History data is stored in `.obsidian/plugins/nldates-revived/history.json` and is limited to the 100 most relevant entries for optimal performance.
 
