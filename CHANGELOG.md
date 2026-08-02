@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.81] - 2026-08-02
+
+### Fixed
+- `manifest.json` declared `minAppVersion: "1.0.0"`, but the history manager's delete button (`ButtonComponent.setIcon()`/`.setTooltip()`) uses Obsidian APIs introduced in 1.1.0 — on Obsidian 1.0.x those calls would have thrown. Bumped `minAppVersion` to `1.1.0` to match what's actually used. Present since 0.9.71 (when the history manager was added) but only caught now, via the `obsidianmd/no-unsupported-api` check.
+
 ## [0.9.8] - 2026-08-01
 
 ### Added
@@ -16,7 +21,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Date Picker: picking a date via the calendar grid or a quick-select button (Today/Tomorrow/Next week/...) always inserted `12:00` as the time, regardless of what was actually selected. The modal was reformatting the selection down to a bare date string and re-parsing it through the NLP engine to build the preview/output, which discarded the actual time and let chrono-node's "no time specified" default (noon) leak through. Quick-select buttons had a related issue: they carried the real current wall-clock time instead of a clean date.
 - Dutch: `next`/`last` were missing the neuter grammatical forms ("volgend"/"vorig", no final "-e") needed before neuter nouns like "jaar" and the newly-added "kwartaal" — only the common-gender forms ("volgende"/"vorige", used correctly before "week"/"maand") were recognized, so phrases like "volgend jaar" didn't parse as a relative expression.
-- `manifest.json` declared `minAppVersion: "1.0.0"`, but the history manager's delete button (`ButtonComponent.setIcon()`/`.setTooltip()`) uses Obsidian APIs introduced in 1.1.0 — on Obsidian 1.0.x those calls would have thrown. Bumped `minAppVersion` to `1.1.0` to match what's actually used.
 
 ### Changed
 - Date Picker no longer deals with time at all — it's a date picker. Previously, picking a date always carried *some* time value (the real current wall-clock time), with no way to control or clear it. Rather than adding a settings menu to make that time optional, the modal now always produces a plain date, even if the manual input field is used to type a phrase that includes a time (e.g. "today at 3pm"). The default format changed from `YYYY-MM-DD HH:mm` to `YYYY-MM-DD` accordingly. For dates that do need a specific time, use the "Insert the current date and time" command or type a full expression into the autosuggest instead.
