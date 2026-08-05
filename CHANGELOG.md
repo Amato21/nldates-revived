@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Updated `chrono-node` (our fallback parser for anything our own regex-based parsing doesn't handle) from 2.9.1 to 2.10.1. Brings upstream fixes relevant to our supported languages: French month name abbreviations and accented variants (e.g. "15 déc. 2026"), new Italian relative-time and timezone-offset support, casual-time meridiem preservation for German/French/Italian when merged with an explicit time, a Ukrainian regex compilation fix, and Chinese past-tense relative expressions (e.g. "1小时前"). Also switches DST resolution to be UTC-based instead of relying on system time. No breaking changes upstream; full test suite (723 tests) passes unchanged.
+
 ## [0.9.81] - 2026-08-02
 
 ### Fixed

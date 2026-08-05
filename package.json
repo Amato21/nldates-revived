@@ -35,7 +35,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
-    "chrono-node": "^2.9.0",
+    "chrono-node": "^2.10.1",
     "obsidian-daily-notes-interface": "0.9.4",
     "roddeh-i18n": "^1.2.1"
   },
