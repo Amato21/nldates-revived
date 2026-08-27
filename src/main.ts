@@ -413,20 +413,21 @@ export default class NaturalLanguageDates extends Plugin {
     // 2. If time is detected...
     if (hasTime) {
       const timeFormat = this.settings.timeFormat || "HH:mm";
+      const separator = this.settings.separator ?? DEFAULT_SETTINGS.separator;
 
       // Valider le format de temps
       const timeFormatValidation = validateMomentFormat(timeFormat);
       if (!timeFormatValidation.valid) {
         logger.warn("Invalid time format in settings", { format: timeFormat, error: timeFormatValidation.error });
         // Utiliser le format par défaut
-        formatToUse = `${this.settings.format} ${DEFAULT_SETTINGS.timeFormat}`;
+        formatToUse = `${this.settings.format}${separator}${DEFAULT_SETTINGS.timeFormat}`;
       } else {
         // TIP: Here we format "Date TIME."
         // But BEWARE: it is the "date-suggest.ts" file that will add the [[ ]].
         // If we don't touch date-suggest, it will make [[Date Time]].
         // To make [[Date]] Time, we have to be clever.
 
-        formatToUse = `${formatToUse} ${timeFormat}`;
+        formatToUse = `${formatToUse}${separator}${timeFormat}`;
       }
     }
 

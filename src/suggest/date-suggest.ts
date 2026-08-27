@@ -576,7 +576,8 @@ export default class DateSuggest extends EditorSuggest<string> {
           return timePart;
         }
         const datePart = parsedResult.moment.format(this.plugin.settings.format);
-        return `${datePart} ${timePart}`;
+        const separator = this.plugin.settings.separator ?? " ";
+        return `${datePart}${separator}${timePart}`;
       }
       return parsedResult.formattedString;
     } catch (error) {
@@ -692,16 +693,17 @@ export default class DateSuggest extends EditorSuggest<string> {
           } else {
             // 1. Format the date part
             const datePart = parsedResult.moment.format(this.plugin.settings.format);
-            
+
             // 2. Format the time part (fallback to HH:mm if not set)
             const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
+            const separator = this.plugin.settings.separator ?? " ";
 
             // 3. Generate the markdown link ONLY for the date part
             dateStr = generateMarkdownLink(
               this.app,
               datePart,
               includeAlias ? aliasText : undefined
-            ) + " " + timePart; // Append time as plain text
+            ) + separator + timePart; // Append time as plain text
 
             // 4. Disable standard linking since we constructed it manually above
             makeIntoLink = false;
@@ -714,7 +716,8 @@ export default class DateSuggest extends EditorSuggest<string> {
           } else {
             const datePart = parsedResult.moment.format(this.plugin.settings.format);
             const timePart = parsedResult.moment.format(this.plugin.settings.timeFormat || "HH:mm");
-            dateStr = `${datePart} ${timePart}`;
+            const separator = this.plugin.settings.separator ?? " ";
+            dateStr = `${datePart}${separator}${timePart}`;
           }
         } else {
           // Standard behavior for dates without time (e.g., @tomorrow)

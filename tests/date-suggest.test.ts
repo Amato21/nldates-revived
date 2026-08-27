@@ -725,6 +725,38 @@ describe('DateSuggest', () => {
       expect(inserted).toBe('2024-01-02 15:00');
     });
 
+    it('uses the configured separator (not a hardcoded space) between date and time when linking is enabled (regression: #56)', () => {
+      plugin.settings.autosuggestToggleLink = true;
+      plugin.settings.format = 'YYYY-MM-DD';
+      plugin.settings.timeFormat = 'HH:mm';
+      plugin.settings.separator = ' | ';
+      plugin.hasTimeComponent = vi.fn(() => true);
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2024-01-02 15:00',
+        date: moment('2024-01-02 15:00').toDate(),
+        moment: moment('2024-01-02 15:00'),
+      }));
+      selectWithContext('tomorrow at 3pm');
+      const inserted = mockEditor.replaceRange.mock.calls[0][0];
+      expect(inserted).toBe('[[2024-01-02]] | 15:00');
+    });
+
+    it('uses the configured separator (not a hardcoded space) between date and time when linking is disabled (regression: #56)', () => {
+      plugin.settings.autosuggestToggleLink = false;
+      plugin.settings.format = 'YYYY-MM-DD';
+      plugin.settings.timeFormat = 'HH:mm';
+      plugin.settings.separator = ' | ';
+      plugin.hasTimeComponent = vi.fn(() => true);
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2024-01-02 15:00',
+        date: moment('2024-01-02 15:00').toDate(),
+        moment: moment('2024-01-02 15:00'),
+      }));
+      selectWithContext('tomorrow at 3pm');
+      const inserted = mockEditor.replaceRange.mock.calls[0][0];
+      expect(inserted).toBe('2024-01-02 | 15:00');
+    });
+
     it('omits the date and inserts just the time for a short relative expression today, with linking enabled', () => {
       plugin.settings.autosuggestToggleLink = true;
       plugin.settings.omitDateForShortRelative = true;
@@ -890,6 +922,23 @@ describe('DateSuggest', () => {
       suggest.renderSuggestion('next Monday at 3pm', el);
       const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
       expect(previewSpan?.text).toBe('2026-07-20 15:00');
+    });
+
+    it('uses the configured separator (not a hardcoded space) in the date+time preview (regression: #56)', () => {
+      plugin.settings.format = 'YYYY-MM-DD';
+      plugin.settings.timeFormat = 'HH:mm';
+      plugin.settings.separator = ' | ';
+      plugin.settings.omitDateForShortRelative = false;
+      plugin.hasTimeComponent = vi.fn(() => true);
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-07-20 15:00',
+        date: moment('2026-07-20 15:00').toDate(),
+        moment: moment('2026-07-20 15:00'),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('next Monday at 3pm', el);
+      const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
+      expect(previewSpan?.text).toBe('2026-07-20 | 15:00');
     });
 
     it('omits the date from the preview for a short relative expression today, mirroring the actual insertion', () => {

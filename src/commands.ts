@@ -113,8 +113,9 @@ export function getParseCommand(plugin: NaturalLanguageDates, mode: string): voi
             const datePart = date.moment.format(plugin.settings.format);
             // Si l'utilisateur n'a pas mis de format d'heure, on force HH:mm par sécurité
             const timePart = date.moment.format(plugin.settings.timeFormat || "HH:mm");
-            
-            newStr = `[[${datePart}]] ${timePart}`;
+            const separator = plugin.settings.separator ?? " ";
+
+            newStr = `[[${datePart}]]${separator}${timePart}`;
         }
     } else {
         // CAS CLASSIQUE : [[Date]]
