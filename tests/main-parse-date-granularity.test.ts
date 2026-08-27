@@ -102,3 +102,39 @@ describe('NaturalLanguageDates.parseDate: periodic-note granularity formats (wee
     });
   });
 });
+
+describe('NaturalLanguageDates.parseDate: uses the configured separator between date and time (regression: #56)', () => {
+  let plugin: NaturalLanguageDates;
+
+  beforeEach(() => {
+    plugin = Object.create(NaturalLanguageDates.prototype);
+    (plugin as any).settings = { ...DEFAULT_SETTINGS };
+    (plugin as any).parser = new NLDParser(['en']);
+  });
+
+  it('joins date and time with the configured separator, not a hardcoded space', () => {
+    plugin.settings.format = 'YYYY-MM-DD';
+    plugin.settings.timeFormat = 'HH:mm';
+    plugin.settings.separator = ' | ';
+    const result = plugin.parseDate('now');
+    const expected = moment().format('YYYY-MM-DD') + ' | ' + moment().format('HH:mm');
+    expect(result.formattedString).toBe(expected);
+  });
+
+  it('supports an empty separator', () => {
+    plugin.settings.format = 'YYYY-MM-DD';
+    plugin.settings.timeFormat = 'HH:mm';
+    plugin.settings.separator = '';
+    const result = plugin.parseDate('now');
+    const expected = moment().format('YYYY-MM-DD') + moment().format('HH:mm');
+    expect(result.formattedString).toBe(expected);
+  });
+
+  it('still uses the default space separator when none is configured', () => {
+    plugin.settings.format = 'YYYY-MM-DD';
+    plugin.settings.timeFormat = 'HH:mm';
+    const result = plugin.parseDate('now');
+    const expected = moment().format('YYYY-MM-DD') + ' ' + moment().format('HH:mm');
+    expect(result.formattedString).toBe(expected);
+  });
+});

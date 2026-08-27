@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Any date+time result with a time component (`@now`, `@in 20 minutes`, `@tomorrow at 3pm`, the "Insert the current date and time" command's replace-mode counterpart in the autosuggest, etc.) joined the date and time parts with a hardcoded single space instead of the configured **Separator** setting. Affected `parseDate()`, the parse command's replace mode, and the autosuggest's insertion and preview text. Only `getNowCommand()` (the dedicated "Insert the current date and time" command) already used the separator correctly. Reported in [#56](https://github.com/Amato21/nldates-revived/issues/56).
+
 ### Changed
 - Updated `chrono-node` (our fallback parser for anything our own regex-based parsing doesn't handle) from 2.9.1 to 2.10.1. Brings upstream fixes relevant to our supported languages: French month name abbreviations and accented variants (e.g. "15 déc. 2026"), new Italian relative-time and timezone-offset support, casual-time meridiem preservation for German/French/Italian when merged with an explicit time, a Ukrainian regex compilation fix, and Chinese past-tense relative expressions (e.g. "1小时前"). Also switches DST resolution to be UTC-based instead of relying on system time. No breaking changes upstream; full test suite (723 tests) passes unchanged.
 

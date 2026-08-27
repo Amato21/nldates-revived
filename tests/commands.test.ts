@@ -163,6 +163,23 @@ describe('Commands Integration Tests', () => {
       expect(mockEditor.replaceSelection).toHaveBeenCalledWith('[[2024-01-02]] 15:00');
     });
 
+    it('uses the configured separator (not a hardcoded space) between date and time in replace mode (regression: #56)', () => {
+      mockEditor.getSelection.mockReturnValue('tomorrow at 3pm');
+      plugin.hasTimeComponent.mockReturnValue(true);
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2024-01-02 15:00',
+        date: moment('2024-01-02 15:00').toDate(),
+        moment: moment('2024-01-02 15:00'),
+      }));
+      plugin.settings.format = 'YYYY-MM-DD';
+      plugin.settings.timeFormat = 'HH:mm';
+      plugin.settings.separator = ' | ';
+
+      getParseCommand(plugin, 'replace');
+
+      expect(mockEditor.replaceSelection).toHaveBeenCalledWith('[[2024-01-02]] | 15:00');
+    });
+
     it('should handle date range', () => {
       mockEditor.getSelection.mockReturnValue('from Monday to Friday');
       plugin.parseDateRange = vi.fn(() => ({
