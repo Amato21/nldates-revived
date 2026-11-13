@@ -637,6 +637,49 @@ describe('DateSuggest', () => {
       expect(inserted).toBe('2024-01-01 To 2024-01-05');
     });
 
+    it("uses weekFormat via plugin.parseDate() for 'next week' instead of the 7-day link list, when weekFormat is configured (regression: #59)", () => {
+      plugin.settings.autosuggestToggleLink = true;
+      plugin.settings.weekFormat = 'GGGG-[W]WW';
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2026-09-28 to 2026-10-04',
+        startDate: moment('2026-09-28').toDate(),
+        endDate: moment('2026-10-04').toDate(),
+        startMoment: moment('2026-09-28'),
+        endMoment: moment('2026-10-04'),
+        isRange: true,
+        dateList: [moment('2026-09-28'), moment('2026-10-04')],
+        granularity: 'week',
+      }));
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-W40',
+        date: moment('2026-09-28').toDate(),
+        moment: moment('2026-09-28'),
+      }));
+      selectWithContext('next week');
+      expect(plugin.parseDate).toHaveBeenCalledWith('next week');
+      const inserted = mockEditor.replaceRange.mock.calls[0][0];
+      expect(inserted).toBe('[[2026-W40]]');
+    });
+
+    it("still uses the 7-day link list for an explicit weekday-to-weekday range even when weekFormat is configured (no granularity tag, regression: #59)", () => {
+      plugin.settings.autosuggestToggleLink = true;
+      plugin.settings.weekFormat = 'GGGG-[W]WW';
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2024-01-01 to 2024-01-02',
+        startDate: moment('2024-01-01').toDate(),
+        endDate: moment('2024-01-02').toDate(),
+        startMoment: moment('2024-01-01'),
+        endMoment: moment('2024-01-02'),
+        isRange: true,
+        dateList: [moment('2024-01-01'), moment('2024-01-02')],
+        // No granularity tag: an explicit range, not a period reference.
+      }));
+      selectWithContext('from Monday to Tuesday');
+      const inserted = mockEditor.replaceRange.mock.calls[0][0];
+      expect(inserted).toBe('[[2024-01-01]], [[2024-01-02]]');
+      expect(plugin.parseDate).not.toHaveBeenCalled();
+    });
+
     it('inserts just the formatted date for a plain date without time, when linking is disabled', () => {
       plugin.settings.autosuggestToggleLink = false;
       plugin.parseDate = vi.fn(() => ({ formattedString: '2024-01-02', date: moment('2024-01-02').toDate(), moment: moment('2024-01-02') }));
@@ -967,6 +1010,29 @@ describe('DateSuggest', () => {
       suggest.renderSuggestion('from Monday to Tuesday', el);
       const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
       expect(previewSpan?.text).toBe('2026-07-20, 2026-07-21');
+    });
+
+    it("shows the weekFormat preview for 'next week' instead of the joined day list, when weekFormat is configured (regression: #59)", () => {
+      plugin.settings.weekFormat = 'GGGG-[W]WW';
+      plugin.parseDateRange = vi.fn(() => ({
+        formattedString: '2026-09-28 to 2026-10-04',
+        startDate: moment('2026-09-28').toDate(),
+        endDate: moment('2026-10-04').toDate(),
+        startMoment: moment('2026-09-28'),
+        endMoment: moment('2026-10-04'),
+        isRange: true,
+        dateList: [moment('2026-09-28'), moment('2026-10-04')],
+        granularity: 'week',
+      }));
+      plugin.parseDate = vi.fn(() => ({
+        formattedString: '2026-W40',
+        date: moment('2026-09-28').toDate(),
+        moment: moment('2026-09-28'),
+      }));
+      const el = makeFakeEl();
+      suggest.renderSuggestion('next week', el);
+      const previewSpan = el.spans.find((s: any) => s.cls === 'nld-suggestion-preview');
+      expect(previewSpan?.text).toBe('2026-W40');
     });
 
     it('does not show a preview identical to the suggestion text', () => {

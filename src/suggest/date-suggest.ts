@@ -543,8 +543,15 @@ export default class DateSuggest extends EditorSuggest<string> {
         return parsedTime.formattedString;
       }
 
+      // A "next week"-style period reference (dateRange.granularity === "week")
+      // is skipped here when a week periodic-note format is configured -- it
+      // falls through to plugin.parseDate() below instead, which resolves it
+      // to a single week-format value (e.g. "2026-W40") rather than a 7-day
+      // list. Mirrors the same guard in commands.ts's getParseCommand(); this
+      // preview path has its own copy of the range-vs-period check and was
+      // missing it (reported in #59).
       const dateRange = this.plugin.parseDateRange(suggestion);
-      if (dateRange) {
+      if (dateRange && !(dateRange.granularity === "week" && this.plugin.settings.weekFormat)) {
         if (dateRange.dateList && dateRange.dateList.length > 0) {
           return dateRange.dateList.map(m => m.format(this.plugin.settings.format)).join(', ');
         }
@@ -636,10 +643,12 @@ export default class DateSuggest extends EditorSuggest<string> {
       dateStr = this.plugin.parseTime(timePart).formattedString;
       makeIntoLink = false;
     } else {
-      // Vérifier d'abord si c'est une plage de dates
+      // Vérifier d'abord si c'est une plage de dates. Same weekFormat guard
+      // as resolvePreviewText() above and commands.ts's getParseCommand() --
+      // see the comment there (#59).
       const dateRange = this.plugin.parseDateRange(suggestion);
-      
-      if (dateRange) {
+
+      if (dateRange && !(dateRange.granularity === "week" && this.plugin.settings.weekFormat)) {
         // C'est une plage de dates
         // Si on a une liste de dates, générer une liste de liens au lieu d'une plage
         if (dateRange.dateList && dateRange.dateList.length > 0) {
