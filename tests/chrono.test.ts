@@ -19,7 +19,7 @@ describe("getChronos", () => {
     vi.resetModules();
   });
 
-  it("initializes a Chrono per requested language using createCasualConfiguration", async () => {
+  it("initializes a Chrono per requested language", async () => {
     const getChronos = (await import("../src/chrono")).default;
     const chronos = getChronos(["en", "fr"]);
     expect(chronos.length).toBe(2);
@@ -56,6 +56,9 @@ describe("getChronos", () => {
         ...actual,
         fr: {
           ...actual.fr,
+          // .casual is checked first, so it must be absent here to actually
+          // reach (and exercise the error handling around) createCasualConfiguration.
+          casual: undefined,
           createCasualConfiguration: () => { throw new Error("boom"); },
         },
       };
@@ -145,6 +148,9 @@ describe("getChronos", () => {
         ...actual,
         fr: {
           ...actual.fr,
+          // .casual is checked first, so it must be absent here to actually
+          // reach (and exercise the error handling around) createCasualConfiguration.
+          casual: undefined,
           // eslint-disable-next-line no-throw-literal
           createCasualConfiguration: () => { throw "not an Error instance"; },
         },
@@ -184,6 +190,9 @@ describe("getChronos", () => {
         fr: {},
         en: {
           ...actual.en,
+          // .casual is checked first, so it must be absent here to actually
+          // reach (and exercise the error handling around) createCasualConfiguration.
+          casual: undefined,
           createCasualConfiguration: () => { throw new Error("fallback boom"); },
         },
       };
@@ -208,6 +217,9 @@ describe("getChronos", () => {
         fr: {},
         en: {
           ...actual.en,
+          // .casual is checked first, so it must be absent here to actually
+          // reach (and exercise the error handling around) createCasualConfiguration.
+          casual: undefined,
           // eslint-disable-next-line no-throw-literal
           createCasualConfiguration: () => { throw "fallback not an Error"; },
         },
