@@ -2134,5 +2134,53 @@ describe('NLDParser', () => {
       });
     });
   });
+
+  describe('Ambiguous day-first numeric dates (D.M.YYYY / D/M/YYYY) via chrono-node fallback -- regression: #60', () => {
+    // Our own regex-based parsing layers only handle month names, weekdays,
+    // and relative/period keywords -- a bare numeric date like "9.10.2026"
+    // matches none of them, so it always falls through to chrono-node.
+    //
+    // getChronos() used to prefer each locale's createCasualConfiguration()
+    // factory over its pre-built .casual singleton. For French/Spanish/
+    // German/Portuguese/Dutch (every locale we ship that exposes both --
+    // English and Italian only have .casual), that factory-built Chrono's
+    // refiner pipeline silently corrupted ambiguous day-first dates (day
+    // <= 12, so a month-first reading is also plausible): "9.10.2026"
+    // (October 9th) came back as September 10th. Root cause, confirmed by
+    // tracing chrono-node's own debug output: a time-expression parser's
+    // overlapping "9.10" (a plausible 9:10 time of day) got merged into the
+    // correctly-parsed date's components before that redundant match was
+    // discarded as overlap. The pre-built .casual singleton never exhibited
+    // this for the exact same input/locale, so getChronos() now prefers it.
+    //
+    // Checked directly against chrono-node (not assumed) that this is NOT
+    // reproducible in Russian/Ukrainian (both parsers already agreed, via
+    // either path) or Japanese/Chinese (neither recognizes this numeric
+    // format via chrono fallback at all, with or without this fix) --
+    // included below as a safety net against a future regression, not
+    // because they needed fixing.
+    const fixedLanguages = ['fr', 'es', 'de', 'pt', 'nl'];
+    const alreadyFineLanguages = ['ru', 'uk', 'it'];
+
+    [...fixedLanguages, ...alreadyFineLanguages].forEach((lang) => {
+      describe(`Language: ${lang}`, () => {
+        const singleLangParser = new NLDParser([lang]);
+
+        it('parses the ambiguous "9.10.2026" as October 9th, not September 10th', () => {
+          const result = singleLangParser.getParsedDate('9.10.2026', weekStartPreference);
+          expect(moment(result).month()).toBe(9); // October (0-indexed)
+          expect(moment(result).date()).toBe(9);
+          expect(moment(result).year()).toBe(2026);
+        });
+
+        it('still parses the unambiguous "29.10.2026" correctly (day > 12, already worked either way)', () => {
+          const result = singleLangParser.getParsedDate('29.10.2026', weekStartPreference);
+          expect(moment(result).month()).toBe(9); // October
+          expect(moment(result).date()).toBe(29);
+          expect(moment(result).year()).toBe(2026);
+        });
+      });
+    });
+  });
 });
 
