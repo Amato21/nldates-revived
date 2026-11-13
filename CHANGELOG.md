@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `@next week` (and its resolved-date preview) ignored the configured **Week format** setting and always inserted the 7-day link list, even though the equivalent command already respected it. The autosuggest's insertion and preview logic each keep their own copy of the range-vs-period check that the command uses, and both copies were missing the guard added for the original Week format feature. Thanks to [@MarcoBarna](https://github.com/MarcoBarna) for reporting it and diagnosing the exact fix in [#59](https://github.com/Amato21/nldates-revived/issues/59)!
+
 ## [0.9.85] - 2026-08-27
 
 ### Fixed
