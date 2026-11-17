@@ -1,6 +1,7 @@
 import { App, Modal, Setting } from "obsidian";
 import type NaturalLanguageDates from "../main";
 import moment from "../window-moment";
+import { tUI, detectUILanguage } from "../lang/ui/helper";
 
 export default class HistoryManagerModal extends Modal {
   private plugin: NaturalLanguageDates;
@@ -28,25 +29,26 @@ export default class HistoryManagerModal extends Modal {
     // Fetched before touching the DOM so the modal doesn't flash an
     // empty/header-only state while the (async) history load is in flight.
     const entries = await this.plugin.historyManager.getEntriesForManagement();
+    const lang = detectUILanguage();
 
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("nld-history-manager-modal");
 
-    contentEl.createEl("h2", { text: "Manage suggestion history" });
+    contentEl.createEl("h2", { text: tUI("history_title", lang) });
 
     if (entries.length === 0) {
-      contentEl.createEl("p", { text: "No history yet. Suggestions you select from the autosuggest popup will appear here." });
+      contentEl.createEl("p", { text: tUI("history_empty", lang) });
       return;
     }
 
     new Setting(contentEl)
-      .setName("Clear all history")
+      .setName(tUI("clear_all_name", lang))
       .setDesc(this.clearAllArmed
-        ? "Click again to confirm -- this cannot be undone."
-        : `Remove all ${entries.length} entries.`)
+        ? tUI("clear_all_desc_confirm", lang)
+        : tUI("clear_all_desc_remove", lang, { count: String(entries.length) }))
       .addButton((button) => {
-        button.setButtonText(this.clearAllArmed ? "Click again to confirm" : "Clear all");
+        button.setButtonText(this.clearAllArmed ? tUI("clear_all_button_confirm", lang) : tUI("clear_all_button", lang));
         if (this.clearAllArmed) {
           button.setWarning();
         }
@@ -64,15 +66,15 @@ export default class HistoryManagerModal extends Modal {
 
     for (const entry of entries) {
       const lastUsedText = moment(entry.lastUsed).fromNow();
-      const timesText = entry.count === 1 ? "1 time" : `${entry.count} times`;
+      const timesText = entry.count === 1 ? tUI("entry_used_once", lang) : tUI("entry_used_times", lang, { count: String(entry.count) });
 
       new Setting(contentEl)
         .setName(entry.display)
-        .setDesc(`Used ${timesText} · last used ${lastUsedText}`)
+        .setDesc(tUI("entry_used_desc", lang, { times: timesText, lastUsed: lastUsedText }))
         .addButton((button) => {
           button
             .setIcon("trash")
-            .setTooltip("Remove this entry")
+            .setTooltip(tUI("remove_entry_tooltip", lang))
             .onClick(async () => {
               // Deleting a single entry is a different action from "Clear
               // all" -- don't leave that button armed from an earlier click,

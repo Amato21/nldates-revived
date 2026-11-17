@@ -1,5 +1,6 @@
 import { Notice, ObsidianProtocolData, Plugin } from "obsidian";
 
+import { tUI, detectUILanguage } from "./lang/ui/helper";
 import DatePickerModal from "./modals/date-picker";
 import NLDParser, { NLDResult } from "./parser";
 import { NLDSettingsTab, NLDSettings, DEFAULT_SETTINGS } from "./settings";
@@ -28,64 +29,73 @@ export default class NaturalLanguageDates extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
-    
+
     // Initialize parser immediately (no need to wait for onLayoutReady)
     this.resetParser();
 
     // Initialize smart suggestion managers
     this.historyManager = new HistoryManager(this);
     this.contextAnalyzer = new ContextAnalyzer(this.app, this);
-    
+
     // Initialize history asynchronously
     this.historyManager.initialize().catch((err: unknown) => {
       logger.error("Error initializing history", { error: err });
     });
 
+    // Command names are translated using Obsidian's interface language at
+    // this exact moment, automatically (no plugin setting of its own) --
+    // but, unlike the settings tab (which redetects and rebuilds its text
+    // every time it's reopened), Obsidian's addCommand() doesn't support
+    // renaming an already-registered command. So if the interface language
+    // changes mid-session, these specific labels only pick that up after
+    // Obsidian restarts (or the plugin is disabled/re-enabled), not live.
+    const uiLang = detectUILanguage();
+
     this.addCommand({
       id: "nlp-dates",
-      name: "Parse natural language date",
+      name: tUI("cmd_parse_date", uiLang),
       callback: () => getParseCommand(this, "replace"),
     });
 
     this.addCommand({
       id: "nlp-dates-link",
-      name: "Parse natural language date (as link)",
+      name: tUI("cmd_parse_date_link", uiLang),
       callback: () => getParseCommand(this, "link"),
     });
 
     this.addCommand({
       id: "nlp-date-clean",
-      name: "Parse natural language date (as plain text)",
+      name: tUI("cmd_parse_date_clean", uiLang),
       callback: () => getParseCommand(this, "clean"),
     });
 
     this.addCommand({
       id: "nlp-parse-time",
-      name: "Parse natural language time",
+      name: tUI("cmd_parse_time", uiLang),
       callback: () => getParseCommand(this, "time"),
     });
 
     this.addCommand({
       id: "nlp-now",
-      name: "Insert the current date and time",
+      name: tUI("cmd_insert_now", uiLang),
       callback: () => getNowCommand(this),
     });
 
     this.addCommand({
       id: "nlp-today",
-      name: "Insert the current date",
+      name: tUI("cmd_insert_today", uiLang),
       callback: () => getCurrentDateCommand(this),
     });
 
     this.addCommand({
       id: "nlp-time",
-      name: "Insert the current time",
+      name: tUI("cmd_insert_time", uiLang),
       callback: () => getCurrentTimeCommand(this),
     });
 
     this.addCommand({
       id: "nlp-picker",
-      name: "Date picker",
+      name: tUI("cmd_date_picker", uiLang),
       checkCallback: (checking: boolean) => {
         if (checking) {
           return !!getActiveEditor(this.app.workspace);
@@ -129,13 +139,13 @@ export default class NaturalLanguageDates extends Plugin {
         
         // Notifier l'utilisateur uniquement pour les erreurs critiques
         new Notice(
-          'Natural Language Dates: Failed to initialize with selected languages. Using English as fallback.',
+          tUI('notice_fallback_english', detectUILanguage()),
           5000
         );
       } catch (fallbackError) {
         logger.error('Failed to initialize parser even with English fallback', { error: fallbackError });
         new Notice(
-          'Natural Language Dates: Critical error - parser initialization failed. Please restart Obsidian.',
+          tUI('notice_critical_error', detectUILanguage()),
           10000
         );
       }

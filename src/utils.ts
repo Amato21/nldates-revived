@@ -8,6 +8,7 @@ import {
 import { DayOfWeek } from "./settings";
 import { DateFormatter } from "./date-formatter";
 import { TranslationCollector } from "./translation-collector";
+import { tUI } from "./lang/ui/helper";
 import moment from "./window-moment";
 
 // Type alias for Moment from the moment library bundled with Obsidian
@@ -87,41 +88,44 @@ export function parseTruthy(flag: string): boolean {
 }
 
 /**
- * Valide un format Moment.js et retourne un résultat avec prévisualisation
- * @param format - Le format Moment.js à valider
- * @returns Un objet contenant valid (booléen), error (optionnel), preview (optionnel)
+ * Validates a Moment.js format string and returns a result with preview.
+ * @param format - The Moment.js format to validate
+ * @param lang - UI language for the returned error message (defaults to
+ *   English; see detectUILanguage() in ./lang/ui/helper for picking the
+ *   language actually in use).
+ * @returns An object containing valid (boolean), error (optional), preview (optional)
  */
-export function validateMomentFormat(format: string): { valid: boolean; error?: string; preview?: string } {
+export function validateMomentFormat(format: string, lang = "en"): { valid: boolean; error?: string; preview?: string } {
   if (!format || typeof format !== 'string') {
-    return { valid: false, error: "Le format ne peut pas être vide" };
+    return { valid: false, error: tUI("err_format_empty", lang) };
   }
 
   // Limiter la longueur du format pour éviter les attaques
   const MAX_FORMAT_LENGTH = 100;
   if (format.length > MAX_FORMAT_LENGTH) {
-    return { valid: false, error: `Le format ne peut pas dépasser ${MAX_FORMAT_LENGTH} caractères` };
+    return { valid: false, error: tUI("err_format_too_long", lang, { max: String(MAX_FORMAT_LENGTH) }) };
   }
 
   try {
     const testDate = moment();
     const formatted = testDate.format(format);
-    
+
     // Vérifier que le format produit quelque chose de valide
     if (!formatted || formatted === format) {
-      return { valid: false, error: "Format invalide ou non reconnu" };
+      return { valid: false, error: tUI("err_format_invalid", lang) };
     }
-    
+
     // Vérifier que le format ne contient pas de caractères dangereux
     // Moment.js utilise des caractères spéciaux, mais on veut éviter les injections
     // Les formats Moment.js valides contiennent principalement des lettres, chiffres et caractères de ponctuation
     const dangerousPattern = /[<>"'`]/;
     if (dangerousPattern.test(format)) {
-      return { valid: false, error: "Le format contient des caractères non autorisés" };
+      return { valid: false, error: tUI("err_format_unsafe_chars", lang) };
     }
-    
+
     return { valid: true, preview: formatted };
   } catch (error) {
-    return { valid: false, error: error instanceof Error ? error.message : "Erreur lors de la validation du format" };
+    return { valid: false, error: error instanceof Error ? error.message : tUI("err_format_validation_generic", lang) };
   }
 }
 
