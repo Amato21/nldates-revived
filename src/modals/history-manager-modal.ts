@@ -18,7 +18,7 @@ export default class HistoryManagerModal extends Modal {
 
   onOpen(): void {
     this.clearAllArmed = false;
-    this.render();
+    void this.render();
   }
 
   onClose(): void {
@@ -50,7 +50,17 @@ export default class HistoryManagerModal extends Modal {
       .addButton((button) => {
         button.setButtonText(this.clearAllArmed ? tUI("clear_all_button_confirm", lang) : tUI("clear_all_button", lang));
         if (this.clearAllArmed) {
-          button.setWarning();
+          // setDestructive() (Obsidian 1.13.0+) replaces the deprecated
+          // setWarning() with the same visual intent -- feature-detected
+          // rather than switched outright, since 1.13.0 is newer than this
+          // plugin's minAppVersion and setWarning() still works fine on
+          // every Obsidian version down to 0.11.0.
+          const destructiveButton = button as typeof button & { setDestructive?: () => typeof button };
+          if (typeof destructiveButton.setDestructive === "function") {
+            destructiveButton.setDestructive();
+          } else {
+            button.setWarning();
+          }
         }
         button.onClick(async () => {
           if (!this.clearAllArmed) {

@@ -1,6 +1,6 @@
 {
   "name": "nldates-revived",
-  "version": "0.9.9",
+  "version": "0.9.91",
   "description": "Plugin to parse natural language dates in Obsidian",
   "main": "main.js",
   "scripts": {
@@ -26,7 +26,7 @@
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/ui": "^4.0.16",
     "eslint": "8.2.0",
-    "moment": "^2.30.1",
+    "moment": "^2.31.0",
     "obsidian": "latest",
     "prettier": "2.4.1",
     "rollup": "^2.60.0",

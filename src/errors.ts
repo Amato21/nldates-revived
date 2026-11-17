@@ -18,9 +18,17 @@ export class NLDParseError extends Error {
     this.severity = severity;
     this.context = context;
 
-    // Maintient la stack trace pour le débogage (V8 only)
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, NLDParseError);
+    // Maintient la stack trace pour le débogage (V8 only). Error.captureStackTrace
+    // is a non-standard V8 extension: @types/node declares it (which is why
+    // this type-checks cleanly in this project's own tsconfig), but a
+    // type-checking setup without the Node.js ambient types loaded sees an
+    // untyped property access here instead -- typed explicitly so the call
+    // is safe either way.
+    const ErrorWithCaptureStackTrace = Error as typeof Error & {
+      captureStackTrace?: (targetObject: object, constructorOpt?: unknown) => void;
+    };
+    if (ErrorWithCaptureStackTrace.captureStackTrace) {
+      ErrorWithCaptureStackTrace.captureStackTrace(this, NLDParseError);
     }
   }
 }
