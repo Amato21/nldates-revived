@@ -186,13 +186,13 @@ describe("validateMomentFormat", () => {
   it("rejects a format Moment.js doesn't recognize (returns it unchanged)", () => {
     const result = validateMomentFormat("@@@");
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("invalide");
+    expect(result.error).toContain("unrecognized");
   });
 
   it("rejects a format containing dangerous characters", () => {
     const result = validateMomentFormat("YYYY<script>");
     expect(result.valid).toBe(false);
-    expect(result.error).toContain("non autorisés");
+    expect(result.error).toContain("not allowed");
   });
 
   it("accepts a valid format and returns a preview", () => {
@@ -212,7 +212,7 @@ describe("validateMomentFormat", () => {
     try {
       const result = validateMomentFormat("YYYY-MM-DD");
       expect(result.valid).toBe(false);
-      expect(result.error).toBe("Erreur lors de la validation du format");
+      expect(result.error).toBe("Error while validating the format");
     } finally {
       (window as any).moment = realMoment;
     }

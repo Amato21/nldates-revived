@@ -3,6 +3,7 @@ import NaturalLanguageDates from "./main";
 import { getLocaleWeekStart, validateMomentFormat } from "./utils";
 import moment from "./window-moment";
 import HistoryManagerModal from "./modals/history-manager-modal";
+import { tUI, detectUILanguage } from "./lang/ui/helper";
 
 /**
  * Day of the week type for week start preference.
@@ -139,52 +140,61 @@ export class NLDSettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     const localizedWeekdays = moment.weekdays();
     const localeWeekStart = getLocaleWeekStart();
+    // Picked up fresh every time the settings tab is (re)opened: the UI
+    // follows Obsidian's own interface language automatically, with no
+    // setting of its own. See detectUILanguage()'s own comment for why this
+    // doesn't update live while the tab stays open (it doesn't need to --
+    // display() reruns whenever the tab is reopened) and why command names
+    // in main.ts (set once at onload, unlike this) need a restart to follow
+    // a language change made mid-session.
+    const lang = detectUILanguage();
 
     containerEl.empty();
 
-    new Setting(containerEl).setHeading().setName("Natural language dates");
+    new Setting(containerEl).setHeading().setName(tUI("heading_main", lang));
 
-    new Setting(containerEl).setHeading().setName("Parser settings");
+    new Setting(containerEl).setHeading().setName(tUI("heading_parser_settings", lang));
 
+    const dateFormatDesc = tUI("date_format_desc", lang);
     const dateFormatSetting = new Setting(containerEl)
-      .setName("Date format")
-      .setDesc("Output format for parsed dates")
+      .setName(tUI("date_format_name", lang))
+      .setDesc(dateFormatDesc)
       .addMomentFormat((text) =>
         text
           .setDefaultFormat("YYYY-MM-DD")
           .setValue(this.plugin.settings.format)
           .onChange(async (value) => {
-            const validated = validateMomentFormat(value || "YYYY-MM-DD");
+            const validated = validateMomentFormat(value || "YYYY-MM-DD", lang);
             if (validated.valid) {
               this.plugin.settings.format = value || "YYYY-MM-DD";
               await this.plugin.saveSettings();
               // Mettre à jour la description avec la prévisualisation.
               // validateMomentFormat()'s contract guarantees preview is set
-              // whenever valid is true, so the ": ''" fallback below is
+              // whenever valid is true, so the generic-fallback below is
               // unreachable with real data.
-              dateFormatSetting.setDesc(`Output format for parsed dates${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+              dateFormatSetting.setDesc(validated.preview ? tUI("preview_template", lang, { desc: dateFormatDesc, preview: validated.preview }) : dateFormatDesc);
             } else {
               // Afficher l'erreur dans la description. Every invalid-format
               // return from validateMomentFormat() always sets error, so the
-              // "Format invalide" fallback below is unreachable with real data.
-              dateFormatSetting.setDesc(`Output format for parsed dates - ⚠️ ${validated.error || "Format invalide"}`);
+              // generic-fallback below is unreachable with real data.
+              dateFormatSetting.setDesc(tUI("error_template", lang, { desc: dateFormatDesc, error: validated.error || tUI("generic_invalid_format", lang) }));
               // Ne pas sauvegarder le format invalide, restaurer le précédent
               text.setValue(this.plugin.settings.format);
             }
           })
       );
-    
+
     // Afficher la prévisualisation initiale
-    const initialValidation = validateMomentFormat(this.plugin.settings.format);
+    const initialValidation = validateMomentFormat(this.plugin.settings.format, lang);
     if (initialValidation.valid && initialValidation.preview) {
-      dateFormatSetting.setDesc(`Output format for parsed dates (Preview: ${initialValidation.preview})`);
+      dateFormatSetting.setDesc(tUI("preview_template", lang, { desc: dateFormatDesc, preview: initialValidation.preview }));
     }
 
     new Setting(containerEl)
-      .setName("Week starts on")
-      .setDesc("Which day to consider as the start of the week")
+      .setName(tUI("week_starts_on_name", lang))
+      .setDesc(tUI("week_starts_on_desc", lang))
       .addDropdown((dropdown) => {
-        dropdown.addOption("locale-default", `Locale default (${String(localeWeekStart)})`);
+        dropdown.addOption("locale-default", tUI("locale_default_option", lang, { day: String(localeWeekStart) }));
         localizedWeekdays.forEach((day, i) => {
           dropdown.addOption(weekdays[i], day);
         });
@@ -195,61 +205,68 @@ export class NLDSettingsTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl).setHeading().setName("Language settings");
+    new Setting(containerEl).setHeading().setName(tUI("heading_language_settings", lang));
 
-    this.createLanguageSetting(containerEl, "English", "english", "en");
-    this.createLanguageSetting(containerEl, "Japanese", "japanese", "ja");
-    this.createLanguageSetting(containerEl, "French", "french", "fr");
-    this.createLanguageSetting(containerEl, "German", "german", "de", "partially supported");
-    this.createLanguageSetting(containerEl, "Portuguese", "portuguese", "pt", "partially supported");
-    this.createLanguageSetting(containerEl, "Dutch", "dutch", "nl", "under development");
-    this.createLanguageSetting(containerEl, "Spanish", "spanish", "es");
-    this.createLanguageSetting(containerEl, "Italian", "italian", "it");
-    this.createLanguageSetting(containerEl, "Russian", "russian", "ru");
-    this.createLanguageSetting(containerEl, "Ukrainian", "ukrainian", "uk");
-    this.createLanguageSetting(containerEl, "Chinese (Traditional)", "chinese", "zh.hant", "partially supported");
-    this.createLanguageSetting(containerEl, "Korean", "korean", "ko", "partially supported");
+    // Language *names* here are shown as each language's own endonym
+    // (e.g. "Français", "日本語") rather than translated into the current
+    // UI language -- the same way most multilingual software lists
+    // languages, and avoids needing a separate translation of "English"/
+    // "French"/etc. into all 12 UI languages on top of the 12 UI languages
+    // themselves.
+    this.createLanguageSetting(containerEl, lang, "English", "english", "en");
+    this.createLanguageSetting(containerEl, lang, "日本語", "japanese", "ja");
+    this.createLanguageSetting(containerEl, lang, "Français", "french", "fr");
+    this.createLanguageSetting(containerEl, lang, "Deutsch", "german", "de", "note_partially_supported");
+    this.createLanguageSetting(containerEl, lang, "Português", "portuguese", "pt", "note_partially_supported");
+    this.createLanguageSetting(containerEl, lang, "Nederlands", "dutch", "nl", "note_under_development");
+    this.createLanguageSetting(containerEl, lang, "Español", "spanish", "es");
+    this.createLanguageSetting(containerEl, lang, "Italiano", "italian", "it");
+    this.createLanguageSetting(containerEl, lang, "Русский", "russian", "ru");
+    this.createLanguageSetting(containerEl, lang, "Українська", "ukrainian", "uk");
+    this.createLanguageSetting(containerEl, lang, "繁體中文", "chinese", "zh.hant", "note_partially_supported");
+    this.createLanguageSetting(containerEl, lang, "한국어", "korean", "ko", "note_partially_supported");
 
-    new Setting(containerEl).setHeading().setName("Hotkey formatting settings");
+    new Setting(containerEl).setHeading().setName(tUI("heading_hotkey_formatting", lang));
 
+    const timeFormatDesc = tUI("time_format_desc", lang);
     const timeFormatSetting = new Setting(containerEl)
-      .setName("Time format")
-      .setDesc("Format for the hotkeys that include the current time")
+      .setName(tUI("time_format_name", lang))
+      .setDesc(timeFormatDesc)
       .addMomentFormat((text) =>
         text
           .setDefaultFormat("HH:mm")
           .setValue(this.plugin.settings.timeFormat)
           .onChange(async (value) => {
-            const validated = validateMomentFormat(value || "HH:mm");
+            const validated = validateMomentFormat(value || "HH:mm", lang);
             if (validated.valid) {
               this.plugin.settings.timeFormat = value || "HH:mm";
               await this.plugin.saveSettings();
               // Mettre à jour la description avec la prévisualisation (see
-              // the date-format setting above: the ": ''" fallback here is
+              // the date-format setting above: the generic-fallback here is
               // similarly unreachable given validateMomentFormat()'s contract).
-              timeFormatSetting.setDesc(`Format for the hotkeys that include the current time${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+              timeFormatSetting.setDesc(validated.preview ? tUI("preview_template", lang, { desc: timeFormatDesc, preview: validated.preview }) : timeFormatDesc);
             } else {
               // Afficher l'erreur dans la description (unreachable fallback,
               // same reasoning as the date-format setting above).
-              timeFormatSetting.setDesc(`Format for the hotkeys that include the current time - ⚠️ ${validated.error || "Format invalide"}`);
+              timeFormatSetting.setDesc(tUI("error_template", lang, { desc: timeFormatDesc, error: validated.error || tUI("generic_invalid_format", lang) }));
               // Ne pas sauvegarder le format invalide, restaurer le précédent
               text.setValue(this.plugin.settings.timeFormat);
             }
           })
       );
-    
+
     // Afficher la prévisualisation initiale
-    const initialTimeValidation = validateMomentFormat(this.plugin.settings.timeFormat);
+    const initialTimeValidation = validateMomentFormat(this.plugin.settings.timeFormat, lang);
     if (initialTimeValidation.valid && initialTimeValidation.preview) {
-      timeFormatSetting.setDesc(`Format for the hotkeys that include the current time (Preview: ${initialTimeValidation.preview})`);
+      timeFormatSetting.setDesc(tUI("preview_template", lang, { desc: timeFormatDesc, preview: initialTimeValidation.preview }));
     }
 
     new Setting(containerEl)
-      .setName("Separator")
-      .setDesc("Separator between date and time for entries that have both")
+      .setName(tUI("separator_name", lang))
+      .setDesc(tUI("separator_desc", lang))
       .addText((text) =>
         text
-          .setPlaceholder("Separator is empty")
+          .setPlaceholder(tUI("separator_placeholder", lang))
           .setValue(this.plugin.settings.separator)
           .onChange(async (value) => {
             this.plugin.settings.separator = value;
@@ -257,12 +274,12 @@ export class NLDSettingsTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl).setHeading().setName("Date autosuggest");
+    new Setting(containerEl).setHeading().setName(tUI("heading_date_autosuggest", lang));
 
     new Setting(containerEl)
-      .setName("Enable date autosuggest")
+      .setName(tUI("enable_autosuggest_name", lang))
       .setDesc(
-        `Input dates with natural language. Open the suggest menu with ${this.plugin.settings.autocompleteTriggerPhrase}`
+        tUI("enable_autosuggest_desc", lang, { trigger: this.plugin.settings.autocompleteTriggerPhrase })
       )
       .addToggle((toggle) =>
         toggle
@@ -274,10 +291,8 @@ export class NLDSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Add dates as link?")
-      .setDesc(
-        "If enabled, dates created via autosuggest will be wrapped in [[wikilinks]]"
-      )
+      .setName(tUI("add_as_link_name", lang))
+      .setDesc(tUI("add_as_link_desc", lang))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autosuggestToggleLink)
@@ -287,9 +302,9 @@ export class NLDSettingsTab extends PluginSettingTab {
           })
       );
 
-    const triggerPhraseDesc = "Character(s) that will cause the date autosuggest to open";
+    const triggerPhraseDesc = tUI("trigger_phrase_desc", lang);
     const triggerPhraseSetting = new Setting(containerEl)
-      .setName("Trigger phrase")
+      .setName(tUI("trigger_phrase_name", lang))
       .setDesc(triggerPhraseDesc)
       .addMomentFormat((text) =>
         text
@@ -306,19 +321,17 @@ export class NLDSettingsTab extends PluginSettingTab {
               // query.startsWith(triggerPhrase) always true, so the
               // autosuggest popup would fire on virtually every keystroke.
               // Refuse to save it, matching the Date/Time format fields above.
-              triggerPhraseSetting.setDesc(`${triggerPhraseDesc} - ⚠️ Trigger phrase cannot be empty`);
+              triggerPhraseSetting.setDesc(tUI("error_template", lang, { desc: triggerPhraseDesc, error: tUI("trigger_phrase_empty_error", lang) }));
               text.setValue(this.plugin.settings.autocompleteTriggerPhrase || "@");
             }
           })
       );
 
-    new Setting(containerEl).setHeading().setName("Smart suggestions");
+    new Setting(containerEl).setHeading().setName(tUI("heading_smart_suggestions", lang));
 
     new Setting(containerEl)
-      .setName("Enable smart suggestions")
-      .setDesc(
-        "Enable intelligent suggestions based on your usage history and document context"
-      )
+      .setName(tUI("enable_smart_suggestions_name", lang))
+      .setDesc(tUI("enable_smart_suggestions_desc", lang))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.enableSmartSuggestions)
@@ -329,10 +342,8 @@ export class NLDSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("History-based suggestions")
-      .setDesc(
-        "Learn from your frequently used date patterns and prioritize them in suggestions"
-      )
+      .setName(tUI("history_based_name", lang))
+      .setDesc(tUI("history_based_desc", lang))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.enableHistorySuggestions)
@@ -343,10 +354,8 @@ export class NLDSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Context-based suggestions")
-      .setDesc(
-        "Suggest dates based on dates already present in the current document"
-      )
+      .setName(tUI("context_based_name", lang))
+      .setDesc(tUI("context_based_desc", lang))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.enableContextSuggestions)
@@ -357,25 +366,21 @@ export class NLDSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Manage history")
-      .setDesc(
-        "View your suggestion history and remove individual entries, or clear it entirely"
-      )
+      .setName(tUI("manage_history_name", lang))
+      .setDesc(tUI("manage_history_desc", lang))
       .addButton((button) =>
         button
-          .setButtonText("Manage history")
+          .setButtonText(tUI("manage_history_button", lang))
           .onClick(() => {
             new HistoryManagerModal(this.app, this.plugin).open();
           })
       );
 
-    new Setting(containerEl).setHeading().setName("Date formatting");
+    new Setting(containerEl).setHeading().setName(tUI("heading_date_formatting", lang));
 
     new Setting(containerEl)
-      .setName("Omit date for short relative expressions")
-      .setDesc(
-        "When enabled, short relative expressions for today (e.g., 'in 15 min', 'dans 2 heures') will display only the time (e.g., '14:30') instead of '[[2024-01-15]] 14:30'"
-      )
+      .setName(tUI("omit_date_name", lang))
+      .setDesc(tUI("omit_date_desc", lang))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.omitDateForShortRelative)
@@ -385,22 +390,29 @@ export class NLDSettingsTab extends PluginSettingTab {
           })
       );
 
-    new Setting(containerEl).setHeading().setName("Periodic notes");
+    new Setting(containerEl).setHeading().setName(tUI("heading_periodic_notes", lang));
 
-    this.createPeriodicFormatSetting(containerEl, "Week format", "weekFormat", "GGGG-[W]WW", "next week");
-    this.createPeriodicFormatSetting(containerEl, "Month format", "monthFormat", "YYYY-MM", "next month");
-    this.createPeriodicFormatSetting(containerEl, "Quarter format", "quarterFormat", "YYYY-[Q]Q", "next quarter, Q3");
-    this.createPeriodicFormatSetting(containerEl, "Year format", "yearFormat", "YYYY", "next year");
+    this.createPeriodicFormatSetting(containerEl, lang, tUI("week_format_name", lang), "weekFormat", "GGGG-[W]WW", "next week");
+    this.createPeriodicFormatSetting(containerEl, lang, tUI("month_format_name", lang), "monthFormat", "YYYY-MM", "next month");
+    this.createPeriodicFormatSetting(containerEl, lang, tUI("quarter_format_name", lang), "quarterFormat", "YYYY-[Q]Q", "next quarter, Q3");
+    this.createPeriodicFormatSetting(containerEl, lang, tUI("year_format_name", lang), "yearFormat", "YYYY", "next year");
   }
 
   protected createPeriodicFormatSetting(
     containerEl: HTMLElement,
+    lang: string,
     name: string,
     settingKey: "weekFormat" | "monthFormat" | "quarterFormat" | "yearFormat",
     placeholder: string,
+    // Deliberately left untranslated: these are literal example *input*
+    // expressions (what the user would type), not UI prose -- translating
+    // them per UI language would mean claiming they parse correctly in that
+    // language specifically, which hasn't been verified (see CLAUDE.md's
+    // rule on verifying anything touching parsing/autosuggest across
+    // languages before claiming it works).
     examples: string
   ): Setting {
-    const baseDesc = `Used instead of the daily Date format when an expression resolves to a whole period (e.g. "${examples}"). Leave empty to keep using the daily Date format for these too.`;
+    const baseDesc = tUI("periodic_format_desc", lang, { examples });
 
     const setting = new Setting(containerEl)
       .setName(name)
@@ -417,33 +429,33 @@ export class NLDSettingsTab extends PluginSettingTab {
               setting.setDesc(baseDesc);
               return;
             }
-            const validated = validateMomentFormat(trimmed);
+            const validated = validateMomentFormat(trimmed, lang);
             if (validated.valid) {
               this.plugin.settings[settingKey] = trimmed;
               await this.plugin.saveSettings();
-              setting.setDesc(`${baseDesc}${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+              setting.setDesc(validated.preview ? tUI("preview_template", lang, { desc: baseDesc, preview: validated.preview }) : baseDesc);
             } else {
-              setting.setDesc(`${baseDesc} - ⚠️ ${validated.error || "Format invalide"}`);
+              setting.setDesc(tUI("error_template", lang, { desc: baseDesc, error: validated.error || tUI("generic_invalid_format", lang) }));
               text.setValue(this.plugin.settings[settingKey]);
             }
           })
       );
 
     if (this.plugin.settings[settingKey]) {
-      const initialValidation = validateMomentFormat(this.plugin.settings[settingKey]);
+      const initialValidation = validateMomentFormat(this.plugin.settings[settingKey], lang);
       if (initialValidation.valid && initialValidation.preview) {
-        setting.setDesc(`${baseDesc} (Preview: ${initialValidation.preview})`);
+        setting.setDesc(tUI("preview_template", lang, { desc: baseDesc, preview: initialValidation.preview }));
       }
     }
 
     return setting;
   }
 
-  protected createLanguageSetting(containerEl: HTMLElement, text: string, settingKey: keyof NLDSettings, code: string, note?: string) : Setting {
-    note = note ? ` (${note})` : "";
+  protected createLanguageSetting(containerEl: HTMLElement, lang: string, text: string, settingKey: keyof NLDSettings, code: string, noteKey?: string) : Setting {
+    const note = noteKey ? ` (${tUI(noteKey, lang)})` : "";
     return new Setting(containerEl)
       .setName(text)
-      .setDesc(`Whether to parse ${text} or not` + note)
+      .setDesc(tUI("language_toggle_desc", lang, { language: text }) + note)
       .addToggle(l =>
         l
           .setValue(this.plugin.settings[settingKey] as boolean)

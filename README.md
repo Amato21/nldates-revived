@@ -96,9 +96,12 @@ Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to keep the original text as an alias 
 * **Date Picker:** Opens a calendar view to pick a date visually.
 
 ### Configuration
+
+**Automatic interface language:** the settings tab, commands, modals, and error messages automatically match Obsidian's own interface language (Settings → General → Language) — no separate toggle. This is independent from the **Languages** setting below, which controls what the *parser* understands as input, not how the plugin talks to you. Supported UI languages: English, French, Spanish, Italian, German, Portuguese, Dutch, Russian, Ukrainian, Japanese, Chinese (Traditional), Korean — anything else falls back to English. Note: command palette entry names only pick up a language change after restarting Obsidian (or disabling/re-enabling the plugin); everything else updates immediately.
+
 Go to **Settings > Natural Language Dates**:
 * **Languages:** Check the languages you want to enable.
-* **Date Format:** How the date part looks (e.g. `YYYY-MM-DD`).
+* **Date Format:** How the date part looks (e.g. `YYYY-MM-DD`). Uses [Moment.js tokens](https://momentjs.com/docs/#/displaying/format/); a German calendar-week-number example that works well: `## [KW]ww dddd, DD. MMMM yyyy, HH:mm [Uhr]` → `## KW47 Tuesday, 17. November 2026, 09:10 Uhr` (shared by [@merlinuwe](https://github.com/merlinuwe) in [#61](https://github.com/Amato21/nldates-revived/issues/61), thanks!).
 * **Time Format:** How the time part looks (e.g. `HH:mm`).
 * **Separator:** Character between date and time (if used).
 * **Smart Suggestions:** Enable intelligent suggestions (enabled by default)

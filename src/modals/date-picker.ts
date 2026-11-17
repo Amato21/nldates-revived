@@ -3,6 +3,7 @@ import { generateMarkdownLink, getLocaleWeekStart, validateMomentFormat, getActi
 import type NaturalLanguageDates from "../main";
 import { DEFAULT_SETTINGS } from "../settings";
 import t from "../lang/helper";
+import { tUI, detectUILanguage } from "../lang/ui/helper";
 import moment from "../window-moment";
 
 type Moment = import("moment").Moment;
@@ -37,6 +38,7 @@ export default class DatePickerModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    const lang = detectUILanguage();
     contentEl.empty();
     contentEl.addClass("nld-date-picker-modal");
 
@@ -79,7 +81,7 @@ export default class DatePickerModal extends Modal {
       const cleanDateInput = stripAliasSuffix(dateInput);
 
       // Valider le format avant utilisation
-      const formatValidation = validateMomentFormat(momentFormat);
+      const formatValidation = validateMomentFormat(momentFormat, lang);
       const formatToUse = formatValidation.valid ? momentFormat : DEFAULT_SETTINGS.modalMomentFormat;
 
       // Only round-trip through the NLP parser when the user actually typed
@@ -153,15 +155,15 @@ export default class DatePickerModal extends Modal {
     const prevMonthBtn = navEl.createEl("button", {
       cls: "nld-nav-btn",
       text: "‹",
-      attr: { "aria-label": "Mois précédent" }
+      attr: { "aria-label": tUI("prev_month_aria", lang) }
     });
-    
+
     const monthYearEl = navEl.createDiv("nld-month-year");
-    
+
     const nextMonthBtn = navEl.createEl("button", {
       cls: "nld-nav-btn",
       text: "›",
-      attr: { "aria-label": "Mois suivant" }
+      attr: { "aria-label": tUI("next_month_aria", lang) }
     });
 
     prevMonthBtn.addEventListener("click", () => {
@@ -217,10 +219,10 @@ export default class DatePickerModal extends Modal {
     // Section de saisie manuelle
     const inputSection = container.createDiv("nld-input-section");
     const dateInputEl = new Setting(inputSection)
-      .setName("Date")
+      .setName(tUI("date_field_name", lang))
       .setDesc("")
       .addText((textEl) => {
-        textEl.setPlaceholder("Today");
+        textEl.setPlaceholder(tUI("date_field_placeholder", lang));
         textEl.setValue(this.selectedDate.format("YYYY-MM-DD"));
         this.dateInputEl = textEl.inputEl;
 
@@ -246,38 +248,39 @@ export default class DatePickerModal extends Modal {
     updatePreview();
 
     // Options de format
+    const dateFormatModalDesc = tUI("date_format_modal_desc", lang);
     const formatSetting = new Setting(inputSection)
-      .setName("Date format")
-      .setDesc("Moment format to be used")
+      .setName(tUI("date_format_name", lang))
+      .setDesc(dateFormatModalDesc)
       .addMomentFormat((momentEl) => {
         momentEl.setPlaceholder("YYYY-MM-DD");
         momentEl.setValue(momentFormat);
         momentEl.onChange((value) => {
-          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD");
+          const validated = validateMomentFormat(value.trim() || "YYYY-MM-DD", lang);
           if (validated.valid) {
             momentFormat = value.trim() || "YYYY-MM-DD";
             this.plugin.settings.modalMomentFormat = momentFormat;
             void this.plugin.saveSettings();
             updatePreview();
             // Mettre à jour la description avec la prévisualisation
-            formatSetting.setDesc(`Moment format to be used${validated.preview ? ` (Preview: ${validated.preview})` : ""}`);
+            formatSetting.setDesc(validated.preview ? tUI("preview_template", lang, { desc: dateFormatModalDesc, preview: validated.preview }) : dateFormatModalDesc);
           } else {
             // Afficher l'erreur dans la description
-            formatSetting.setDesc(`Moment format to be used - ⚠️ ${validated.error || "Format invalide"}`);
+            formatSetting.setDesc(tUI("error_template", lang, { desc: dateFormatModalDesc, error: validated.error || tUI("generic_invalid_format", lang) }));
             // Ne pas sauvegarder le format invalide, restaurer le précédent
             momentEl.setValue(momentFormat);
           }
         });
       });
-    
+
     // Afficher la prévisualisation initiale
-    const initialValidation = validateMomentFormat(momentFormat);
+    const initialValidation = validateMomentFormat(momentFormat, lang);
     if (initialValidation.valid && initialValidation.preview) {
-      formatSetting.setDesc(`Moment format to be used (Preview: ${initialValidation.preview})`);
+      formatSetting.setDesc(tUI("preview_template", lang, { desc: dateFormatModalDesc, preview: initialValidation.preview }));
     }
 
     new Setting(inputSection)
-      .setName("Add as link?")
+      .setName(tUI("add_as_link_modal_name", lang))
       .addToggle((toggleEl) => {
         toggleEl.setValue(this.plugin.settings.modalToggleLink).onChange((value) => {
           insertAsLink = value;
@@ -290,12 +293,12 @@ export default class DatePickerModal extends Modal {
     // Boutons d'action
     inputSection.createDiv("modal-button-container", (buttonContainerEl) => {
       buttonContainerEl
-        .createEl("button", { attr: { type: "button" }, text: "Never mind" })
+        .createEl("button", { attr: { type: "button" }, text: tUI("button_cancel", lang) })
         .addEventListener("click", () => this.close());
       buttonContainerEl.createEl("button", {
         attr: { type: "button" },
         cls: "mod-cta",
-        text: "Insert date",
+        text: tUI("button_insert_date", lang),
       }).addEventListener("click", () => {
         this.insertDate(getDateStr());
       });
@@ -313,7 +316,7 @@ export default class DatePickerModal extends Modal {
     if (!this.quickButtonsEl) return;
 
     this.quickButtonsEl.empty();
-    this.quickButtonsEl.createDiv({ cls: "nld-quick-buttons-label", text: "Quick select:" });
+    this.quickButtonsEl.createDiv({ cls: "nld-quick-buttons-label", text: tUI("quick_select_label", detectUILanguage()) });
 
     const primaryLang = this.plugin.settings.languages[0] || "en";
     

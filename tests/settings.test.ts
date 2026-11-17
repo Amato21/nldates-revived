@@ -1,5 +1,5 @@
 import './setup';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Setting } from 'obsidian';
 import { NLDSettingsTab, DEFAULT_SETTINGS } from '../src/settings';
 import HistoryManagerModal from '../src/modals/history-manager-modal';
@@ -104,19 +104,22 @@ describe('NLDSettingsTab', () => {
     it('creates a toggle per supported language', () => {
       tab.display();
       expect(() => findSetting('English')).not.toThrow();
-      expect(() => findSetting('Japanese')).not.toThrow();
-      expect(() => findSetting('Chinese (Traditional)')).not.toThrow();
+      // Language names are shown as each language's own endonym (see
+      // settings.ts's createLanguageSetting() call sites), not translated
+      // into the current UI language.
+      expect(() => findSetting('日本語')).not.toThrow();
+      expect(() => findSetting('繁體中文')).not.toThrow();
     });
 
     it('appends a note for partially-supported languages', () => {
       tab.display();
-      const setting = findSetting('German');
+      const setting = findSetting('Deutsch');
       expect(setting.descText).toContain('partially supported');
     });
 
     it('enabling a language toggle adds it to settings.languages and resets the parser', async () => {
       tab.display();
-      const setting = findSetting('French');
+      const setting = findSetting('Français');
       await setting.components[0].onChangeHandler(true);
       expect(plugin.settings.french).toBe(true);
       expect(plugin.settings.languages).toContain('fr');
@@ -127,7 +130,7 @@ describe('NLDSettingsTab', () => {
     it('disabling a language toggle removes it from settings.languages', async () => {
       plugin.settings.languages = ['en', 'fr'];
       tab.display();
-      const setting = findSetting('French');
+      const setting = findSetting('Français');
       await setting.components[0].onChangeHandler(false);
       expect(plugin.settings.languages).not.toContain('fr');
     });
@@ -143,7 +146,7 @@ describe('NLDSettingsTab', () => {
     it('does nothing when disabling a language that is not present', async () => {
       plugin.settings.languages = ['en'];
       tab.display();
-      const setting = findSetting('French');
+      const setting = findSetting('Français');
       await setting.components[0].onChangeHandler(false);
       expect(plugin.settings.languages).toEqual(['en']);
     });
@@ -303,6 +306,61 @@ describe('NLDSettingsTab', () => {
       plugin.settings.languages = ['en', 'fr'];
       (tab as any).editLanguages('fr', false);
       expect(plugin.settings.languages).toEqual(['en']);
+    });
+  });
+
+  describe('automatic UI language detection (issue #61)', () => {
+    // settings.ts has no UI-language setting of its own: the whole tab is
+    // re-rendered in whichever language detectUILanguage() reports (driven
+    // by Obsidian's own interface-language setting) every time display()
+    // runs. Exercised end-to-end here -- not just tUI() in isolation (see
+    // ui-i18n.test.ts) -- to also catch a settings.ts call site that forgot
+    // to pass `lang` through, which would silently leave stray English text
+    // behind without failing anything in ui-i18n.test.ts.
+    const originalLocalStorage = (globalThis as any).window.localStorage;
+
+    afterEach(() => {
+      (globalThis as any).window.localStorage = originalLocalStorage;
+    });
+
+    function mockUILanguage(code: string): void {
+      (globalThis as any).window.localStorage = {
+        getItem: (key: string) => (key === 'language' ? code : null),
+      };
+    }
+
+    const casesByLanguage: Record<string, { headingMain: string; partiallySupportedNote: string }> = {
+      en: { headingMain: 'Natural language dates', partiallySupportedNote: 'partially supported' },
+      fr: { headingMain: 'Dates en langage naturel', partiallySupportedNote: 'partiellement pris en charge' },
+      es: { headingMain: 'Fechas en lenguaje natural', partiallySupportedNote: 'compatibilidad parcial' },
+      it: { headingMain: 'Date in linguaggio naturale', partiallySupportedNote: 'supportato parzialmente' },
+      de: { headingMain: 'Daten in natürlicher Sprache', partiallySupportedNote: 'teilweise unterstützt' },
+      pt: { headingMain: 'Datas em linguagem natural', partiallySupportedNote: 'suporte parcial' },
+      nl: { headingMain: 'Datums in natuurlijke taal', partiallySupportedNote: 'deels ondersteund' },
+      ru: { headingMain: 'Даты на естественном языке', partiallySupportedNote: 'частичная поддержка' },
+      uk: { headingMain: 'Дати природною мовою', partiallySupportedNote: 'часткова підтримка' },
+      ja: { headingMain: '自然言語の日付', partiallySupportedNote: '部分的に対応' },
+      'zh-TW': { headingMain: '自然語言日期', partiallySupportedNote: '部分支援' },
+      ko: { headingMain: '자연어 날짜', partiallySupportedNote: '부분적으로 지원됨' },
+    };
+
+    Object.entries(casesByLanguage).forEach(([obsidianCode, expected]) => {
+      it(`renders in ${obsidianCode} when Obsidian's interface language is "${obsidianCode}"`, () => {
+        mockUILanguage(obsidianCode);
+        expect(() => tab.display()).not.toThrow();
+
+        const heading = Setting.instances.find(s => s.nameText === expected.headingMain);
+        expect(heading, `expected heading "${expected.headingMain}" for Obsidian language "${obsidianCode}" (got headings: ${Setting.instances.map(s => s.nameText).join(', ')})`).toBeTruthy();
+
+        const germanSetting = Setting.instances.find(s => s.nameText === 'Deutsch');
+        expect(germanSetting?.descText, `German-toggle note for "${obsidianCode}"`).toContain(expected.partiallySupportedNote);
+      });
+    });
+
+    it('falls back to English for an Obsidian interface language we ship no UI translation for', () => {
+      mockUILanguage('xx-not-a-real-language');
+      tab.display();
+      expect(Setting.instances.find(s => s.nameText === 'Natural language dates')).toBeTruthy();
     });
   });
 });
