@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.91] - 2026-11-17
+
+### Fixed
+- `detectUILanguage()` (added in 0.9.9) read Obsidian's interface language from `localStorage.getItem("language")` — an undocumented key that happened to work, but reading `localStorage` from a plugin at all is exactly what Obsidian's plugin review flags, read-only or not. Switched to Obsidian's own official `getLanguage()` API (added in Obsidian 1.8.7), feature-detected so it still falls back to `moment.locale()` on older Obsidian versions without raising `minAppVersion`.
+- The history-manager modal's "Clear all" confirm button used the deprecated `ButtonComponent.setWarning()`; now prefers `setDestructive()` (Obsidian 1.13.0+) when available, falling back to `setWarning()` on older versions.
+- `HistoryManagerModal.onOpen()` called its async `render()` without awaiting or otherwise handling it, flagged as an unhandled-promise risk; marked with `void` like the rest of the codebase already does for intentionally-unawaited calls.
+- `NLDParseError`'s constructor called `Error.captureStackTrace()` without a type annotation covering it; a type-checking setup without Node's ambient types (unlike this project's own tsconfig) saw an untyped access there. Typed explicitly so it's safe either way.
+
+### Changed
+- Bumped the `moment` **devDependency** (used only for TypeScript types and local tests — the shipped plugin always uses Obsidian's own bundled `window.moment` at runtime, confirmed `main.js` contains no bundled copy of the library) from 2.30.1 to 2.31.0, clearing a flagged vulnerability advisory ([GHSA-4p3w-j4w9-5jqw](https://github.com/advisories/GHSA-4p3w-j4w9-5jqw)) that only affected the dev/build environment, never end users.
+
+### Known limitations
+- `settings.ts`'s `PluginSettingTab` doesn't yet implement `getSettingDefinitions()` (Obsidian 1.13.0's declarative settings API), so its settings won't appear in Obsidian's settings search for users on 1.13.0+. Left for a future, larger rewrite rather than bolted on here.
+
 ## [0.9.9] - 2026-11-17
 
 ### Added
