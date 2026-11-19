@@ -2,15 +2,6 @@ export function normalizePath(path: string): string {
   return path;
 }
 
-// Mutable so tests can simulate Obsidian's interface being set to different
-// languages; reset here to "en" to match real Obsidian's own documented
-// default for getLanguage().
-export const mockObsidianState: { language: string | undefined } = { language: "en" };
-
-export function getLanguage(): string | undefined {
-  return mockObsidianState.language;
-}
-
 // Minimal Plugin base class: enough for `class X extends Plugin` to work
 // when a test needs to import a Plugin subclass module (e.g. to reach a
 // method on its prototype) without instantiating it via `new`.
@@ -160,14 +151,12 @@ function makeButtonComponent() {
     tooltip: "",
     icon: "",
     isWarning: false,
-    isDestructive: false,
     isCta: false,
     clickHandler: null as (() => void | Promise<void>) | null,
     setButtonText(t: string) { comp.buttonText = t; return comp; },
     setTooltip(t: string) { comp.tooltip = t; return comp; },
     setIcon(i: string) { comp.icon = i; return comp; },
     setWarning() { comp.isWarning = true; return comp; },
-    setDestructive() { comp.isDestructive = true; return comp; },
     setCta() { comp.isCta = true; return comp; },
     onClick(fn: () => void | Promise<void>) { comp.clickHandler = fn; return comp; },
   };

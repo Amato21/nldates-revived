@@ -1,6 +1,6 @@
 import './setup';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Setting, mockObsidianState } from 'obsidian';
+import { Setting } from 'obsidian';
 import { NLDSettingsTab, DEFAULT_SETTINGS } from '../src/settings';
 import HistoryManagerModal from '../src/modals/history-manager-modal';
 import moment from 'moment';
@@ -317,14 +317,16 @@ describe('NLDSettingsTab', () => {
     // ui-i18n.test.ts) -- to also catch a settings.ts call site that forgot
     // to pass `lang` through, which would silently leave stray English text
     // behind without failing anything in ui-i18n.test.ts.
-    const originalLanguage = mockObsidianState.language;
+    const originalLocalStorage = (globalThis as any).window.localStorage;
 
     afterEach(() => {
-      mockObsidianState.language = originalLanguage;
+      (globalThis as any).window.localStorage = originalLocalStorage;
     });
 
     function mockUILanguage(code: string): void {
-      mockObsidianState.language = code;
+      (globalThis as any).window.localStorage = {
+        getItem: (key: string) => (key === 'language' ? code : null),
+      };
     }
 
     const casesByLanguage: Record<string, { headingMain: string; partiallySupportedNote: string }> = {

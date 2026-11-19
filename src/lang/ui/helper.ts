@@ -1,5 +1,4 @@
 import i18n from 'roddeh-i18n';
-import { getLanguage } from 'obsidian';
 
 import en from './en';
 import ja from './ja';
@@ -106,9 +105,9 @@ const RAW_LANGUAGE_TO_UI_LANGUAGE: Record<string, string> = {
 };
 
 /**
- * Normalizes a raw language code (as returned by Obsidian's own
- * getLanguage(), or by moment.locale()) to one of our 12 shipped UI
- * language codes, defaulting to "en" for anything unrecognized.
+ * Normalizes a raw language code (as found in Obsidian's own "language"
+ * localStorage key, or returned by moment.locale()) to one of our 12 shipped
+ * UI language codes, defaulting to "en" for anything unrecognized.
  */
 export function normalizeUILanguage(raw: string | null | undefined): string {
   if (!raw) return "en";
@@ -135,33 +134,36 @@ export function normalizeUILanguage(raw: string | null | undefined): string {
  * own interface language so the plugin "just" speaks whatever language
  * Obsidian is already configured for.
  *
- * Uses Obsidian's own official `getLanguage()` API (preferred over reading
- * `localStorage.getItem("language")` directly, which is what this used to
- * do: it happened to work since that's the undocumented key Obsidian itself
- * stores its choice under, but reading localStorage from a plugin at all is
- * exactly what Obsidian's plugin review flags against, read-only or not).
- * `getLanguage()` was only added in Obsidian 1.8.7, newer than this plugin's
- * `minAppVersion` -- guarded with a `typeof` check (rather than raising
- * minAppVersion) so this still works, via the moment.locale() fallback
- * below, on any older Obsidian version that doesn't export it at all.
+ * Obsidian stores its interface-language choice in
+ * `localStorage.getItem("language")` (not documented, but used this way by
+ * many community plugins -- see e.g. obsidian-local-gpt's localization).
  *
- * moment.locale() is kept as that fallback specifically because moment's
- * global locale can be, and has been observed in the wild to be, overridden
- * by unrelated plugins (e.g. a Pomodoro timer plugin resetting it to "en"),
- * so it's a worse primary source than Obsidian's own API -- but it's still
- * better than nothing for the pre-1.8.7 case.
+ * Obsidian also exposes an official `getLanguage()` API that does the same
+ * thing (added in Obsidian 1.8.7) -- deliberately NOT used here: Obsidian's
+ * own plugin-review static check (`obsidianmd/no-unsupported-api`) flags any
+ * *reference* to an API newer than the declared `minAppVersion` as an error,
+ * even behind a `typeof` runtime guard with a working fallback (tried this
+ * first; it failed review). Using it would mean raising `minAppVersion` to
+ * 1.8.7, cutting off every older install, just to silence a lower-severity
+ * "avoid localStorage" recommendation -- not a good trade. localStorage is
+ * preferred over moment.locale() as the primary source for the same reason
+ * as before: moment's global locale can be, and has been observed in the
+ * wild to be, overridden by unrelated plugins (e.g. a Pomodoro timer plugin
+ * resetting it to "en"), whereas the localStorage key is Obsidian's own,
+ * single source of truth for interface language and nothing else touches
+ * it. moment.locale() is kept only as a secondary fallback, for the
+ * (defensive, not expected in normal use) case where localStorage is
+ * unavailable or empty.
  */
 export function detectUILanguage(): string {
   try {
-    if (typeof getLanguage === "function") {
-      const lang = getLanguage();
-      if (lang) {
-        return normalizeUILanguage(lang);
-      }
+    const stored = window.localStorage.getItem("language");
+    if (stored) {
+      return normalizeUILanguage(stored);
     }
   } catch {
-    // Defensive: fall through to the moment.locale() fallback below rather
-    // than propagate.
+    // localStorage can throw in some sandboxed/private contexts -- fall
+    // through to the moment.locale() fallback below rather than propagate.
   }
   try {
     return normalizeUILanguage(moment.locale());
