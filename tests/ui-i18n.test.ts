@@ -1,7 +1,5 @@
 import "./setup";
-import { describe, it, expect, afterEach, vi } from "vitest";
-import * as obsidianMock from "obsidian";
-import { mockObsidianState } from "obsidian";
+import { describe, it, expect, afterEach } from "vitest";
 import { tUI, normalizeUILanguage, detectUILanguage } from "../src/lang/ui/helper";
 import en from "../src/lang/ui/en";
 import fr from "../src/lang/ui/fr";
@@ -128,14 +126,20 @@ describe("normalizeUILanguage", () => {
 });
 
 describe("detectUILanguage", () => {
-  const originalLanguage = mockObsidianState.language;
+  const originalLocalStorage = (globalThis as unknown as { window: { localStorage?: unknown } }).window.localStorage;
 
   afterEach(() => {
-    mockObsidianState.language = originalLanguage;
+    (globalThis as unknown as { window: { localStorage?: unknown } }).window.localStorage = originalLocalStorage;
   });
 
-  it("prefers Obsidian's own getLanguage() over moment.locale()", () => {
-    mockObsidianState.language = "fr";
+  function mockLocalStorage(value: string | null): void {
+    (globalThis as unknown as { window: { localStorage: unknown } }).window.localStorage = {
+      getItem: (key: string) => (key === "language" ? value : null),
+    };
+  }
+
+  it("prefers Obsidian's own localStorage language setting over moment.locale()", () => {
+    mockLocalStorage("fr");
     const realLocale = window.moment.locale;
     (window.moment as unknown as { locale: () => string }).locale = () => "de";
     try {
@@ -145,8 +149,8 @@ describe("detectUILanguage", () => {
     }
   });
 
-  it("falls back to moment.locale() when getLanguage() returns nothing usable", () => {
-    mockObsidianState.language = undefined;
+  it("falls back to moment.locale() when localStorage has no language set", () => {
+    mockLocalStorage(null);
     const realLocale = window.moment.locale;
     (window.moment as unknown as { locale: () => string }).locale = () => "es";
     try {
@@ -156,20 +160,21 @@ describe("detectUILanguage", () => {
     }
   });
 
-  it("falls back to moment.locale() when getLanguage() itself throws (e.g. an Obsidian version where it exists but misbehaves)", () => {
-    const spy = vi.spyOn(obsidianMock, "getLanguage").mockImplementation(() => { throw new Error("blocked"); });
+  it("falls back to moment.locale() when localStorage itself throws (e.g. a sandboxed context)", () => {
+    (globalThis as unknown as { window: { localStorage: unknown } }).window.localStorage = {
+      getItem: () => { throw new Error("blocked"); },
+    };
     const realLocale = window.moment.locale;
     (window.moment as unknown as { locale: () => string }).locale = () => "it";
     try {
       expect(detectUILanguage()).toBe("it");
     } finally {
-      spy.mockRestore();
       (window.moment as unknown as { locale: typeof realLocale }).locale = realLocale;
     }
   });
 
-  it("falls back to English when neither getLanguage() nor moment.locale() yield anything usable", () => {
-    mockObsidianState.language = undefined;
+  it("falls back to English when neither localStorage nor moment.locale() yield anything usable", () => {
+    mockLocalStorage(null);
     const realLocale = window.moment.locale;
     (window.moment as unknown as { locale: () => string }).locale = () => "";
     try {

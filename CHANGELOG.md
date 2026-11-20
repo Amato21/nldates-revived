@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.92] - 2026-11-19
+
+### Fixed
+- 0.9.91 failed Obsidian's automated plugin-review check (`obsidianmd/no-unsupported-api`, a hard error, not a warning): that check flags any *reference* to an API newer than the declared `minAppVersion` even behind a runtime `typeof` guard with a working fallback — it doesn't recognize the guard as making the reference safe. 0.9.91's `getLanguage()` (Obsidian 1.8.7+) and `ButtonComponent.setDestructive()` (Obsidian 1.13.0+) usage both tripped it. Reverted both back to how they worked before 0.9.91 — `localStorage.getItem("language")` for UI-language detection, and the deprecated-but-still-functional `ButtonComponent.setWarning()` — which only triggers lower-severity, non-blocking recommendations instead of a review-failing error. Raising `minAppVersion` to 1.13.0 to use these properly would cut off every Obsidian install older than that, just to silence a cosmetic recommendation; not a good trade. 0.9.91's other, unrelated fixes (the `moment` devDependency bump, the unhandled-promise and untyped-call fixes) are unaffected and kept.
+
 ## [0.9.91] - 2026-11-17
 
 ### Fixed
